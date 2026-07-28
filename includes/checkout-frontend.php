@@ -89,6 +89,7 @@ add_action( 'admin_notices', function() {
 
 function mkcp_checkout_dequeue_theme_styles() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -149,6 +150,7 @@ add_action( 'wp_footer', 'mkcp_checkout_dequeue_theme_styles', 15 );
 
 function mkcp_checkout_dequeue_theme_scripts() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -198,6 +200,7 @@ add_action( 'wp_footer', 'mkcp_checkout_dequeue_theme_scripts', 15 );
 
 function mkcp_checkout_remove_theme_hooks() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -373,6 +376,7 @@ function mkcp_checkout_detach_callback_everywhere( $callback ) {
 // mee.
 function mkcp_checkout_claim_payment_section() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     if ( ! function_exists( 'woocommerce_checkout_payment' ) ) return;
 
@@ -441,6 +445,7 @@ add_action( 'woocommerce_checkout_update_order_review', 'mkcp_checkout_claim_pay
 // moet voorkomen, maar dan pas zichtbaar ná de eerste klant-interactie.
 function mkcp_checkout_register_template_fallback() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -490,6 +495,7 @@ add_action( 'woocommerce_checkout_update_order_review', 'mkcp_checkout_register_
 // de thumbnail na de eerste AJAX-refresh weer verdwijnen.
 function mkcp_checkout_register_thumbnail_fallback() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -591,6 +597,7 @@ function mkcp_register_btw_price_filters() {
 // Fires on normal page load.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -634,6 +641,7 @@ add_action( 'wp', function() {
 
 // Fires during WooCommerce AJAX order review refresh — wc-ajax bypasses 'wp'.
 add_action( 'woocommerce_checkout_update_order_review', function() {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -655,6 +663,7 @@ add_action( 'woocommerce_checkout_update_order_review', function() {
 
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -808,6 +817,7 @@ add_action( 'admin_notices', function() {
 // text — anders staat er straks nergens meer tekst bij dat veld.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -852,6 +862,7 @@ add_action( 'wp', function() {
 // alle synchrone handlers van dit event, ongeacht bindvolgorde.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -950,6 +961,7 @@ add_action( 'admin_notices', function() {
 // placeholder van dat net toegevoegde veld te kunnen overschrijven.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -974,6 +986,7 @@ add_action( 'wp', function() {
 // stiekem een BTW-nummer blijven mee-POSTen.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1013,6 +1026,7 @@ add_action( 'wp', function() {
 // onzichtbaar op excl. BTW vergrendelde.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1080,6 +1094,7 @@ add_action( 'wp', function() {
 //   guard()       - optioneel; false = showStatus() doet niets
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1176,6 +1191,7 @@ add_action( 'wp', function() {
 // aangepast te worden.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1243,6 +1259,7 @@ add_action( 'wp', function() {
 // zelf op, vóór de eerste weergave.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1384,6 +1401,7 @@ add_action( 'wp', function() {
 // De 'woocommerce_order_button_text'-filter vuurt sowieso alleen tijdens het
 // renderen van de bestelknop, dus een aparte pagina-check is hier overbodig.
 add_filter( 'woocommerce_order_button_text', function( $button_text ) {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return $button_text;
     if ( ! mkcp_license_has( 'premium' ) ) return $button_text;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return $button_text;
@@ -1402,6 +1420,7 @@ add_filter( 'woocommerce_order_button_text', function( $button_text ) {
 
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1440,6 +1459,7 @@ add_action( 'wp', function() {
 // netjes onder Voornaam/Achternaam.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1484,6 +1504,7 @@ add_action( 'wp', function() {
 // dat elkaars waarde zou overschrijven bij het versturen van het formulier.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1513,6 +1534,7 @@ add_action( 'wp', function() {
 
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -1994,6 +2016,7 @@ add_action( 'wp', function() {
 
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -2317,6 +2340,7 @@ add_action( 'wp', function() {
 add_filter( 'template_include', function( $template ) {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return $template;
 
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return $template;
     if ( ! mkcp_license_has( 'premium' ) ) return $template;
 
     $cfg = mkcp_checkout_config();
@@ -2508,6 +2532,7 @@ add_filter( 'woocommerce_cart_totals_coupon_label', function( $label, $coupon ) 
 // alleen via JS na het renderen.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
@@ -2580,12 +2605,14 @@ add_action( 'wp', function() {
 // geplaatst zonder de checkout-templates zelf aan te passen.
 
 add_action( 'woocommerce_checkout_before_order_review', function() {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() || ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
     mkcp_render_zone( 'above-order-review', $cfg['checkout_blocks'] ?? [] );
 } );
 
 add_action( 'woocommerce_review_order_after_cart_contents', function() {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() || ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
     // Binnen <tbody> van de besteloverzicht-tabel: als tabelrij renderen,
@@ -2597,6 +2624,7 @@ add_action( 'woocommerce_review_order_after_cart_contents', function() {
 // hangt op de standaard prioriteit 10 op dezelfde hook), zodat de volgorde
 // op de pagina voorspelbaar blijft.
 add_action( 'woocommerce_review_order_before_payment', function() {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() || ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
     mkcp_render_zone( 'above-payment', $cfg['checkout_blocks'] ?? [] );
@@ -2605,6 +2633,7 @@ add_action( 'woocommerce_review_order_before_payment', function() {
 // Prioriteit 20: na het bezorgdatum-veld (hangt op prioriteit 5 op dezelfde
 // hook), zodat eigen blokken altijd ná de bezorgdatumkiezer verschijnen.
 add_action( 'woocommerce_review_order_before_submit', function() {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() || ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
     mkcp_render_zone( 'below-payment', $cfg['checkout_blocks'] ?? [] );
@@ -2612,6 +2641,7 @@ add_action( 'woocommerce_review_order_before_submit', function() {
 
 add_filter( 'woocommerce_form_field', function( $field, $key, $args, $value ) {
     if ( ! is_checkout() ) return $field; // dit veld-filter vuurt ook op bv. de "adres bewerken"-pagina in Mijn account
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() || ! mkcp_license_has( 'premium' ) ) return $field;
 
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) || empty( $cfg['checkout_blocks'] ) ) return $field;
@@ -2636,6 +2666,7 @@ add_filter( 'woocommerce_form_field', function( $field, $key, $args, $value ) {
 // refresh kan terugzetten als 'ie er niet meer staat.
 add_action( 'wp_enqueue_scripts', function() {
     if ( ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() || ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return;
 

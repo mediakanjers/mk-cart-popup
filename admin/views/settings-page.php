@@ -613,7 +613,7 @@ $icons = [
                         <div class="mkcp-setting-row">
                             <div class="mkcp-setting-label">
                                 <strong>Plugin inschakelen</strong>
-                                <small>Toont de cart drawer op de website</small>
+                                <small>Hoofdschakelaar — schakelt de cart drawer, de /cart-omleiding én alle checkout-features (bezorgdatum, afhalen, verzendkeuze, bedankpagina) in één keer uit</small>
                             </div>
                             <div class="mkcp-setting-control">
                                 <div class="mkcp-toggle-wrap">

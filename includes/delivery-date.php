@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function mkcp_dd_enabled(): bool {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return false;
     if ( ! function_exists( 'mkcp_license_has' ) || ! mkcp_license_has( 'premium' ) ) return false;
     return ! empty( mkcp_checkout_config()['delivery_date_enabled'] );
 }

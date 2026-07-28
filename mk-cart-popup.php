@@ -116,6 +116,7 @@ function mkcp_woocommerce_active() {
 
 add_action( 'wp_enqueue_scripts', function() {
     if ( ! mkcp_woocommerce_active() || ! is_checkout() ) return;
+    if ( ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $cfg = mkcp_checkout_config();
@@ -174,6 +175,7 @@ add_action( 'wp_enqueue_scripts', function() {
 add_action( 'wp_enqueue_scripts', function() {
     if ( ! mkcp_woocommerce_active() || ! is_checkout() || is_user_logged_in() ) return;
     if ( is_wc_endpoint_url( 'order-received' ) ) return;
+    if ( ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
 
     $config = mkcp_config();
@@ -352,7 +354,7 @@ add_filter( 'woocommerce_add_to_cart_fragments', function( $fragments ) {
 // ── Redirect /cart to configured URL ──────────────────────────────────────────
 
 add_action( 'template_redirect', function() {
-    if ( ! mkcp_woocommerce_active() ) return;
+    if ( ! mkcp_woocommerce_active() || ! mkcp_is_enabled() ) return;
     $config = mkcp_config();
     if ( empty( $config['redirect_cart'] ) ) return;
     if ( is_cart() ) {

@@ -20,6 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 function mkcp_thankyou_enabled(): bool {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return false;
     if ( ! function_exists( 'mkcp_license_has' ) || ! mkcp_license_has( 'premium' ) ) return false;
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return false;

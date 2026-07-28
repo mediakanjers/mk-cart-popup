@@ -20,6 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * de afhaal-specifieke logica in pickup.php.
  */
 function mkcp_shipping_choice_is_active(): bool {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return false;
     return function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium' );
 }
 
