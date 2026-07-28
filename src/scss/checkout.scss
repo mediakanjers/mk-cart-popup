@@ -1407,6 +1407,51 @@ body.mkcp-distraction-free-checkout #payment {
         margin    : 0 0 14px;
         line-height: 1.6;
     }
+
+    // Generieke leesbare opmaak voor de ingeklapte inhoud van de
+    // voorwaarden-/privacybeleidpagina (WooCommerce zet hier de volledige
+    // pagina-inhoud in, zie woocommerce_checkout_terms_and_conditions()).
+    // Die pagina is vaak opgebouwd met de eigen page-builder-classes van het
+    // thema (bv. Mediakanjers' mk_sectie/mk_module) — die vallen hier weg
+    // omdat deze checkout bewust alle thema-CSS strip. Onderstaande reset
+    // zorgt dat willekeurige paginainhoud (koppen, paragrafen, lijsten,
+    // links) hoe dan ook leesbaar blijft, ongeacht welke page-builder de
+    // bron-pagina gebruikt — geen poging om het originele ontwerp exact na
+    // te bootsen, alleen om het leesbaar te maken.
+    .woocommerce-terms-and-conditions {
+        font-size  : 13px;
+        line-height: 1.6;
+        color      : var(--mkcp-text, $text);
+
+        > *:first-child { margin-top: 0; }
+        > *:last-child  { margin-bottom: 0; }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin      : 1.2em 0 .4em;
+            font-weight : 600;
+            line-height : 1.3;
+            color       : var(--mkcp-dark, #222);
+        }
+        h1 { font-size: 1.3em; }
+        h2 { font-size: 1.2em; }
+        h3, h4, h5, h6 { font-size: 1.05em; }
+
+        p { margin: 0 0 .9em; }
+
+        ul, ol {
+            margin      : 0 0 .9em;
+            padding-left: 1.4em;
+        }
+        li { margin-bottom: .3em; }
+
+        a {
+            color          : var(--mkcp-accent, $accent);
+            text-decoration: underline;
+            &:hover { text-decoration: none; }
+        }
+
+        strong, b { font-weight: 600; }
+    }
 }
 
 /* Place order button */
