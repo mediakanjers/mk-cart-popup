@@ -315,6 +315,22 @@ add_action( 'wp', 'mkcp_checkout_remove_theme_hooks', 20 );
 // leunt, nog vóórdat deze hook vuurt.
 add_action( 'woocommerce_checkout_update_order_review', 'mkcp_checkout_remove_theme_hooks', 1 );
 
+// Zelfde reden, maar dan voor het daadwerkelijke afreken-verzoek zelf
+// (?wc-ajax=checkout, WC_AJAX::checkout()): ook dát bootstrapt WordPress
+// zonder ooit de 'wp' action te vuren. Zonder deze derde registratie blijven
+// thema-hooks die op woocommerce_checkout_process/woocommerce_after_checkout_
+// validation/woocommerce_checkout_create_order/woocommerce_checkout_update_
+// order_meta zitten daardoor altijd actief tijdens het echte afrekenen — ook
+// als de sweep op een normale paginalaad allang gedraaid heeft. Concreet
+// incident: het thema's oude afhaaldatum/tijdvak-validatie (CW_Pickup_Checkout,
+// gebaseerd op cw_pickup_date/cw_pickup_timeslot) bleef hierdoor verplicht
+// blijven, terwijl die velden allang niet meer gerenderd worden — waardoor
+// afhalen via de plugin's eigen afhaal-tijdvak-systeem (includes/pickup.php)
+// nooit kon afrekenen. Prioriteit 1: vóór woocommerce_checkout_process zelf
+// iets doet (dat is letterlijk de eerste actie in WC_Checkout::process_checkout()),
+// dus ruim vóór alle latere validatie-/opslaghooks in dezelfde requestcyclus.
+add_action( 'woocommerce_checkout_process', 'mkcp_checkout_remove_theme_hooks', 1 );
+
 
 // ── Helpers: locate/detach a callback regardless of which hook it's on ──────────
 //
