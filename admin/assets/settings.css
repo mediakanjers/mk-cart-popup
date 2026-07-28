@@ -1,0 +1,2526 @@
+/* ─── MKCP Admin Design System ─────────────────────────────────────────── */
+
+:root {
+    --mkcp-ui-bg          : #08080a;
+    --mkcp-ui-surface     : #111115;
+    --mkcp-ui-surface2    : #18181d;
+    --mkcp-ui-surface3    : #222228;
+    --mkcp-ui-border      : rgba(255,255,255,0.07);
+    --mkcp-ui-border2     : rgba(255,255,255,0.12);
+    --mkcp-ui-text        : #e2e2ea;
+    --mkcp-ui-text2       : #8b8b9e;
+    --mkcp-ui-text3       : #5a5a6e;
+    --mkcp-ui-accent      : #6366f1;
+    --mkcp-ui-accent-glow : rgba(99,102,241,0.25);
+    --mkcp-ui-accent-soft : rgba(99,102,241,0.12);
+    --mkcp-ui-green       : #22c55e;
+    --mkcp-ui-green-soft  : rgba(34,197,94,0.12);
+    --mkcp-ui-red         : #f87171;
+    --mkcp-ui-red-soft    : rgba(248,113,113,0.12);
+    --mkcp-ui-amber       : #fbbf24;
+    --mkcp-ui-amber-soft  : rgba(251,191,36,0.12);
+    --mkcp-ui-radius      : 14px;
+    --mkcp-ui-radius-sm   : 8px;
+    --mkcp-ui-radius-lg   : 20px;
+    --mkcp-ui-sidebar     : 232px;
+    --mkcp-ui-glass-blur  : blur(24px);
+    --mkcp-ui-shadow      : 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    --mkcp-ui-shadow-lg   : 0 2px 8px rgba(0,0,0,.5), 0 24px 64px rgba(0,0,0,.5);
+    --mkcp-ui-transition  : 200ms cubic-bezier(0.22,1,0.36,1);
+    /* Overlay-tinten die vroeger los in hun eigen @media-blok stonden — nu
+       tokens, zodat de geforceerde light/dark-klasse hieronder ze in één
+       keer kan overschrijven i.p.v. elk los blok te dupliceren. */
+    --mkcp-ui-hover-nav   : rgba(255,255,255,.05);
+    --mkcp-ui-hover-link  : rgba(255,255,255,.06);
+    --mkcp-ui-header-bg   : rgba(255,255,255,.018);
+    --mkcp-ui-shimmer     : rgba(255,255,255,.055);
+    --mkcp-ui-lock-overlay: rgba(8,8,10,.55);
+}
+
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --mkcp-ui-bg          : #f4f4f8;
+        --mkcp-ui-surface     : #ffffff;
+        --mkcp-ui-surface2    : #f8f8fc;
+        --mkcp-ui-surface3    : #efeff5;
+        --mkcp-ui-border      : rgba(0,0,0,0.07);
+        --mkcp-ui-border2     : rgba(0,0,0,0.12);
+        --mkcp-ui-text        : #111118;
+        --mkcp-ui-text2       : #5a5a6e;
+        --mkcp-ui-text3       : #9999ae;
+        --mkcp-ui-accent-glow : rgba(99,102,241,0.15);
+        --mkcp-ui-accent-soft : rgba(99,102,241,0.08);
+        --mkcp-ui-green-soft  : rgba(22,163,74,0.10);
+        --mkcp-ui-red-soft    : rgba(220,38,38,0.10);
+        --mkcp-ui-amber-soft  : rgba(217,119,6,0.10);
+        --mkcp-ui-shadow      : 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+        --mkcp-ui-shadow-lg   : 0 2px 8px rgba(0,0,0,.10), 0 24px 64px rgba(0,0,0,.08);
+        --mkcp-ui-hover-nav   : rgba(0,0,0,.04);
+        --mkcp-ui-hover-link  : rgba(0,0,0,.05);
+        --mkcp-ui-header-bg   : rgba(0,0,0,.02);
+        --mkcp-ui-shimmer     : rgba(0,0,0,.04);
+        --mkcp-ui-lock-overlay: rgba(244,244,248,.7);
+    }
+}
+
+/* ─── Geforceerde kleurmodus (admin-voorkeur, los van systeeminstelling) ────
+   .mkcp-theme-switcher in de sidebar zet deze body-klasse; 'auto' (geen
+   klasse) laat de @media-blokken hierboven gewoon hun werk doen. Hogere
+   specificiteit dan ":root" binnen een media query (body + klasse vs. enkel
+   een pseudo-klasse), dus wint sowieso — volgorde in het bestand doet er
+   niet toe. */
+body.mkcp-theme-dark {
+    --mkcp-ui-bg          : #08080a;
+    --mkcp-ui-surface     : #111115;
+    --mkcp-ui-surface2    : #18181d;
+    --mkcp-ui-surface3    : #222228;
+    --mkcp-ui-border      : rgba(255,255,255,0.07);
+    --mkcp-ui-border2     : rgba(255,255,255,0.12);
+    --mkcp-ui-text        : #e2e2ea;
+    --mkcp-ui-text2       : #8b8b9e;
+    --mkcp-ui-text3       : #5a5a6e;
+    --mkcp-ui-accent-glow : rgba(99,102,241,0.25);
+    --mkcp-ui-accent-soft : rgba(99,102,241,0.12);
+    --mkcp-ui-green-soft  : rgba(34,197,94,0.12);
+    --mkcp-ui-red-soft    : rgba(248,113,113,0.12);
+    --mkcp-ui-amber-soft  : rgba(251,191,36,0.12);
+    --mkcp-ui-shadow      : 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    --mkcp-ui-shadow-lg   : 0 2px 8px rgba(0,0,0,.5), 0 24px 64px rgba(0,0,0,.5);
+    --mkcp-ui-hover-nav   : rgba(255,255,255,.05);
+    --mkcp-ui-hover-link  : rgba(255,255,255,.06);
+    --mkcp-ui-header-bg   : rgba(255,255,255,.018);
+    --mkcp-ui-shimmer     : rgba(255,255,255,.055);
+    --mkcp-ui-lock-overlay: rgba(8,8,10,.55);
+}
+body.mkcp-theme-light {
+    --mkcp-ui-bg          : #f4f4f8;
+    --mkcp-ui-surface     : #ffffff;
+    --mkcp-ui-surface2    : #f8f8fc;
+    --mkcp-ui-surface3    : #efeff5;
+    --mkcp-ui-border      : rgba(0,0,0,0.07);
+    --mkcp-ui-border2     : rgba(0,0,0,0.12);
+    --mkcp-ui-text        : #111118;
+    --mkcp-ui-text2       : #5a5a6e;
+    --mkcp-ui-text3       : #9999ae;
+    --mkcp-ui-accent-glow : rgba(99,102,241,0.15);
+    --mkcp-ui-accent-soft : rgba(99,102,241,0.08);
+    --mkcp-ui-green-soft  : rgba(22,163,74,0.10);
+    --mkcp-ui-red-soft    : rgba(220,38,38,0.10);
+    --mkcp-ui-amber-soft  : rgba(217,119,6,0.10);
+    --mkcp-ui-shadow      : 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+    --mkcp-ui-shadow-lg   : 0 2px 8px rgba(0,0,0,.10), 0 24px 64px rgba(0,0,0,.08);
+    --mkcp-ui-hover-nav   : rgba(0,0,0,.04);
+    --mkcp-ui-hover-link  : rgba(0,0,0,.05);
+    --mkcp-ui-header-bg   : rgba(0,0,0,.02);
+    --mkcp-ui-shimmer     : rgba(0,0,0,.04);
+    --mkcp-ui-lock-overlay: rgba(244,244,248,.7);
+}
+
+/* ─── Reset / Scope ──────────────────────────────────────────────────────── */
+
+#mkcp-admin-wrap * { box-sizing: border-box; }
+#mkcp-admin-wrap, #mkcp-admin-wrap input, #mkcp-admin-wrap select,
+#mkcp-admin-wrap textarea, #mkcp-admin-wrap button {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+}
+/* Lock the outer WP page from scrolling — only inner plugin panels scroll */
+html, body          { overflow: hidden !important; height: 100%; }
+#wpwrap             { overflow: hidden; height: 100%; }
+#wpcontent          { overflow: hidden; height: 100%; padding-left: 0 !important; background: var(--mkcp-ui-bg); }
+#wpbody             { overflow: hidden; height: 100%; }
+#wpbody-content     { overflow: hidden; height: 100%; padding-bottom: 0; }
+#wpbody-content > .wrap { height: 100%; margin: 0; overflow: hidden; }
+.update-nag, .updated, .error, .is-dismissible { display: none !important; }
+/* !important op alle vier: WP's eigen admin-menu-JS (wp-admin/js/common.js,
+   het "sticky menu"-gedrag) kan #adminmenuwrap inline top/left/bottom laten
+   zetten zodra er ergens een resize/scroll-event richting WP wordt gestuurd
+   (bv. door een plugin/thema-script) — zonder !important op deze drie wint
+   zo'n inline stijl alsnog van deze regel, en "schuift" het menu weer weg. */
+#adminmenuwrap {
+    position: fixed !important;
+    top: 32px !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    scrollbar-width: none;
+}
+#adminmenuwrap::-webkit-scrollbar { display: none; }
+@media screen and (max-width: 782px) {
+    #adminmenuwrap { top: 46px !important; }
+}
+#wpfooter { display: none !important; }
+
+/* ─── Layout shell ───────────────────────────────────────────────────────── */
+
+#mkcp-admin-wrap {
+    display       : flex;
+    height        : 100%;
+    min-height    : calc(100vh - 32px);
+    background    : var(--mkcp-ui-bg);
+    color         : var(--mkcp-ui-text);
+    position      : relative;
+    overflow      : hidden;
+    /* contain:layout+paint als extra hardening tegen toekomstige
+       gepositioneerde nakomelingen die de scrollbare omvang zouden kunnen
+       vergroten — lost het bestaande ::before-gloed-probleem hieronder op
+       zichzelf NIET op (live geverifieerd): de scrollbare-omvang-berekening
+       telt een negatieve top/right op een position:relative-ouder gewoon
+       mee, ongeacht contain. De echte fix staat bij ::before zelf. */
+    contain       : layout paint;
+}
+
+/* Background ambient gradient — de eigenlijke fix voor de "sidebar schuift
+   naar links op de laatste tour-stap"-bug (live gereproduceerd en bevestigd
+   via CDP, inclusief twee doodlopende tussenpogingen hieronder gedocumenteerd
+   zodat ze niet nog eens geprobeerd worden):
+   De oorspronkelijke versie was een 600×600px box met top:-200px;right:-200px
+   — een position:absolute-nakomeling telt met zulke negatieve offsets mee in
+   de scrollbare omvang van zijn position:relative-ouder (#mkcp-admin-wrap),
+   ook al heeft die overflow:hidden. Dat overflow:hidden blokkeert alléén
+   gebrúikers-scroll — Driver.js' scrollIntoView() (bij het highlighten van
+   de knop op de laatste tour-stap) scrolt daar programmatisch dwars
+   doorheen, en sleept daarbij de hele flex-rij (incl. .mkcp-sidebar) 35px
+   zichtbaar mee naar links.
+   — NIET de oplossing (beide live getest, scrollWidth bleef 1464 i.p.v.
+     1264): 1) `contain:layout paint` op #mkcp-admin-wrap (de containing-
+     block-relatie via position:relative bestond al, contain verandert daar
+     niets aan); 2) dezelfde eindpositie bereiken via `transform:
+     translate()` i.p.v. top/right (Chrome telt ook de getransformeerde/
+     zichtbare positie mee in de scrollbare-omvang-berekening).
+   — Werkt wél (live bevestigd: scrollWidth terug naar 1264): de gloed
+     helemaal binnen de eigen doos van het element houden (inset:0, exact zo
+     groot als de ouder) en het corner-effect met `radial-gradient(... at
+     top right)` bereiken i.p.v. met een doelbewust te grote, verschoven box.
+     Zo bestaat er geen enkele geometrie meer die ooit buiten de ouder kan
+     uitsteken, ongeacht browser-interpretatie van transform/contain. */
+#mkcp-admin-wrap::before {
+    content    : '';
+    position   : absolute;
+    inset      : 0;
+    background : radial-gradient(circle at top right, rgba(99,102,241,0.08) 0%, transparent 45%);
+    pointer-events: none;
+    z-index    : 0;
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────────────────── */
+
+.mkcp-sidebar {
+    width          : var(--mkcp-ui-sidebar);
+    flex-shrink    : 0;
+    display        : flex;
+    flex-direction : column;
+    border-right   : 1px solid var(--mkcp-ui-border);
+    background     : linear-gradient(180deg, var(--mkcp-ui-surface) 0%, var(--mkcp-ui-bg) 100%);
+}
+
+/* Logo */
+.mkcp-sidebar-logo {
+    padding        : 28px 20px 20px;
+    display        : flex;
+    align-items    : center;
+    gap            : 10px;
+    border-bottom  : 1px solid var(--mkcp-ui-border);
+    flex-shrink    : 0;
+}
+
+.mkcp-logo-mark {
+    width          : 34px;
+    height         : 34px;
+    background     : linear-gradient(135deg, var(--mkcp-ui-accent) 0%, #818cf8 100%);
+    border-radius  : 9px;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex-shrink    : 0;
+    box-shadow     : 0 0 0 1px rgba(99,102,241,0.4), 0 4px 12px rgba(99,102,241,0.3);
+}
+
+.mkcp-logo-mark svg {
+    width  : 18px;
+    height : 18px;
+    color  : #fff;
+}
+
+.mkcp-logo-text { line-height: 1.2; }
+.mkcp-logo-text strong {
+    display     : block;
+    font-size   : 13px;
+    font-weight : 600;
+    color       : var(--mkcp-ui-text);
+    letter-spacing: -.2px;
+}
+.mkcp-logo-text span {
+    font-size   : 10.5px;
+    color       : var(--mkcp-ui-text3);
+    font-weight : 400;
+}
+
+/* Nav wrapper */
+.mkcp-nav-wrap {
+    flex           : 1;
+    min-height     : 0;
+    position       : relative;
+    display        : flex;
+    flex-direction : column;
+}
+
+/* Nav — inset box-shadow stays fixed on the border box while content scrolls */
+.mkcp-nav {
+    flex        : 1;
+    min-height  : 0;
+    padding     : 12px 10px;
+    overflow-y  : auto;
+    scrollbar-width: none;
+    box-shadow  : inset 0 -40px 24px -30px var(--mkcp-ui-accent);
+    transition  : box-shadow .35s ease;
+}
+
+.mkcp-nav.is-at-bottom {
+    box-shadow  : inset 0 -40px 24px -30px transparent;
+}
+.mkcp-nav::-webkit-scrollbar { display: none; }
+
+.mkcp-nav-scroll-arrow {
+    position        : absolute;
+    right           : -15px;
+    bottom          : 20px;
+    width           : 26px;
+    height          : 26px;
+    border-radius   : 50%;
+    background      : var(--mkcp-ui-surface2);
+    border          : 1px solid var(--mkcp-ui-border2);
+    box-shadow      : 0 2px 8px rgba(0,0,0,.18);
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    color           : var(--mkcp-ui-accent);
+    opacity         : 1;
+    transition      : opacity .35s ease;
+    pointer-events  : none;
+    z-index         : 2;
+}
+.mkcp-nav-scroll-arrow svg {
+    width  : 12px;
+    height : 12px;
+}
+.mkcp-nav-scroll-arrow.is-hidden { opacity: 0; }
+
+.mkcp-nav-section {
+    font-size      : 10px;
+    font-weight    : 600;
+    letter-spacing : .8px;
+    text-transform : uppercase;
+    color          : var(--mkcp-ui-text3);
+    padding        : 14px 10px 6px;
+}
+
+.mkcp-nav-item {
+    display        : flex;
+    align-items    : center;
+    gap            : 9px;
+    padding        : 8px 10px;
+    border-radius  : var(--mkcp-ui-radius-sm);
+    color          : var(--mkcp-ui-text2);
+    font-size      : 13px;
+    font-weight    : 450;
+    cursor         : pointer;
+    transition     : background var(--mkcp-ui-transition), color var(--mkcp-ui-transition);
+    user-select    : none;
+    margin-bottom  : 1px;
+    border         : 1px solid transparent;
+    position       : relative;
+}
+
+.mkcp-nav-item svg {
+    width      : 15px;
+    height     : 15px;
+    flex-shrink: 0;
+    opacity    : .7;
+    transition : opacity var(--mkcp-ui-transition);
+}
+
+.mkcp-nav-item:hover {
+    background : var(--mkcp-ui-hover-nav);
+    color      : var(--mkcp-ui-text);
+}
+
+.mkcp-nav-item:hover svg { opacity: 1; }
+
+.mkcp-nav-item.is-active {
+    background : var(--mkcp-ui-accent-soft);
+    color      : var(--mkcp-ui-accent);
+    border-color: rgba(99,102,241,0.2);
+    font-weight: 500;
+}
+.mkcp-nav-item.is-active svg { opacity: 1; }
+
+/* ── Sub-tabs binnen een panel (bv. Bezorgen / Afhalen) ──────────────────── */
+/* Zelfde pil-taal als .mkcp-nav-item, maar horizontaal en één niveau dieper —
+   voor panels die te veel losse instellingenblokken bevatten om in één keer
+   prettig te scrollen. */
+
+.mkcp-subtabs {
+    display      : inline-flex;
+    gap          : 4px;
+    margin       : 0 0 20px;
+    padding      : 4px;
+    background   : var(--mkcp-ui-surface2);
+    border       : 1px solid var(--mkcp-ui-border2);
+    border-radius: 999px;
+}
+
+.mkcp-subtab {
+    display        : flex;
+    align-items    : center;
+    gap            : 7px;
+    padding        : 9px 18px;
+    border-radius  : 999px;
+    border         : none;
+    background     : transparent;
+    color          : var(--mkcp-ui-text2);
+    font-size      : 13.5px;
+    font-weight    : 600;
+    font-family    : inherit;
+    cursor         : pointer;
+    transition     : background var(--mkcp-ui-transition), color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+}
+.mkcp-subtab svg {
+    width      : 15px;
+    height     : 15px;
+    flex-shrink: 0;
+    opacity    : .65;
+    transition : opacity var(--mkcp-ui-transition);
+}
+.mkcp-subtab:hover {
+    color: var(--mkcp-ui-text);
+}
+.mkcp-subtab:hover svg { opacity: .9; }
+.mkcp-subtab.is-active {
+    background: var(--mkcp-ui-accent);
+    color     : #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.28);
+}
+.mkcp-subtab.is-active svg { opacity: 1; }
+
+.mkcp-subpanel { display: none; }
+.mkcp-subpanel.is-active { display: block; }
+
+/* ── Eigen regels per verzendmethode — compacte rijen ────────────────────── */
+/* Standaard alleen naam + toggle (progressive disclosure): met veel
+   verzendmethodes wil je niet voor elke methode meteen alle cutoff/
+   aanlooptijd/weekdag-velden zien — meestal heeft er maar 1 of 2 een
+   uitzondering nodig. De details klappen open zodra de toggle aan staat. */
+
+.mkcp-rule-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.mkcp-rule-row {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--mkcp-ui-border);
+}
+.mkcp-rule-row:last-child { border-bottom: none; }
+
+.mkcp-rule-row-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mkcp-rule-row-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--mkcp-ui-text);
+}
+
+.mkcp-rule-row-details {
+    display: none;
+    margin: 12px 0 2px 52px;
+    padding: 14px;
+    background: var(--mkcp-ui-surface2);
+    border: 1px solid var(--mkcp-ui-border2);
+    border-radius: var(--mkcp-ui-radius-sm);
+}
+.mkcp-rule-row.is-open .mkcp-rule-row-details { display: block; }
+
+.mkcp-rule-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+.mkcp-rule-field {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--mkcp-ui-text3);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.mkcp-rule-field .mkcp-input { background: var(--mkcp-ui-surface); }
+
+.mkcp-rule-slots {
+    margin-top : 14px;
+    padding-top: 14px;
+    border-top : 1px solid var(--mkcp-ui-border);
+}
+
+.js-mkcp-slot-fields { display: none; }
+.js-mkcp-slot-fields.is-visible { display: flex; }
+
+/* ── Dag-chips — herbruikbaar overal waar weekdagen aangevinkt worden ────── */
+/* Pil-knoppen i.p.v. kale browser-checkboxes — de native input blijft
+   functioneel aanwezig (toetsenbord/screenreader-toegankelijk) maar wordt
+   visueel verborgen; het label eromheen doet het werk als klikbare chip. */
+
+.mkcp-day-chips {
+    display  : flex;
+    flex-wrap: wrap;
+    gap      : 6px;
+}
+.mkcp-day-chip {
+    position      : relative;
+    display       : flex;
+    align-items   : center;
+    justify-content: center;
+    min-width     : 36px;
+    height        : 30px;
+    padding       : 0 10px;
+    border-radius : 999px;
+    border        : 1px solid var(--mkcp-ui-border2);
+    background    : var(--mkcp-ui-surface);
+    color         : var(--mkcp-ui-text2);
+    font-size     : 12.5px;
+    font-weight   : 600;
+    cursor        : pointer;
+    user-select   : none;
+    transition    : background var(--mkcp-ui-transition), border-color var(--mkcp-ui-transition), color var(--mkcp-ui-transition);
+}
+.mkcp-day-chip input {
+    position   : absolute;
+    opacity    : 0;
+    width      : 1px;
+    height     : 1px;
+    clip-path  : inset(50%);
+    white-space: nowrap;
+    overflow   : hidden;
+}
+.mkcp-day-chip:hover { border-color: var(--mkcp-ui-accent); color: var(--mkcp-ui-text); }
+.mkcp-day-chip:has(input:checked) {
+    background  : var(--mkcp-ui-accent);
+    border-color: var(--mkcp-ui-accent);
+    color       : #fff;
+}
+.mkcp-day-chip:has(input:focus-visible) {
+    box-shadow: 0 0 0 3px var(--mkcp-ui-accent-glow);
+}
+
+/* ── Content Builder — prominent nav item ────────────────────────────────── */
+
+.mkcp-nav-section--builder {
+    margin-top     : 16px;
+    padding-top    : 14px;
+    border-top     : 2px solid rgba(99, 102, 241, 0.22);
+    color          : var(--mkcp-ui-accent);
+    font-weight    : 600;
+    font-size      : 10px;
+    letter-spacing : .08em;
+    text-transform : uppercase;
+    opacity        : 1;
+}
+
+.mkcp-nav-item--builder {
+    color          : var(--mkcp-ui-accent);
+    font-weight    : 700;
+    font-size      : 13.5px;
+    padding-left   : 14px;
+    background     : transparent;
+    border-color   : transparent;
+    box-shadow     : none;
+    position       : relative;
+    margin-bottom  : 14px;
+    padding-bottom : 14px;
+    border-bottom  : 1px solid rgba(99,102,241,0.14);
+}
+
+.mkcp-nav-item--builder::before {
+    content        : '';
+    position       : absolute;
+    left           : 0;
+    top            : 5px;
+    bottom         : 5px;
+    width          : 3px;
+    background     : var(--mkcp-ui-accent);
+    border-radius  : 0 2px 2px 0;
+}
+
+.mkcp-nav-item--builder svg {
+    opacity        : 1;
+    color          : var(--mkcp-ui-accent);
+}
+
+.mkcp-nav-item--builder:hover {
+    background     : rgba(99,102,241,0.07);
+    border-color   : transparent;
+    color          : var(--mkcp-ui-accent);
+}
+
+.mkcp-nav-item--builder.is-active {
+    background     : var(--mkcp-ui-accent-soft);
+    border-color   : rgba(99,102,241,0.25);
+    box-shadow     : none;
+}
+
+.mkcp-nav-badge {
+    margin-left  : auto;
+    background   : var(--mkcp-ui-accent);
+    color        : #fff;
+    font-size    : 9px;
+    font-weight  : 700;
+    padding      : 2px 5px;
+    border-radius: 4px;
+    letter-spacing: .3px;
+}
+
+.mkcp-nav-dot {
+    margin-left  : auto;
+    width        : 6px;
+    height       : 6px;
+    border-radius: 50%;
+    background   : var(--mkcp-ui-green);
+    box-shadow   : 0 0 6px var(--mkcp-ui-green);
+    flex-shrink  : 0;
+}
+.mkcp-nav-dot.is-amber { background: var(--mkcp-ui-amber); box-shadow: 0 0 6px var(--mkcp-ui-amber); }
+
+/* Sidebar footer */
+.mkcp-sidebar-footer {
+    padding      : 12px 16px;
+    border-top   : 1px solid var(--mkcp-ui-border);
+    flex-shrink  : 0;
+    display      : flex;
+    flex-direction: column;
+    gap          : 8px;
+}
+.mkcp-theme-switcher {
+    display      : flex;
+    align-items  : center;
+    gap          : 2px;
+    padding      : 3px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    background   : var(--mkcp-ui-surface3);
+    border       : 1px solid var(--mkcp-ui-border);
+}
+.mkcp-theme-btn {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex           : 1;
+    padding        : 6px 0;
+    border-radius  : 6px;
+    background     : none;
+    border         : none;
+    cursor         : pointer;
+    color          : var(--mkcp-ui-text3);
+    transition     : color .15s, background .15s;
+}
+.mkcp-theme-btn svg   { width: 14px; height: 14px; }
+.mkcp-theme-btn:hover { color: var(--mkcp-ui-text); }
+.mkcp-theme-btn.is-active {
+    background: var(--mkcp-ui-surface);
+    color     : var(--mkcp-ui-accent);
+    box-shadow: var(--mkcp-ui-shadow);
+}
+.mkcp-footer-links {
+    display        : flex;
+    flex-direction : column;
+    gap            : 1px;
+    padding-bottom : 8px;
+    border-bottom  : 1px solid var(--mkcp-ui-border);
+    margin-bottom  : 2px;
+}
+.mkcp-docs-link {
+    display      : flex;
+    align-items  : center;
+    gap          : 7px;
+    font-size    : 12px;
+    color        : var(--mkcp-ui-text2);
+    text-decoration: none;
+    padding      : 5px 6px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    transition   : color .15s, background .15s;
+    background   : none;
+    border       : none;
+    cursor       : pointer;
+    width        : 100%;
+    text-align   : left;
+    font-family  : inherit;
+}
+.mkcp-docs-link svg { width: 13px; height: 13px; flex-shrink: 0; }
+.mkcp-docs-link:hover {
+    color      : var(--mkcp-ui-text);
+    background : var(--mkcp-ui-hover-link);
+}
+.mkcp-docs-link.is-active {
+    color      : var(--mkcp-ui-accent);
+    background : var(--mkcp-ui-accent-soft);
+}
+.mkcp-version-pill {
+    display      : inline-flex;
+    align-items  : center;
+    gap          : 5px;
+    font-size    : 11px;
+    color        : var(--mkcp-ui-text3);
+    background   : var(--mkcp-ui-surface3);
+    padding      : 4px 9px;
+    border-radius: 20px;
+    border       : 1px solid var(--mkcp-ui-border);
+}
+.mkcp-version-pill .dot {
+    width       : 5px;
+    height      : 5px;
+    border-radius: 50%;
+    background  : var(--mkcp-ui-green);
+    box-shadow  : 0 0 5px var(--mkcp-ui-green);
+}
+
+/* ─── Main content area ──────────────────────────────────────────────────── */
+
+.mkcp-main {
+    flex           : 1;
+    overflow-y     : auto;
+    position       : relative;
+    z-index        : 1;
+    scrollbar-width: none;
+}
+.mkcp-main::-webkit-scrollbar { display: none; }
+
+.mkcp-panel {
+    display    : none;
+    padding    : 40px 48px;
+    max-width  : 900px;
+    animation  : mkcp-fade-up 300ms cubic-bezier(0.22,1,0.36,1) both;
+    margin-bottom: 100px;
+}
+
+.mkcp-panel.is-active { display: block; }
+
+@keyframes mkcp-fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Panel header ───────────────────────────────────────────────────────── */
+
+.mkcp-page-header {
+    margin-bottom: 36px;
+}
+
+.mkcp-page-header h2 {
+    font-size     : 22px;
+    font-weight   : 650;
+    color         : var(--mkcp-ui-text);
+    margin        : 0 0 6px;
+    letter-spacing: -.4px;
+    line-height   : 1.2;
+    display       : flex;
+    align-items   : center;
+    gap           : 8px;
+}
+
+.mkcp-page-header h2 svg {
+    width     : 20px;
+    height    : 20px;
+    flex-shrink: 0;
+}
+
+.mkcp-page-header p {
+    font-size  : 13.5px;
+    color      : var(--mkcp-ui-text2);
+    margin     : 0;
+    line-height: 1.5;
+}
+
+/* ─── Glass Card ─────────────────────────────────────────────────────────── */
+
+.mkcp-glass {
+    background    : var(--mkcp-ui-surface);
+    border        : 1px solid var(--mkcp-ui-border);
+    border-radius : var(--mkcp-ui-radius);
+    box-shadow    : var(--mkcp-ui-shadow);
+    overflow      : hidden;
+    margin-bottom : 16px;
+    transition    : border-color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+}
+
+.mkcp-glass:hover {
+    border-color: var(--mkcp-ui-border2);
+}
+
+.mkcp-glass-header {
+    padding        : 16px 22px;
+    display        : flex;
+    align-items    : center;
+    gap            : 10px;
+    border-bottom  : 1px solid var(--mkcp-ui-border);
+    background     : var(--mkcp-ui-header-bg);
+}
+
+.mkcp-glass-header h3 {
+    font-size     : 13px;
+    font-weight   : 600;
+    color         : var(--mkcp-ui-text);
+    margin        : 0;
+    letter-spacing: -.15px;
+}
+
+.mkcp-glass-header .mkcp-header-icon {
+    width        : 28px;
+    height       : 28px;
+    border-radius: 7px;
+    background   : var(--mkcp-ui-accent-soft);
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    flex-shrink  : 0;
+}
+
+.mkcp-glass-header .mkcp-header-icon svg {
+    width : 13px;
+    height: 13px;
+    color : var(--mkcp-ui-accent);
+}
+
+.mkcp-glass-body {
+    padding: 22px;
+}
+
+/* ─── Setting Row ────────────────────────────────────────────────────────── */
+
+.mkcp-setting-row {
+    display       : flex;
+    align-items   : flex-start;
+    justify-content: space-between;
+    gap           : 20px;
+    padding       : 16px 0;
+    border-bottom : 1px solid var(--mkcp-ui-border);
+}
+
+.mkcp-setting-row:last-child { border-bottom: none; padding-bottom: 0; }
+.mkcp-setting-row:first-child { padding-top: 0; }
+
+.mkcp-setting-label {
+    flex      : 0 0 200px;
+    padding-top: 2px;
+}
+
+.mkcp-setting-label strong {
+    display    : block;
+    font-size  : 13px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-text);
+    margin-bottom: 3px;
+}
+
+.mkcp-setting-label small {
+    font-size  : 11.5px;
+    color      : var(--mkcp-ui-text3);
+    line-height: 1.4;
+    display    : block;
+}
+
+.mkcp-setting-control { flex: 1; }
+
+/* Modifier voor rijen met een lang label/omschrijving: label + omschrijving
+   krijgen de volle breedte (i.p.v. gekneld in de vaste 200px-kolom), de
+   control komt eronder i.p.v. ernaast. */
+.mkcp-setting-row--stack {
+    flex-direction : column;
+    align-items    : stretch;
+    gap            : 10px;
+}
+
+.mkcp-setting-row--stack .mkcp-setting-label {
+    flex : 1 1 auto;
+}
+
+/* ─── Premium Toggle ─────────────────────────────────────────────────────── */
+
+.mkcp-toggle-wrap {
+    display    : flex;
+    align-items: center;
+    gap        : 10px;
+}
+
+.mkcp-toggle {
+    position : relative;
+    display  : inline-block;
+    width    : 42px;
+    height   : 24px;
+    flex-shrink: 0;
+}
+
+.mkcp-toggle input {
+    position   : absolute;
+    opacity    : 0;
+    width      : 1px;
+    height     : 1px;
+    clip-path  : inset(50%);
+    white-space: nowrap;
+    overflow   : hidden;
+}
+
+.mkcp-toggle-track {
+    position      : absolute;
+    inset         : 0;
+    border-radius : 12px;
+    background    : var(--mkcp-ui-surface3);
+    border        : 1px solid var(--mkcp-ui-border2);
+    cursor        : pointer;
+    transition    : background var(--mkcp-ui-transition), border-color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+}
+
+.mkcp-toggle-thumb {
+    position      : absolute;
+    top           : 3px;
+    left          : 3px;
+    width         : 16px;
+    height        : 16px;
+    border-radius : 50%;
+    background    : var(--mkcp-ui-text2);
+    transition    : transform var(--mkcp-ui-transition), background var(--mkcp-ui-transition);
+    box-shadow    : 0 1px 3px rgba(0,0,0,.4);
+}
+
+.mkcp-toggle input:checked + .mkcp-toggle-track {
+    background   : var(--mkcp-ui-accent);
+    border-color : var(--mkcp-ui-accent);
+    box-shadow   : 0 0 0 3px var(--mkcp-ui-accent-glow);
+}
+
+.mkcp-toggle input:checked + .mkcp-toggle-track .mkcp-toggle-thumb {
+    transform  : translateX(18px);
+    background : #fff;
+}
+
+.mkcp-toggle-label {
+    font-size  : 13px;
+    color      : var(--mkcp-ui-text);
+    cursor     : pointer;
+    user-select: none;
+}
+
+/* ─── Premium Input ──────────────────────────────────────────────────────── */
+
+.mkcp-input {
+    width         : 100%;
+    height        : 38px;
+    padding       : 0 12px;
+    background    : var(--mkcp-ui-surface2);
+    border        : 1px solid var(--mkcp-ui-border2);
+    border-radius : var(--mkcp-ui-radius-sm);
+    color         : var(--mkcp-ui-text);
+    font-size     : 13px;
+    font-family   : inherit;
+    outline       : none;
+    transition    : border-color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+    -webkit-appearance: none;
+}
+
+.mkcp-input:focus {
+    border-color : var(--mkcp-ui-accent);
+    box-shadow   : 0 0 0 3px var(--mkcp-ui-accent-glow);
+}
+
+.mkcp-input::placeholder { color: var(--mkcp-ui-text3); }
+
+textarea.mkcp-input { height: auto; padding: 8px 12px; }
+
+.mkcp-input--sm { width: 140px; }
+
+/* Native <select> keeps its OS-drawn chrome (box + arrow + focus ring) even
+   with -webkit-appearance:none unless we also strip the unprefixed
+   `appearance` and draw our own arrow — otherwise it looks like a bare
+   browser control instead of the rest of the design system. The dropdown
+   list itself (options) stays OS-rendered in every browser; only the closed
+   control and the option text/background colors can be themed from CSS. */
+select.mkcp-input {
+    appearance         : none;
+    -webkit-appearance  : none;
+    -moz-appearance     : none;
+    padding-right       : 34px;
+    cursor              : pointer;
+    background-image    : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b8b9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat   : no-repeat;
+    background-position : right 10px center;
+    background-size     : 14px;
+}
+
+select.mkcp-input:hover { border-color: var(--mkcp-ui-border2); }
+
+select.mkcp-input option {
+    background: var(--mkcp-ui-surface2);
+    color     : var(--mkcp-ui-text);
+}
+
+/* Kleurveld: grote swatch + los bewerkbare hexcode in één pil, i.p.v. het
+   kleine, kale <input type="color">-vierkantje van de browser zelf. */
+.mkcp-color-field {
+    display      : flex;
+    align-items  : center;
+    width        : 218px;
+    height       : 44px;
+    background   : var(--mkcp-ui-surface2);
+    border       : 1px solid var(--mkcp-ui-border2);
+    border-radius: var(--mkcp-ui-radius-sm);
+    overflow     : hidden;
+    transition   : border-color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+}
+
+.mkcp-color-field:focus-within {
+    border-color: var(--mkcp-ui-accent);
+    box-shadow  : 0 0 0 3px var(--mkcp-ui-accent-glow);
+}
+
+.mkcp-color-swatch {
+    width        : 44px;
+    height       : 100%;
+    padding      : 0;
+    background   : none;
+    border       : none;
+    border-right : 1px solid var(--mkcp-ui-border2);
+    border-radius: 0;
+    cursor       : pointer;
+    flex-shrink  : 0;
+}
+
+.mkcp-color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.mkcp-color-swatch::-webkit-color-swatch         { border: none; }
+.mkcp-color-swatch::-moz-color-swatch            { border: none; }
+
+.mkcp-color-hex {
+    flex          : 1;
+    min-width     : 0;
+    height        : 100%;
+    padding       : 0 6px 0 10px;
+    border        : none;
+    background    : none;
+    outline       : none;
+    color         : var(--mkcp-ui-text);
+    font-family   : "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size     : 13px;
+    letter-spacing: .2px;
+}
+
+.mkcp-color-tool {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 30px;
+    height         : 100%;
+    padding        : 0;
+    border          : none;
+    border-left    : 1px solid var(--mkcp-ui-border2);
+    background     : none;
+    color          : var(--mkcp-ui-text3);
+    cursor         : pointer;
+    flex-shrink    : 0;
+    transition     : color var(--mkcp-ui-transition), background var(--mkcp-ui-transition);
+}
+
+.mkcp-color-tool:hover { color: var(--mkcp-ui-accent); background: var(--mkcp-ui-accent-soft); }
+
+.mkcp-color-tool svg { width: 14px; height: 14px; }
+
+.mkcp-color-tool.is-copied { color: var(--mkcp-ui-green); }
+
+.mkcp-color-tool[hidden] { display: none; }
+
+/* Contrastmeter: altijd zichtbare AA/AAA-badges i.p.v. een foutmelding die
+   alleen verschijnt bij een probleem — leest sneller en oogt minder als een
+   browser-waarschuwing. */
+.mkcp-contrast-meter {
+    display      : flex;
+    align-items  : center;
+    gap          : 8px;
+    flex-wrap    : wrap;
+    padding      : 8px 10px;
+    background   : var(--mkcp-ui-surface2);
+    border       : 1px solid var(--mkcp-ui-border2);
+    border-radius: var(--mkcp-ui-radius-sm);
+}
+
+.mkcp-contrast-ratio {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size  : 12px;
+    font-weight: 600;
+    color      : var(--mkcp-ui-text);
+    flex-shrink: 0;
+}
+
+.mkcp-contrast-badge {
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    padding        : 1px 7px;
+    border-radius  : 20px;
+    font-size      : 10px;
+    font-weight    : 700;
+    letter-spacing : .3px;
+    flex-shrink    : 0;
+}
+
+.mkcp-contrast-badge.is-pass { background: var(--mkcp-ui-green-soft); color: var(--mkcp-ui-green); }
+.mkcp-contrast-badge.is-fail { background: var(--mkcp-ui-red-soft);   color: var(--mkcp-ui-red); }
+
+.mkcp-contrast-hint {
+    font-size: 11.5px;
+    color    : var(--mkcp-ui-text3);
+}
+
+/* De drie Styling-kaarten gloeien zacht mee met de gekozen Hoofdkleur — JS zet
+   --mkcp-style-glow (settings.js, applyPanelGlow()) op elke kaart, zodat het
+   hele tabblad op je merkkleur reageert i.p.v. alleen de losse preview. */
+.mkcp-style-glow-card {
+    --mkcp-style-glow: transparent;
+    box-shadow: 0 0 0 1px var(--mkcp-style-glow), 0 10px 32px -14px var(--mkcp-style-glow);
+    transition: box-shadow 250ms ease;
+}
+
+/* ─── Styling: kant-en-klare presets ─────────────────────────────────────── */
+
+.mkcp-style-preset-list {
+    display : flex;
+    flex-wrap: wrap;
+    gap     : 10px;
+}
+
+.mkcp-style-preset {
+    display       : flex;
+    align-items   : center;
+    gap           : 9px;
+    padding       : 8px 14px 8px 8px;
+    background    : var(--mkcp-ui-surface2);
+    border        : 1px solid var(--mkcp-ui-border2);
+    border-radius : var(--mkcp-ui-radius-sm);
+    cursor        : pointer;
+    font-family   : inherit;
+    transition    : border-color var(--mkcp-ui-transition), background var(--mkcp-ui-transition);
+}
+
+.mkcp-style-preset:hover { border-color: var(--mkcp-ui-accent); }
+
+.mkcp-style-preset.is-active {
+    border-color: var(--mkcp-ui-accent);
+    background  : var(--mkcp-ui-accent-soft);
+}
+
+@keyframes mkcp-preset-applied {
+    0%   { box-shadow: 0 0 0 0 var(--mkcp-ui-accent-glow); }
+    50%  { box-shadow: 0 0 0 6px var(--mkcp-ui-accent-glow); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.mkcp-style-preset.is-applying {
+    animation: mkcp-preset-applied 500ms ease-out;
+}
+
+/* Mini-render van de echte drawer (kopbalk + item-regels + knop) i.p.v.
+   abstracte kleurstipjes — laat in één oogopslag zien hoe de preset er echt
+   uitziet, niet alleen welke kleuren erbij horen. */
+.mkcp-style-preset-thumb {
+    display      : flex;
+    flex-direction: column;
+    width        : 52px;
+    height       : 60px;
+    border-radius: 8px;
+    border       : 1px solid;
+    overflow     : hidden;
+    flex-shrink  : 0;
+    box-shadow   : 0 1px 2px rgba(0,0,0,.06);
+}
+
+.mkcp-style-preset-thumb-bar {
+    display      : flex;
+    align-items  : center;
+    height       : 14px;
+    padding      : 0 6px;
+    border-bottom: 1px solid;
+    flex-shrink  : 0;
+}
+
+.mkcp-style-preset-thumb-bar span {
+    width        : 16px;
+    height       : 3px;
+    border-radius: 2px;
+    opacity      : .8;
+}
+
+.mkcp-style-preset-thumb-lines {
+    flex           : 1;
+    display        : flex;
+    flex-direction : column;
+    justify-content: center;
+    gap            : 4px;
+    padding        : 0 6px;
+}
+
+.mkcp-style-preset-thumb-lines span {
+    height       : 3px;
+    border-radius: 2px;
+    opacity      : .55;
+}
+
+.mkcp-style-preset-thumb-lines span:nth-child(1) { width: 85%; }
+.mkcp-style-preset-thumb-lines span:nth-child(2) { width: 60%; }
+
+.mkcp-style-preset-thumb-btn {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    height         : 12px;
+    margin         : 0 6px 6px;
+    border-radius  : 3px;
+    border         : 1.5px solid transparent;
+}
+
+.mkcp-style-preset-thumb-btn span {
+    width        : 20px;
+    height       : 3px;
+    border-radius: 2px;
+}
+
+.mkcp-style-preset-label {
+    font-size  : 13px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-text);
+    white-space: nowrap;
+}
+
+/* ─── Gedetecteerde website-kleuren ──────────────────────────────────────── */
+
+.mkcp-detected-swatches {
+    display : flex;
+    flex-wrap: wrap;
+    gap     : 10px;
+}
+.mkcp-detected-swatch {
+    display       : flex;
+    align-items   : center;
+    gap           : 9px;
+    padding       : 7px 12px 7px 7px;
+    background    : var(--mkcp-ui-surface2);
+    border        : 1px solid var(--mkcp-ui-border2);
+    border-radius : var(--mkcp-ui-radius-sm);
+    cursor        : pointer;
+    font-family   : inherit;
+    transition    : border-color var(--mkcp-ui-transition), background var(--mkcp-ui-transition);
+}
+.mkcp-detected-swatch:hover { border-color: var(--mkcp-ui-accent); }
+.mkcp-detected-swatch.is-applying { animation: mkcp-preset-applied 500ms ease-out; }
+.mkcp-detected-swatch-color {
+    width        : 28px;
+    height       : 28px;
+    border-radius: 7px;
+    border       : 1px solid var(--mkcp-ui-border2);
+    flex-shrink  : 0;
+}
+.mkcp-detected-swatch-info {
+    display       : flex;
+    flex-direction: column;
+    gap           : 1px;
+    text-align    : left;
+}
+.mkcp-detected-swatch-info strong {
+    font-size  : 12px;
+    font-weight: 600;
+    color      : var(--mkcp-ui-text);
+}
+.mkcp-detected-swatch-info small {
+    font-size     : 11px;
+    color         : var(--mkcp-ui-text3);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.mkcp-detected-swatch--flat .mkcp-detected-swatch-color { width: 24px; height: 24px; }
+.mkcp-detected-swatch--flat.is-copied { border-color: var(--mkcp-ui-green); }
+.mkcp-detected-swatch--flat.is-copied .mkcp-detected-swatch-info small { color: var(--mkcp-ui-green); }
+
+/* ─── Testmail (verlaten winkelwagen / winkelmand delen) ────────────────────── */
+
+.mkcp-test-email-row {
+    display    : flex;
+    gap        : 8px;
+    align-items: center;
+    flex-wrap  : wrap;
+}
+
+.mkcp-test-email-row .mkcp-input {
+    flex     : 1 1 220px;
+    max-width: 320px;
+}
+
+.mkcp-test-email-result {
+    display      : none;
+    align-items  : center;
+    gap          : 8px;
+    margin-top   : 10px;
+    padding      : 9px 13px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    font-size    : 12.5px;
+    line-height  : 1.4;
+}
+
+.mkcp-test-email-result.is-visible { display: flex; }
+
+.mkcp-test-email-result svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+.mkcp-test-email-result.is-success {
+    background: rgba(34,197,94,.12);
+    border    : 1px solid rgba(34,197,94,.35);
+    color     : #22c55e;
+}
+
+.mkcp-test-email-result.is-error {
+    background: rgba(239,68,68,.12);
+    border    : 1px solid rgba(239,68,68,.35);
+    color     : #ef4444;
+}
+
+/* ─── Afhaallocaties (pickup) — inklapbare locatiekaarten ────────────────── */
+
+.mkcp-pu-locations {
+    display       : flex;
+    flex-direction: column;
+    gap           : 10px;
+    margin-top    : 4px;
+}
+
+.mkcp-pu-loc {
+    border        : 1px solid var(--mkcp-ui-border2);
+    border-radius : var(--mkcp-ui-radius-sm);
+    background    : var(--mkcp-ui-surface2);
+    overflow      : hidden;
+}
+
+.mkcp-pu-loc-header {
+    display       : flex;
+    align-items   : center;
+    gap           : 12px;
+    width         : 100%;
+    padding       : 12px 14px;
+    background    : transparent;
+    border        : none;
+    cursor        : pointer;
+    text-align    : left;
+    font-family   : inherit;
+    color         : inherit;
+    transition    : background var(--mkcp-ui-transition);
+}
+
+.mkcp-pu-loc-header:hover { background: var(--mkcp-ui-surface3); }
+
+.mkcp-pu-loc-chevron {
+    display       : flex;
+    align-items   : center;
+    justify-content: center;
+    flex          : 0 0 auto;
+    width         : 18px;
+    height        : 18px;
+    color         : var(--mkcp-ui-text3);
+    transition    : transform var(--mkcp-ui-transition);
+}
+
+.mkcp-pu-loc-chevron svg { width: 100%; height: 100%; }
+
+.mkcp-pu-loc-header[aria-expanded="true"] .mkcp-pu-loc-chevron { transform: rotate(90deg); }
+
+.mkcp-pu-loc-title {
+    display       : flex;
+    flex-direction: column;
+    gap           : 2px;
+    flex          : 1 1 auto;
+    min-width     : 0;
+}
+
+.mkcp-pu-loc-title strong {
+    font-size  : 13px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-text);
+}
+
+.mkcp-pu-loc-subtitle {
+    font-size    : 11.5px;
+    color        : var(--mkcp-ui-text3);
+    overflow     : hidden;
+    text-overflow: ellipsis;
+    white-space  : nowrap;
+}
+
+.mkcp-pu-loc-status {
+    flex         : 0 0 auto;
+    font-size    : 11px;
+    font-weight  : 600;
+    padding      : 3px 9px;
+    border-radius: 999px;
+    background   : var(--mkcp-ui-surface3);
+    color        : var(--mkcp-ui-text3);
+}
+
+.mkcp-pu-loc.is-enabled .mkcp-pu-loc-status {
+    background : var(--mkcp-ui-accent-soft);
+    color      : var(--mkcp-ui-accent);
+}
+
+.mkcp-pu-loc-body {
+    padding    : 16px 14px;
+    border-top : 1px solid var(--mkcp-ui-border);
+}
+
+/* ─── Veldjes binnen een locatiekaart ─────────────────────────────────────── */
+
+.mkcp-pu-field {
+    display       : flex;
+    flex-direction: column;
+    gap           : 5px;
+    margin-bottom : 14px;
+}
+
+.mkcp-pu-field:last-child { margin-bottom: 0; }
+
+.mkcp-pu-field-label {
+    font-size  : 11.5px;
+    color      : var(--mkcp-ui-text3);
+}
+
+.mkcp-pu-timing-grid {
+    display              : grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap                  : 10px;
+    margin-bottom        : 6px;
+}
+
+.mkcp-pu-timing-grid--2col { grid-template-columns: repeat(2, 1fr); margin-bottom: 0; }
+
+@media (max-width: 560px) {
+    .mkcp-pu-timing-grid { grid-template-columns: 1fr 1fr; }
+    .mkcp-pu-timing-grid--2col { grid-template-columns: 1fr; }
+}
+
+.mkcp-pu-subhead {
+    font-size     : 10.5px;
+    font-weight   : 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color         : var(--mkcp-ui-text3);
+    margin        : 0 0 8px;
+}
+
+/* ─── Openingstijden-grid ──────────────────────────────────────────────────── */
+
+.mkcp-pu-hours-grid {
+    border        : 1px solid var(--mkcp-ui-border);
+    border-radius : var(--mkcp-ui-radius-sm);
+    overflow      : hidden;
+    margin-bottom : 4px;
+}
+
+.mkcp-pu-hours-row {
+    display               : grid;
+    grid-template-columns : 34px 40px 1fr 1fr;
+    align-items            : center;
+    gap                    : 10px;
+    padding                : 6px 10px;
+    background             : var(--mkcp-ui-surface2);
+}
+
+.mkcp-pu-hours-row + .mkcp-pu-hours-row { border-top: 1px solid var(--mkcp-ui-border); }
+
+.mkcp-pu-hours-row:nth-child(even) { background: var(--mkcp-ui-surface); }
+
+.mkcp-pu-hours-row--head {
+    background    : var(--mkcp-ui-surface3) !important;
+    font-size     : 10px;
+    font-weight   : 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color         : var(--mkcp-ui-text3);
+}
+
+.mkcp-pu-hours-row--head + .mkcp-pu-hours-row { border-top: none; }
+
+.mkcp-pu-hours-day {
+    font-size  : 12px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-text2);
+}
+
+.mkcp-pu-hours-row.is-closed .mkcp-pu-hours-day { color: var(--mkcp-ui-text3); }
+
+.mkcp-pu-hours-row .mkcp-input--sm { width: 100%; }
+
+.mkcp-pu-hours-row.is-closed input[type="time"] { opacity: .35; }
+
+.mkcp-toggle--sm { width: 30px; height: 17px; }
+.mkcp-toggle--sm .mkcp-toggle-thumb { width: 11px; height: 11px; top: 3px; left: 3px; }
+.mkcp-toggle--sm input:checked + .mkcp-toggle-track .mkcp-toggle-thumb { transform: translateX(13px); }
+
+/* ─── Badge-positie kiezer ───────────────────────────────────────────────── */
+
+.mkcp-badge-position-grid {
+    display              : grid;
+    grid-template-columns: 1fr 1fr;
+    gap                  : 6px;
+    max-width            : 260px;
+}
+
+.mkcp-badge-pos-option {
+    display        : flex;
+    align-items    : center;
+    gap            : 8px;
+    padding        : 8px 12px;
+    border         : 1px solid var(--mkcp-ui-border2);
+    border-radius  : 8px;
+    cursor         : pointer;
+    background     : var(--mkcp-ui-surface2);
+    transition     : border-color .15s, background .15s;
+    user-select    : none;
+}
+
+.mkcp-badge-pos-option:hover {
+    border-color : var(--mkcp-ui-accent);
+    background   : var(--mkcp-ui-accent-glow);
+}
+
+.mkcp-badge-pos-option.is-selected {
+    border-color : var(--mkcp-ui-accent);
+    background   : var(--mkcp-ui-accent-glow);
+    box-shadow   : 0 0 0 2px var(--mkcp-ui-accent);
+}
+
+.mkcp-badge-pos-icon {
+    font-size  : 16px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.mkcp-badge-pos-label {
+    font-size  : 12px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-text2);
+}
+
+.mkcp-input-hint {
+    font-size  : 11.5px;
+    color      : var(--mkcp-ui-text3);
+    margin-top : 6px;
+    line-height: 1.4;
+}
+
+/* ─── Inline notices ─────────────────────────────────────────────────────── */
+
+.mkcp-notice {
+    padding      : 10px 14px;
+    border-radius: 8px;
+    font-size    : 12.5px;
+    line-height  : 1.5;
+    margin-bottom: 16px;
+    border-left  : 3px solid currentColor;
+}
+
+.mkcp-notice--info {
+    background: #eff6ff;
+    color     : #1d4ed8;
+}
+
+.mkcp-notice--error {
+    background: #fef2f2;
+    color     : #dc2626;
+}
+
+/* ─── Status badge ───────────────────────────────────────────────────────── */
+
+.mkcp-status {
+    display      : inline-flex;
+    align-items  : center;
+    gap          : 5px;
+    font-size    : 11.5px;
+    font-weight  : 500;
+    padding      : 3px 9px;
+    border-radius: 20px;
+}
+
+.mkcp-status--green {
+    background: var(--mkcp-ui-green-soft);
+    color     : var(--mkcp-ui-green);
+}
+
+.mkcp-status--red {
+    background: var(--mkcp-ui-red-soft);
+    color     : var(--mkcp-ui-red);
+}
+
+.mkcp-status--amber {
+    background: var(--mkcp-ui-amber-soft);
+    color     : var(--mkcp-ui-amber);
+}
+
+.mkcp-status-dot {
+    width        : 5px;
+    height       : 5px;
+    border-radius: 50%;
+    background   : currentColor;
+    flex-shrink  : 0;
+}
+
+/* ─── Dashboard grid ─────────────────────────────────────────────────────── */
+
+.mkcp-dash-grid {
+    display              : grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap                  : 16px;
+    margin-bottom        : 16px;
+}
+
+.mkcp-dash-card {
+    background   : var(--mkcp-ui-surface);
+    border       : 1px solid var(--mkcp-ui-border);
+    border-radius: var(--mkcp-ui-radius);
+    padding      : 20px 22px;
+    box-shadow   : var(--mkcp-ui-shadow);
+    transition   : border-color var(--mkcp-ui-transition), transform var(--mkcp-ui-transition);
+}
+
+.mkcp-dash-card:hover {
+    border-color : var(--mkcp-ui-border2);
+    transform    : translateY(-1px);
+}
+
+.mkcp-dash-card-icon {
+    width        : 36px;
+    height       : 36px;
+    border-radius: 10px;
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.mkcp-dash-card-icon svg {
+    width : 16px;
+    height: 16px;
+}
+
+.mkcp-dash-card-icon--accent { background: var(--mkcp-ui-accent-soft); color: var(--mkcp-ui-accent); }
+.mkcp-dash-card-icon--green  { background: var(--mkcp-ui-green-soft);  color: var(--mkcp-ui-green); }
+.mkcp-dash-card-icon--amber  { background: var(--mkcp-ui-amber-soft);  color: var(--mkcp-ui-amber); }
+
+.mkcp-dash-card h4 {
+    font-size  : 11px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-text3);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin     : 0 0 6px;
+}
+
+.mkcp-dash-card-value {
+    font-size     : 24px;
+    font-weight   : 700;
+    color         : var(--mkcp-ui-text);
+    letter-spacing: -.5px;
+    margin-bottom : 4px;
+    line-height   : 1;
+}
+
+.mkcp-dash-card-sub {
+    font-size: 11.5px;
+    color    : var(--mkcp-ui-text3);
+}
+
+/* ─── Status checklist ───────────────────────────────────────────────────── */
+
+.mkcp-status-list {
+    display       : flex;
+    flex-direction: column;
+    gap           : 1px;
+}
+
+.mkcp-status-item {
+    display      : flex;
+    align-items  : center;
+    gap          : 12px;
+    padding      : 13px 0;
+    border-bottom: 1px solid var(--mkcp-ui-border);
+    transition   : background var(--mkcp-ui-transition);
+}
+
+.mkcp-status-item:last-child { border-bottom: none; }
+
+.mkcp-status-icon {
+    width        : 30px;
+    height       : 30px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    flex-shrink  : 0;
+}
+
+.mkcp-status-icon svg {
+    width : 13px;
+    height: 13px;
+}
+
+.mkcp-status-icon--ok    { background: var(--mkcp-ui-green-soft); color: var(--mkcp-ui-green); }
+.mkcp-status-icon--warn  { background: var(--mkcp-ui-amber-soft); color: var(--mkcp-ui-amber); }
+.mkcp-status-icon--error { background: var(--mkcp-ui-red-soft);   color: var(--mkcp-ui-red); }
+
+.mkcp-status-item-label {
+    flex      : 1;
+    font-size : 13px;
+    color     : var(--mkcp-ui-text);
+    font-weight: 450;
+}
+
+.mkcp-status-item-label small {
+    display   : block;
+    font-size : 11.5px;
+    color     : var(--mkcp-ui-text3);
+    font-weight: 400;
+    margin-top: 1px;
+}
+
+/* ─── Payment icons ──────────────────────────────────────────────────────── */
+
+.mkcp-payment-grid {
+    display             : grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px,1fr));
+    gap                 : 8px;
+}
+
+.mkcp-pay-toggle {
+    display       : flex;
+    flex-direction: column;
+    align-items   : center;
+    gap           : 6px;
+    cursor        : pointer;
+}
+
+.mkcp-pay-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.mkcp-pay-frame {
+    width        : 100%;
+    aspect-ratio : 7/4.5;
+    border       : 2px solid var(--mkcp-ui-border2);
+    border-radius: var(--mkcp-ui-radius-sm);
+    overflow     : hidden;
+    transition   : border-color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+}
+
+.mkcp-pay-frame svg { width: 100%; height: 100%; display: block; }
+
+.mkcp-pay-toggle:hover .mkcp-pay-frame {
+    border-color: var(--mkcp-ui-border2);
+    box-shadow  : 0 0 0 2px rgba(255,255,255,0.06);
+}
+
+.mkcp-pay-toggle.is-active .mkcp-pay-frame {
+    border-color: var(--mkcp-ui-accent);
+    box-shadow  : 0 0 0 3px var(--mkcp-ui-accent-glow);
+}
+
+.mkcp-pay-toggle span {
+    font-size : 10px;
+    color     : var(--mkcp-ui-text3);
+    text-align: center;
+}
+
+.mkcp-pay-toggle.is-active span {
+    color      : var(--mkcp-ui-accent);
+    font-weight: 500;
+}
+
+/* ─── USP rows ───────────────────────────────────────────────────────────── */
+
+.mkcp-usp-list { display: flex; flex-direction: column; gap: 8px; }
+
+.mkcp-usp-row {
+    display      : flex;
+    align-items  : center;
+    gap          : 8px;
+    background   : var(--mkcp-ui-surface2);
+    border       : 1px solid var(--mkcp-ui-border);
+    border-radius: var(--mkcp-ui-radius-sm);
+    padding      : 10px 12px;
+    transition   : border-color var(--mkcp-ui-transition);
+}
+
+.mkcp-usp-row:hover { border-color: var(--mkcp-ui-border2); }
+
+.mkcp-usp-row select {
+    background   : var(--mkcp-ui-surface3);
+    border       : 1px solid var(--mkcp-ui-border2);
+    border-radius: 6px;
+    color        : var(--mkcp-ui-text);
+    font-size    : 12px;
+    font-family  : inherit;
+    padding      : 5px 8px;
+    outline      : none;
+    flex-shrink  : 0;
+    width        : 100px;
+    height       : 32px;
+    cursor       : pointer;
+}
+
+.mkcp-usp-row input {
+    flex      : 1;
+    background: transparent;
+    border    : none;
+    outline   : none;
+    color     : var(--mkcp-ui-text);
+    font-size : 13px;
+    font-family: inherit;
+    padding   : 0 4px;
+}
+
+.mkcp-usp-row input::placeholder { color: var(--mkcp-ui-text3); }
+
+.mkcp-usp-remove {
+    background : none;
+    border     : none;
+    cursor     : pointer;
+    padding    : 4px;
+    color      : var(--mkcp-ui-text3);
+    border-radius: 5px;
+    display    : flex;
+    align-items: center;
+    transition : color var(--mkcp-ui-transition), background var(--mkcp-ui-transition);
+    flex-shrink: 0;
+}
+
+.mkcp-usp-remove:hover { color: var(--mkcp-ui-red); background: var(--mkcp-ui-red-soft); }
+.mkcp-usp-remove svg { width: 14px; height: 14px; }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+
+.mkcp-btn {
+    display        : inline-flex;
+    align-items    : center;
+    gap            : 6px;
+    padding        : 0 16px;
+    height         : 36px;
+    border-radius  : var(--mkcp-ui-radius-sm);
+    font-size      : 13px;
+    font-weight    : 500;
+    font-family    : inherit;
+    cursor         : pointer;
+    transition     : background var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition), transform var(--mkcp-ui-transition);
+    border         : none;
+    outline        : none;
+    text-decoration: none;
+    line-height    : 1;
+    white-space    : nowrap;
+}
+
+.mkcp-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+.mkcp-btn--primary {
+    background : var(--mkcp-ui-accent);
+    color      : #fff;
+    box-shadow : 0 1px 3px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.5), inset 0 1px 0 rgba(255,255,255,.15);
+}
+
+.mkcp-btn--primary:hover {
+    background : #4f52e0;
+    box-shadow : 0 2px 8px rgba(99,102,241,.4), 0 0 0 1px rgba(99,102,241,.6), inset 0 1px 0 rgba(255,255,255,.15);
+    transform  : translateY(-1px);
+    color      : #fff;
+}
+
+.mkcp-btn--primary:active { transform: translateY(0); }
+
+.mkcp-btn--ghost {
+    background : var(--mkcp-ui-surface2);
+    color      : var(--mkcp-ui-text2);
+    border     : 1px solid var(--mkcp-ui-border2);
+}
+
+.mkcp-btn--ghost:hover {
+    background: var(--mkcp-ui-surface3);
+    color     : var(--mkcp-ui-text);
+}
+
+.mkcp-btn--ghost:active { transform: translateY(0); }
+
+/* Save bar */
+.mkcp-save-bar {
+    display        : flex;
+    align-items    : center;
+    justify-content: flex-end;
+    gap            : 10px;
+    padding        : 20px 0 0;
+    border-top     : 1px solid var(--mkcp-ui-border);
+    margin-top     : 24px;
+}
+
+/* ─── Code file items ────────────────────────────────────────────────────── */
+
+.mkcp-file-list { display: flex; flex-direction: column; gap: 8px; }
+
+.mkcp-file-item {
+    display      : flex;
+    align-items  : center;
+    gap          : 12px;
+    background   : var(--mkcp-ui-surface2);
+    border       : 1px solid var(--mkcp-ui-border);
+    border-radius: var(--mkcp-ui-radius-sm);
+    padding      : 12px 16px;
+    transition   : border-color var(--mkcp-ui-transition);
+}
+
+.mkcp-file-item:hover { border-color: var(--mkcp-ui-border2); }
+
+.mkcp-file-icon {
+    width        : 32px;
+    height       : 32px;
+    border-radius: 7px;
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    flex-shrink  : 0;
+}
+
+.mkcp-file-icon svg { width: 14px; height: 14px; }
+.mkcp-file-icon--found   { background: var(--mkcp-ui-green-soft);  color: var(--mkcp-ui-green); }
+.mkcp-file-icon--missing { background: var(--mkcp-ui-surface3);    color: var(--mkcp-ui-text3); }
+
+.mkcp-file-info { flex: 1; }
+.mkcp-file-info code {
+    display      : block;
+    font-size    : 12px;
+    font-family  : "JetBrains Mono", "Fira Code", monospace;
+    color        : var(--mkcp-ui-text);
+    margin-bottom: 2px;
+    background   : none;
+    padding      : 0;
+}
+.mkcp-file-info small { font-size: 11.5px; color: var(--mkcp-ui-text3); }
+
+/* ─── Updates ────────────────────────────────────────────────────────────── */
+
+.mkcp-version-hero {
+    display      : flex;
+    align-items  : center;
+    gap          : 20px;
+    padding      : 24px;
+    background   : var(--mkcp-ui-surface);
+    border       : 1px solid var(--mkcp-ui-border);
+    border-radius: var(--mkcp-ui-radius);
+    margin-bottom: 16px;
+}
+
+.mkcp-version-icon {
+    width        : 52px;
+    height       : 52px;
+    border-radius: 14px;
+    background   : linear-gradient(135deg, var(--mkcp-ui-accent) 0%, #818cf8 100%);
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    flex-shrink  : 0;
+    box-shadow   : 0 4px 16px rgba(99,102,241,.3);
+}
+
+.mkcp-version-icon svg { width: 24px; height: 24px; color: #fff; }
+
+.mkcp-version-hero h3 {
+    font-size     : 18px;
+    font-weight   : 700;
+    color         : var(--mkcp-ui-text);
+    margin        : 0 0 4px;
+    letter-spacing: -.3px;
+}
+
+.mkcp-version-hero p {
+    font-size  : 13px;
+    color      : var(--mkcp-ui-text2);
+    margin     : 0;
+}
+
+/* ─── Changelog ──────────────────────────────────────────────────────────── */
+
+.mkcp-changelog {
+    font-size  : 13.5px;
+    color      : var(--mkcp-ui-text);
+    line-height: 1.65;
+}
+
+.mkcp-changelog h4 {
+    font-size     : 13px;
+    font-weight   : 600;
+    color         : var(--mkcp-ui-text2);
+    margin        : 0 0 10px;
+    letter-spacing: -.1px;
+}
+
+.mkcp-changelog ul { margin: 0; padding: 0 0 0 16px; }
+.mkcp-changelog ul li { margin-bottom: 4px; }
+
+/* ─── Toast (saved) ──────────────────────────────────────────────────────── */
+
+.mkcp-saved-toast {
+    position     : fixed;
+    bottom       : 28px;
+    right        : 28px;
+    display      : flex;
+    align-items  : center;
+    gap          : 8px;
+    background   : var(--mkcp-ui-surface);
+    border       : 1px solid var(--mkcp-ui-green);
+    color        : var(--mkcp-ui-green);
+    padding      : 10px 16px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    font-size    : 13px;
+    font-weight  : 500;
+    box-shadow   : 0 4px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(34,197,94,.2);
+    z-index      : 99999;
+    opacity      : 0;
+    transform    : translateY(8px);
+    transition   : opacity 400ms, transform 400ms cubic-bezier(0.22,1,0.36,1);
+}
+
+.mkcp-saved-toast.is-visible {
+    opacity  : 1;
+    transform: translateY(0);
+}
+
+.mkcp-saved-toast svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ─── Save banner (inline, top of content) ────────────────────────────── */
+
+@keyframes mkcpBannerIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.97); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0)      scale(1); }
+}
+
+@keyframes mkcpSpin {
+    to { transform: rotate(360deg); }
+}
+
+.mkcp-save-banner {
+    position       : fixed;
+    top            : 50px;
+    left           : 50%;
+    transform      : translateX(-50%);
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    gap            : 16px;
+    padding        : 13px 20px;
+    background     : var(--mkcp-ui-surface);
+    border         : 1px solid rgba(34,197,94,.35);
+    border-radius  : var(--mkcp-ui-radius);
+    color          : var(--mkcp-ui-green);
+    font-size      : 13px;
+    box-shadow     : 0 4px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(34,197,94,.15);
+    z-index        : 99999;
+    min-width      : 320px;
+    animation      : mkcpBannerIn .4s cubic-bezier(0.22,1,0.36,1);
+}
+
+.mkcp-save-banner strong {
+    color: var(--mkcp-ui-green);
+}
+
+.mkcp-save-banner svg {
+    flex-shrink: 0;
+}
+
+.mkcp-save-banner-close {
+    background     : none;
+    border         : none;
+    cursor         : pointer;
+    color          : var(--mkcp-ui-text3);
+    padding        : 4px;
+    line-height    : 0;
+    border-radius  : 4px;
+    flex-shrink    : 0;
+    transition     : color .15s, background .15s;
+}
+
+.mkcp-save-banner-close:hover {
+    color      : var(--mkcp-ui-text);
+    background : rgba(255,255,255,.06);
+}
+
+/* Save button loading state */
+.mkcp-btn--primary.is-loading {
+    pointer-events : none;
+    opacity        : 0.8;
+    position       : relative;
+}
+
+.mkcp-btn--primary.is-loading svg.mkcp-spin {
+    animation: mkcpSpin .65s linear infinite;
+}
+
+/* ─── Payment icon upload UI ─────────────────────────────────────────────── */
+
+.mkcp-pay-upload-list {
+    display       : flex;
+    flex-direction: column;
+    gap           : 8px;
+}
+
+.mkcp-pay-upload-row {
+    display     : flex;
+    align-items : center;
+    gap         : 10px;
+    padding     : 8px 12px;
+    background  : rgba(255,255,255,.03);
+    border      : 1px solid var(--mkcp-ui-border);
+    border-radius: var(--mkcp-ui-radius-sm);
+    transition  : border-color .15s, opacity .15s, box-shadow .15s;
+}
+
+.mkcp-pay-upload-row:hover {
+    border-color: var(--mkcp-ui-border2);
+}
+
+.mkcp-pay-upload-row.is-dragging {
+    opacity: .4;
+}
+
+.mkcp-pay-upload-handle {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex-shrink    : 0;
+    width          : 20px;
+    height         : 36px;
+    color          : var(--mkcp-ui-text3);
+    cursor         : grab;
+    touch-action   : none;
+}
+
+.mkcp-pay-upload-handle:active {
+    cursor: grabbing;
+}
+
+.mkcp-pay-upload-handle svg {
+    width : 15px;
+    height: 15px;
+}
+
+.mkcp-pay-upload-preview {
+    width          : 56px;
+    height         : 36px;
+    border-radius  : 5px;
+    overflow       : hidden;
+    background     : rgba(255,255,255,.06);
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex-shrink    : 0;
+    border         : 1px solid var(--mkcp-ui-border);
+}
+
+.mkcp-pay-upload-preview img {
+    max-width : 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.mkcp-pay-upload-row .mkcp-input {
+    flex: 1;
+}
+
+.mkcp-pay-upload-remove {
+    background  : none;
+    border      : none;
+    cursor      : pointer;
+    color       : var(--mkcp-ui-text3);
+    padding     : 5px;
+    line-height : 0;
+    flex-shrink : 0;
+    border-radius: 5px;
+    transition  : color .15s, background .15s;
+}
+
+.mkcp-pay-upload-remove:hover {
+    color      : var(--mkcp-ui-red);
+    background : var(--mkcp-ui-red-soft);
+}
+
+.mkcp-pay-upload-remove svg {
+    width : 15px;
+    height: 15px;
+}
+
+/* ─── Docs page ──────────────────────────────────────────────────────────── */
+
+.mkcp-docs-intro {
+    font-size  : 14px;
+    color      : var(--mkcp-ui-text2);
+    line-height: 1.6;
+    margin     : 0 0 24px;
+}
+
+.mkcp-docs-code {
+    background  : #1e1e1e;
+    border      : 1px solid rgba(255,255,255,.08);
+    border-radius: var(--mkcp-ui-radius-sm);
+    font-family : 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size   : 12px;
+    line-height : 1.75;
+    padding     : 14px 18px;
+    white-space : pre;
+    overflow-x  : auto;
+    color       : #d4d4d4;
+    margin      : 10px 0;
+    display     : block;
+}
+
+.mkcp-docs-code .cm  { color: #6a9955; }
+.mkcp-docs-code .ck  { color: #9cdcfe; }
+.mkcp-docs-code .cv  { color: #ce9178; }
+.mkcp-docs-code .cf  { color: #dcdcaa; }
+.mkcp-docs-code .cg  { color: #4ec9b0; }
+.mkcp-docs-code .hi  { color: #4fc1ff; }
+.mkcp-docs-code .hi2 { color: #4ec9b0; }
+.mkcp-docs-code .hi3 { color: #ce9178; }
+
+.mkcp-docs-table {
+    width          : 100%;
+    border-collapse: collapse;
+    font-size      : 12px;
+    margin         : 10px 0;
+}
+
+.mkcp-docs-table th {
+    background    : rgba(255,255,255,.05);
+    border        : 1px solid var(--mkcp-ui-border);
+    padding       : 8px 12px;
+    text-align    : left;
+    font-weight   : 600;
+    font-size     : 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color         : var(--mkcp-ui-text3);
+}
+
+.mkcp-docs-table td {
+    border      : 1px solid var(--mkcp-ui-border);
+    padding     : 8px 12px;
+    vertical-align: top;
+    color       : var(--mkcp-ui-text2);
+    line-height : 1.5;
+}
+
+.mkcp-docs-table tr:nth-child(even) td {
+    background: rgba(255,255,255,.02);
+}
+
+.mkcp-docs-table td code,
+.mkcp-docs-table th code {
+    background    : rgba(99,102,241,.12);
+    padding       : 1px 6px;
+    border-radius : 4px;
+    font-size     : 11px;
+    color         : var(--mkcp-ui-accent);
+    font-family   : monospace;
+}
+
+.mkcp-docs-callout {
+    border-radius: var(--mkcp-ui-radius-sm);
+    padding      : 12px 16px;
+    font-size    : 13px;
+    margin       : 12px 0;
+    line-height  : 1.55;
+    color        : var(--mkcp-ui-text2);
+}
+
+.mkcp-docs-callout--info {
+    background: rgba(99,102,241,.1);
+    border    : 1px solid rgba(99,102,241,.25);
+}
+
+.mkcp-docs-callout--tip {
+    background: var(--mkcp-ui-green-soft);
+    border    : 1px solid rgba(34,197,94,.25);
+    color     : var(--mkcp-ui-green);
+}
+
+.mkcp-docs-callout--warn {
+    background: var(--mkcp-ui-amber-soft);
+    border    : 1px solid rgba(251,191,36,.25);
+    color     : var(--mkcp-ui-amber);
+}
+
+.mkcp-docs-callout a { color: inherit; text-decoration: underline; }
+
+.mkcp-docs-diagram {
+    background  : rgba(0,0,0,.45);
+    border      : 1px solid var(--mkcp-ui-border);
+    border-radius: var(--mkcp-ui-radius-sm);
+    font-family : 'Consolas', monospace;
+    font-size   : 12px;
+    line-height : 1.8;
+    padding     : 16px 18px;
+    white-space : pre;
+    overflow-x  : auto;
+    color       : #aaa;
+    margin      : 12px 0;
+}
+
+.mkcp-docs-section-num {
+    display      : inline-flex;
+    align-items  : center;
+    justify-content: center;
+    width        : 22px;
+    height       : 22px;
+    border-radius: 6px;
+    background   : var(--mkcp-ui-accent-soft);
+    color        : var(--mkcp-ui-accent);
+    font-size    : 11px;
+    font-weight  : 700;
+    flex-shrink  : 0;
+}
+
+.mkcp-nav-item--anchor {
+    text-decoration: none;
+    display        : flex;
+    align-items    : center;
+    gap            : 10px;
+    padding        : 8px 12px;
+    border-radius  : var(--mkcp-ui-radius-sm);
+    font-size      : 13px;
+    font-weight    : 500;
+    color          : var(--mkcp-ui-text2);
+    cursor         : pointer;
+    transition     : background .15s, color .15s;
+    margin-bottom  : 1px;
+    user-select    : none;
+}
+
+.mkcp-nav-item--anchor:hover {
+    background: rgba(255,255,255,.05);
+    color     : var(--mkcp-ui-text);
+}
+
+.mkcp-docs-back-btn {
+    display     : flex;
+    align-items : center;
+    gap         : 8px;
+    font-size   : 12px;
+    font-weight : 500;
+    color       : var(--mkcp-ui-text3);
+    text-decoration: none;
+    padding     : 6px 8px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    transition  : color .15s, background .15s;
+    margin-bottom: 8px;
+}
+
+.mkcp-docs-back-btn svg {
+    width     : 14px;
+    height    : 14px;
+    flex-shrink: 0;
+}
+
+.mkcp-docs-back-btn:hover {
+    color     : var(--mkcp-ui-text);
+    background: rgba(255,255,255,.05);
+}
+
+/* ─── Ambient tab backgrounds ────────────────────────────────────────────── */
+
+#mkcp-admin-wrap::before { transition: background 500ms ease; }
+
+#mkcp-admin-wrap[data-active-panel="popup"]::before {
+    background: radial-gradient(circle, rgba(56,189,248,0.09) 0%, transparent 70%);
+}
+#mkcp-admin-wrap[data-active-panel="verzending"]::before {
+    background: radial-gradient(circle, rgba(34,211,238,0.09) 0%, transparent 70%);
+}
+#mkcp-admin-wrap[data-active-panel="analytics"]::before {
+    background: radial-gradient(circle, rgba(168,85,247,0.11) 0%, transparent 70%);
+}
+#mkcp-admin-wrap[data-active-panel="licentie"]::before {
+    background: radial-gradient(circle, rgba(251,191,36,0.09) 0%, transparent 70%);
+}
+#mkcp-admin-wrap[data-active-panel="updates"]::before {
+    background: radial-gradient(circle, rgba(34,197,94,0.09) 0%, transparent 70%);
+}
+#mkcp-admin-wrap[data-active-panel="docs"]::before {
+    background: radial-gradient(circle, rgba(148,163,184,0.07) 0%, transparent 70%);
+}
+
+#mkcp-admin-wrap[data-active-panel="popup"] .mkcp-nav-item.is-active {
+    color: #38bdf8; background: rgba(56,189,248,0.10); border-color: rgba(56,189,248,0.2);
+}
+#mkcp-admin-wrap[data-active-panel="verzending"] .mkcp-nav-item.is-active {
+    color: #22d3ee; background: rgba(34,211,238,0.10); border-color: rgba(34,211,238,0.2);
+}
+#mkcp-admin-wrap[data-active-panel="analytics"] .mkcp-nav-item.is-active {
+    color: #a855f7; background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.2);
+}
+#mkcp-admin-wrap[data-active-panel="licentie"] .mkcp-nav-item.is-active {
+    color: var(--mkcp-ui-amber); background: var(--mkcp-ui-amber-soft); border-color: rgba(251,191,36,0.2);
+}
+#mkcp-admin-wrap[data-active-panel="updates"] .mkcp-nav-item.is-active {
+    color: var(--mkcp-ui-green); background: var(--mkcp-ui-green-soft); border-color: rgba(34,197,94,0.2);
+}
+
+/* ─── Skeleton loading ────────────────────────────────────────────────────── */
+
+@keyframes mkcp-shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+}
+
+.mkcp-dash-card.is-skeleton,
+.mkcp-glass.is-skeleton {
+    position: relative;
+    overflow: hidden;
+}
+
+.mkcp-dash-card.is-skeleton::after,
+.mkcp-glass.is-skeleton::after {
+    content        : '';
+    position       : absolute;
+    inset          : 0;
+    background     : linear-gradient(105deg, transparent 20%, var(--mkcp-ui-shimmer) 50%, transparent 80%);
+    background-size: 200% 100%;
+    animation      : mkcp-shimmer 1s ease-in-out;
+    pointer-events : none;
+}
+
+/* ─── Micro-feedback: save button ────────────────────────────────────────── */
+
+@keyframes mkcp-pop {
+    0%  { transform: scale(1); }
+    40% { transform: scale(1.07); }
+    100%{ transform: scale(1); }
+}
+
+.mkcp-btn--primary.is-loading {
+    box-shadow: 0 0 0 1px rgba(99,102,241,.5), 0 4px 20px rgba(99,102,241,.3), inset 0 1px 0 rgba(255,255,255,.1);
+}
+
+.mkcp-btn--primary.is-saved {
+    background    : var(--mkcp-ui-green);
+    box-shadow    : 0 0 0 1px rgba(34,197,94,.6), 0 4px 20px rgba(34,197,94,.35), inset 0 1px 0 rgba(255,255,255,.2);
+    pointer-events: none;
+    animation     : mkcp-pop 400ms cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* ─── Micro-feedback: toggle pulse ──────────────────────────────────────── */
+
+@keyframes mkcp-toggle-pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(99,102,241,0.55); }
+    100% { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+}
+
+.mkcp-toggle-track.is-pulsing { animation: mkcp-toggle-pulse 550ms ease-out; }
+
+/* ─── License tier enforcement ──────────────────────────────────────────── */
+
+.mkcp-no-license-banner {
+    display       : flex;
+    align-items   : center;
+    gap           : 10px;
+    padding       : 12px 20px;
+    margin        : 0 0 20px;
+    background    : var(--mkcp-ui-red-soft);
+    border        : 1px solid rgba(248,113,113,.25);
+    border-radius : var(--mkcp-ui-radius);
+    color         : var(--mkcp-ui-red);
+    font-size     : 13px;
+    flex-shrink   : 0;
+    width: fit-content;
+    margin-left: 40px;
+}
+.mkcp-no-license-banner a {
+    color        : var(--mkcp-ui-red);
+    font-weight  : 600;
+    text-decoration: underline;
+}
+.mkcp-no-license-banner svg { flex-shrink: 0; }
+
+.mkcp-premium-badge {
+    display        : inline-block;
+    font-size      : 9px;
+    font-weight    : 700;
+    text-transform : uppercase;
+    letter-spacing : .5px;
+    padding        : 2px 6px;
+    border-radius  : 4px;
+    background     : rgba(99,102,241,.15);
+    color          : var(--mkcp-ui-accent);
+    vertical-align : middle;
+    margin-left    : 6px;
+    line-height    : 1.4;
+}
+
+.mkcp-tier-locked {
+    position : relative;
+    overflow : hidden;
+}
+
+.mkcp-tier-locked > *:not(.mkcp-tier-lock-overlay) {
+    opacity        : 0.35;
+    pointer-events : none;
+    user-select    : none;
+}
+
+.mkcp-tier-lock-overlay {
+    position        : absolute;
+    inset           : 0;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    background      : var(--mkcp-ui-lock-overlay);
+    backdrop-filter : blur(3px);
+    z-index         : 10;
+    border-radius   : inherit;
+}
+
+.mkcp-tier-lock-content {
+    display         : flex;
+    flex-direction  : column;
+    align-items     : center;
+    gap             : 8px;
+    text-align      : center;
+    color           : var(--mkcp-ui-text2);
+    font-size       : 13px;
+    font-weight     : 600;
+    padding         : 20px;
+}
+
+.mkcp-tier-lock-content svg {
+    opacity : 0.7;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+    .mkcp-sidebar { width: 200px; }
+    .mkcp-panel   { padding: 28px 28px; }
+}
+
+@media (max-width: 850px) {
+    #mkcp-admin-wrap { flex-direction: column; }
+    .mkcp-sidebar { width: 100%; overflow: visible; flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--mkcp-ui-border); }
+    .mkcp-nav-wrap { overflow: visible; flex: none; display: block; }
+    .mkcp-nav { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px; padding: 8px; min-height: 0; box-shadow: none; }
+    .mkcp-sidebar-logo, .mkcp-sidebar-footer { display: none; }
+}

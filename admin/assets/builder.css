@@ -1,0 +1,1097 @@
+/* ── MK Cart Popup — Content Builder styles ─────────────────────────────── */
+
+/* Builder panel uses the standard block layout */
+.mkcp-panel--builder {
+    max-width: 680px;
+}
+
+/* Builder canvas — single column (preview lives in the sidebar) */
+.mkcp-builder-wrap {
+    display: block;
+}
+
+/* ── Left canvas ─────────────────────────────────────────────────────────── */
+
+.mkcp-builder-canvas {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 580px;
+}
+
+/* ── Inline editing in preview ───────────────────────────────────────────── */
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview [data-mkcp-field] {
+    cursor        : text;
+    border-radius : 3px;
+    min-width     : 16px;
+    outline       : 1.5px dashed transparent;
+    outline-offset: 2px;
+    transition    : background 0.15s, outline-color 0.15s;
+}
+
+/* All editable fields glow faintly when cursor enters the preview */
+.mkcp-popup-sidebar:hover .mk-cart-popup.mkcp-is-preview [data-mkcp-field] {
+    outline-color: rgba(93, 107, 248, 0.25);
+    background   : rgba(93, 107, 248, 0.04);
+}
+
+/* Individual element hover: brighter */
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview [data-mkcp-field]:hover {
+    background   : rgba(93, 107, 248, 0.11);
+    outline-color: rgba(93, 107, 248, 0.6);
+}
+
+/* Focus (active editing) */
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview [data-mkcp-field]:focus {
+    background    : rgba(93, 107, 248, 0.13);
+    outline       : 2px solid rgba(93, 107, 248, 0.6);
+    outline-offset: 2px;
+}
+
+/* Save feedback in toolbar */
+.mkcp-toolbar-save-feedback {
+    font-size  : 12px;
+    font-weight: 600;
+    line-height: 1;
+    position: absolute;
+    line-height: 1;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.mkcp-toolbar-save-feedback.is-success { color: #1fa463; }
+.mkcp-toolbar-save-feedback.is-error   { color: #e03e52; }
+
+/* Block type picker */
+.mkcp-builder-picker {
+    background   : var(--mkcp-ui-surface);
+    border       : 1px solid var(--mkcp-ui-border);
+    border-radius: 10px;
+    padding      : 14px;
+}
+
+.mkcp-builder-picker-header {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    margin-bottom  : 10px;
+}
+
+.mkcp-builder-picker-title {
+    font-size     : 11px;
+    font-weight   : 600;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color         : var(--mkcp-ui-text3);
+}
+
+.mkcp-builder-picker-hint {
+    display    : flex;
+    align-items: center;
+    gap        : 4px;
+    font-size  : 11px;
+    font-weight: 500;
+    color      : var(--mkcp-ui-accent);
+    opacity    : .75;
+}
+
+.mkcp-builder-picker-grid {
+    display              : grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap                  : 8px;
+}
+
+.mkcp-block-add-btn {
+    position      : relative;
+    display       : flex;
+    flex-direction: column;
+    align-items   : center;
+    gap           : 5px;
+    padding       : 12px 6px 10px;
+    background    : var(--mkcp-ui-bg);
+    border        : 1.5px dashed var(--mkcp-ui-border);
+    border-radius : 8px;
+    font-size     : 11px;
+    color         : var(--mkcp-ui-text2);
+    transition    : border-color .15s, background .15s, color .15s, transform .1s, box-shadow .1s;
+    line-height   : 1.3;
+    user-select   : none;
+}
+
+.mkcp-block-add-btn:hover {
+    border-color: var(--mkcp-ui-accent);
+    background  : rgba(93,107,248,.06);
+    color       : var(--mkcp-ui-accent);
+    transform   : translateY(-1px);
+    box-shadow  : 0 3px 10px rgba(93,107,248,.12);
+}
+
+.mkcp-block-add-drag {
+    position : absolute;
+    top      : 5px;
+    right     : 6px;
+    font-size: 12px;
+    opacity  : .3;
+    line-height: 1;
+    transition: opacity .15s;
+}
+
+.mkcp-block-add-btn:hover .mkcp-block-add-drag {
+    opacity: .7;
+}
+
+.mkcp-block-add-icon {
+    font-size  : 16px;
+    font-weight: 700;
+    line-height: 1;
+    color      : inherit;
+    display    : flex;
+    align-items: center;
+}
+
+/* Zones */
+.mkcp-zones {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mkcp-zone {
+    background: var(--mkcp-ui-surface);
+    border: 1px solid var(--mkcp-ui-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.mkcp-zone-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--mkcp-ui-bg);
+    border-bottom: 1px solid var(--mkcp-ui-border);
+}
+
+.mkcp-zone-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mkcp-ui-text2);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.mkcp-zone-count {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(93,107,248,.12);
+    color: var(--mkcp-ui-accent);
+    font-weight: 600;
+}
+
+.mkcp-zone-list {
+    min-height: 44px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: background .15s;
+}
+
+.mkcp-zone-list.sortable-ghost-over,
+.mkcp-zone-list.sortable-over {
+    background   : rgba(93,107,248,.07);
+    border-radius: 6px;
+    outline      : 2px dashed rgba(93,107,248,.3);
+    outline-offset: -2px;
+}
+
+.mkcp-zone-drop-target {
+    background   : rgba(93,107,248,.04);
+    border-radius: 6px;
+}
+
+/* Block items */
+.mkcp-block-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    background: var(--mkcp-ui-bg);
+    border: 1px solid var(--mkcp-ui-border);
+    border-radius: 7px;
+    cursor: default;
+    transition: border-color .12s, box-shadow .12s;
+    user-select: none;
+}
+
+.mkcp-block-item:hover {
+    border-color: rgba(93,107,248,.4);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+.mkcp-block-item.sortable-chosen {
+    opacity: .7;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+
+.mkcp-block-item.sortable-ghost {
+    opacity: .3;
+}
+
+.mkcp-block-handle {
+    cursor: grab;
+    color: var(--mkcp-ui-text3);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.mkcp-block-handle:active { cursor: grabbing; }
+
+.mkcp-block-handle svg {
+    width: 14px;
+    height: 14px;
+}
+
+.mkcp-block-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(93,107,248,.12);
+    color: var(--mkcp-ui-accent);
+}
+
+.mkcp-block-preview {
+    flex: 1;
+    font-size: 11px;
+    color: var(--mkcp-ui-text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mkcp-block-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+.mkcp-block-item:hover .mkcp-block-actions {
+    opacity: 1;
+}
+
+.mkcp-block-action {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--mkcp-ui-text3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: color .12s, background .12s;
+}
+
+.mkcp-block-action svg {
+    width: 13px;
+    height: 13px;
+}
+
+.mkcp-block-action:hover {
+    color: var(--mkcp-ui-text);
+    background: var(--mkcp-ui-surface);
+}
+
+.js-mkcp-delete-block:hover {
+    color: #e74c3c !important;
+}
+
+/* ── Popup preview sidebar ───────────────────────────────────────────────── */
+
+.mkcp-popup-sidebar {
+    flex-shrink   : 0;
+    width         : var(--mkcp-width, 470px);
+    height        : 100%;
+    border-left   : 1px solid var(--mkcp-ui-border);
+    position      : relative;
+    z-index       : 2;
+    display       : flex;
+    flex-direction: column;
+    overflow      : hidden;
+    transition    : width 460ms cubic-bezier(0.22, 1, 0.36, 1),
+                    border-color 460ms ease;
+}
+
+.mkcp-popup-sidebar.is-plugin-disabled {
+    width: 0;
+    border-left-color: transparent;
+}
+
+.mkcp-device-frame {
+    flex           : 1;
+    min-height     : 0;
+    display        : flex;
+    flex-direction : column;
+    margin         : 10px;
+    border-radius  : 10px;
+    box-shadow     : 0 0 0 1px var(--mkcp-ui-border, #e0e0e0),
+                     0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow       : hidden;
+}
+
+.mkcp-popup-sidebar-inner {
+    width         : 100%;
+    flex          : 1;
+    min-height    : 0;
+    overflow-y    : auto;
+    overflow-x    : hidden;
+    pointer-events: auto;
+}
+
+/*
+ * Token overrides voor de preview — de frontend-tokens zijn afgesteld op de
+ * browser-fontgrootte van de eindgebruiker. In de admin-preview tonen we
+ * de popup op zijn "design intent" grootte (root 16px baseline).
+ */
+.mkcp-popup-sidebar .mk-cart-popup__drawer {
+    --mkcp-font-title  : 1.125rem;   /* 18px */
+    --mkcp-font-base   : 0.875rem;   /* 14px */
+    --mkcp-font-sm     : 0.75rem;    /* 12px */
+    --mkcp-font-xs     : 0.6875rem;  /* 11px */
+    --mkcp-space-outer : 1.25rem;    /* 20px */
+    --mkcp-space-inner : 1rem;       /* 16px */
+    --mkcp-space-sm    : 0.75rem;    /* 12px */
+    --mkcp-img-size    : 4rem;       /* 64px */
+}
+
+/* The popup inside the sidebar fills it naturally */
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview {
+    position      : static;
+    inset         : auto;
+    z-index       : auto;
+    visibility    : visible;
+    pointer-events: none;
+    display       : block;
+    height        : auto;
+    min-height    : 100%;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__backdrop {
+    display: none;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__drawer {
+    position     : relative;
+    top: auto; right: auto; bottom: auto;
+    width        : 100%;
+    max-width    : 100%;
+    transform    : none;
+    opacity      : 1;
+    border-radius: 0;
+    box-shadow   : none;
+    min-height   : 0;
+    height       : auto;
+    overflow     : visible;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__body {
+    overflow  : visible;
+    flex      : 0 0 auto;
+    max-height: none;
+}
+
+/* Mock product image placeholder */
+.mkcp-preview-img-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #e0e4f0 0%, #f5f6fa 100%);
+}
+
+/* Mock payment icons in preview */
+.mkcp-preview-pay-placeholder {
+    display: flex;
+    gap: 6px;
+}
+
+.mkcp-preview-pay-placeholder span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 8px;
+    border: 1px solid var(--mkcp-light1, #e8e8e8);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--mkcp-text-light, #888);
+    background: var(--mkcp-bg, #fff);
+}
+
+
+/* ── Block editor modal ──────────────────────────────────────────────────── */
+
+.mkcp-block-editor {
+    position: fixed;
+    inset: 0;
+    z-index: 100060;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,.45);
+    padding: 20px;
+}
+
+.mkcp-block-editor-inner {
+    background: var(--mkcp-ui-surface);
+    border: 1px solid var(--mkcp-ui-border);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    animation: mkcp-modal-in 180ms ease;
+}
+
+@keyframes mkcp-modal-in {
+    from { opacity: 0; transform: scale(.95) translateY(8px); }
+    to   { opacity: 1; transform: scale(1)  translateY(0); }
+}
+
+.mkcp-block-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--mkcp-ui-border);
+}
+
+.mkcp-block-editor-header strong {
+    font-size: 14px;
+    color: var(--mkcp-ui-text);
+}
+
+.mkcp-block-editor-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--mkcp-ui-text3);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: color .12s;
+}
+
+.mkcp-block-editor-close:hover { color: var(--mkcp-ui-text); }
+
+.mkcp-block-editor-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.mkcp-editor-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.mkcp-editor-field label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mkcp-ui-text3);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.mkcp-editor-field input[type="text"],
+.mkcp-editor-field input[type="url"],
+.mkcp-editor-field select,
+.mkcp-editor-field textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--mkcp-ui-bg);
+    border: 1px solid var(--mkcp-ui-border);
+    border-radius: 7px;
+    color: var(--mkcp-ui-text);
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color .15s;
+}
+
+.mkcp-editor-field input:focus,
+.mkcp-editor-field select:focus,
+.mkcp-editor-field textarea:focus {
+    border-color: var(--mkcp-ui-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(93,107,248,.12);
+}
+
+.mkcp-editor-field textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.mkcp-editor-field .mkcp-media-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.mkcp-editor-field .mkcp-media-row input {
+    flex: 1;
+}
+
+.mkcp-block-editor-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--mkcp-ui-border);
+}
+
+/* ── Palette drag ────────────────────────────────────────────────────────── */
+
+.mkcp-block-add-btn {
+    cursor: grab;
+}
+
+.mkcp-block-add-btn:active,
+.mkcp-palette-chosen {
+    cursor : grabbing;
+    opacity: .7;
+    box-shadow: 0 4px 14px rgba(0,0,0,.15);
+}
+
+/* ── Preview zone drop targets ───────────────────────────────────────────── */
+
+/* Allow pointer events on interactive preview elements */
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mkcp-pzone,
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mkcp-preview-block,
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mkcp-preview-edit-btn,
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mkcp-preview-del-btn,
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview [data-mkcp-field],
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mkcp-preview-section,
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mkcp-preview-toggle-btn {
+    pointer-events: auto;
+}
+
+.mkcp-pzone {
+    position     : relative;
+    min-height   : 6px;
+    border-radius: 6px;
+    transition   : min-height .2s ease, background .2s ease, border-color .2s ease;
+    border       : 1.5px dashed transparent;
+    margin       : 3px 0;
+}
+
+/* Lichte hint alleen zichtbaar als de builder-tab actief is (.is-empty via JS gezet) */
+#mkcp-admin-wrap[data-active-panel="builder"] #mkcp-preview-frame .mkcp-pzone.is-empty {
+    border        : 1px dashed rgba(93, 107, 248, .45);
+    background    : rgba(93, 107, 248, .04);
+    border-radius : 6px;
+    min-height    : 36px;
+    display       : flex;
+    align-items   : center;
+    justify-content: center;
+    margin        : 2px 6px;
+    cursor        : pointer;
+}
+
+/* Zones expand and glow when dragging from palette */
+#mkcp-preview-frame.is-dragging .mkcp-pzone {
+    min-height     : 36px;
+    background     : rgba(93, 107, 248, .07);
+    border         : 2px dashed rgba(93, 107, 248, .35);
+    border-radius  : 8px;
+    margin         : 4px 10px;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+}
+
+
+#mkcp-preview-frame.is-dragging .mkcp-pzone:hover,
+#mkcp-preview-frame.is-dragging .mkcp-pzone.sortable-over {
+    background: rgba(93, 107, 248, .12);
+    border-color: var(--mkcp-ui-accent);
+    box-shadow: 0 0 0 3px rgba(93, 107, 248, .15);
+}
+
+.mkcp-pzone-empty {
+    display: none;
+}
+
+#mkcp-admin-wrap[data-active-panel="builder"] .mkcp-pzone-empty {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : 5px;
+    text-align     : center;
+    font-size      : 11px;
+    font-weight    : 500;
+    color          : rgba(93, 107, 248, .6);
+    padding        : 6px 8px;
+    pointer-events : none;
+    letter-spacing : .2px;
+}
+
+#mkcp-preview-frame.is-dragging .mkcp-pzone-empty {
+    color    : rgba(93, 107, 248, .65);
+    font-size: 11px;
+}
+
+/* ── Zone-click popover ──────────────────────────────────────────────────── */
+
+.mkcp-zone-popover {
+    position      : fixed;
+    z-index       : 99999;
+    background    : var(--mkcp-ui-surface);
+    border        : 1px solid var(--mkcp-ui-border2);
+    border-radius : 14px;
+    box-shadow    : 0 12px 32px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08);
+    padding       : 14px;
+    min-width     : 240px;
+}
+
+.mkcp-zone-popover__label {
+    font-size     : 10px;
+    font-weight   : 600;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color         : var(--mkcp-ui-text3);
+    margin-bottom : 10px;
+    padding       : 0 2px;
+}
+
+.mkcp-zone-popover__grid {
+    display              : grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap                  : 7px;
+}
+
+.mkcp-zone-popover__btn {
+    display        : flex;
+    flex-direction : column;
+    align-items    : center;
+    justify-content: center;
+    gap            : 6px;
+    padding        : 14px 8px;
+    background     : var(--mkcp-ui-surface2);
+    border         : 1px solid var(--mkcp-ui-border2);
+    border-radius  : 10px;
+    cursor         : pointer;
+    font-size      : 12px;
+    font-weight    : 500;
+    color          : var(--mkcp-ui-text2);
+    transition     : background var(--mkcp-ui-transition), border-color var(--mkcp-ui-transition), color var(--mkcp-ui-transition), box-shadow var(--mkcp-ui-transition);
+    line-height    : 1.2;
+    white-space    : nowrap;
+}
+
+.mkcp-zone-popover__btn:hover {
+    background  : rgba(93, 107, 248, .08);
+    border-color: var(--mkcp-ui-accent);
+    color       : var(--mkcp-ui-accent);
+    box-shadow  : 0 0 0 3px rgba(93, 107, 248, .12);
+}
+
+.mkcp-zone-popover__icon {
+    font-size  : 16px;
+    line-height: 1;
+    color      : var(--mkcp-ui-text3);
+    display    : flex;
+    align-items: center;
+}
+
+.mkcp-zone-popover__btn:hover .mkcp-zone-popover__icon {
+    color: var(--mkcp-ui-accent);
+}
+
+/* ── Preview block click-to-edit ─────────────────────────────────────────── */
+
+.mkcp-preview-block {
+    position: relative;
+    cursor: default;
+}
+
+.mkcp-preview-block-overlay {
+    position       : absolute;
+    inset          : 0;
+    border-radius  : 4px;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : 6px;
+    opacity        : 0;
+    transition     : opacity .15s, background .15s;
+    pointer-events : none;
+    z-index        : 10;
+}
+
+.mkcp-preview-block:hover .mkcp-preview-block-overlay {
+    opacity        : 1;
+    background     : rgba(93, 107, 248, .08);
+    pointer-events : auto;
+    outline        : 2px solid rgba(93, 107, 248, .4);
+    outline-offset : -1px;
+}
+
+.mkcp-preview-edit-btn,
+.mkcp-preview-del-btn {
+    height        : 30px;
+    padding       : 0 12px;
+    border        : none;
+    border-radius : 6px;
+    font-size     : 11px;
+    font-weight   : 600;
+    cursor        : pointer;
+    display       : flex;
+    align-items   : center;
+    gap           : 5px;
+    pointer-events: auto;
+    white-space   : nowrap;
+    transition    : transform .1s, box-shadow .1s;
+}
+
+.mkcp-preview-edit-btn {
+    background: var(--mkcp-ui-accent);
+    color     : #fff;
+    box-shadow: 0 2px 8px rgba(93, 107, 248, .4);
+}
+
+.mkcp-preview-edit-btn:hover {
+    transform : translateY(-1px);
+    box-shadow: 0 4px 12px rgba(93, 107, 248, .5);
+}
+
+.mkcp-preview-del-btn {
+    background: #ef4444;
+    color     : #fff;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, .35);
+    padding   : 0 10px;
+}
+
+.mkcp-preview-del-btn:hover {
+    transform : translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, .5);
+}
+
+
+/* ── Disabled block ───────────────────────────────────────────────── */
+
+.mkcp-block-item.is-disabled {
+    opacity: .45;
+}
+
+/* ── Editor row (side-by-side fields) ─────────────────────────────── */
+
+.mkcp-editor-row {
+    display: flex;
+    gap: 12px;
+}
+
+.mkcp-editor-row > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Preview toolbar ─────────────────────────────────────────────── */
+
+#mkcp-preview-toolbar {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    padding        : 8px 12px;
+    background     : var(--mkcp-ui-surface, #fff);
+    border-bottom  : 1px solid var(--mkcp-ui-border, #e5e7eb);
+    gap            : 8px;
+    flex-shrink    : 0;
+    position: relative;
+}
+
+.mkcp-preview-toolbar-group {
+    display: flex;
+    gap: 4px;
+}
+
+.mkcp-toolbar-btn {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 5px;
+    padding    : 5px 10px;
+    border     : 1px solid var(--mkcp-ui-border, #e5e7eb);
+    border-radius: 6px;
+    background : var(--mkcp-ui-bg, #f9fafb);
+    color      : var(--mkcp-ui-text-muted, #6b7280);
+    font-size  : 11px;
+    font-weight: 600;
+    cursor     : pointer;
+    transition : background .12s, color .12s, border-color .12s;
+}
+
+.mkcp-toolbar-btn:hover:not(:disabled) {
+    background  : var(--mkcp-ui-surface, #fff);
+    color       : var(--mkcp-ui-text, #111827);
+    border-color: var(--mkcp-ui-accent, #6366f1);
+}
+
+.mkcp-toolbar-btn.is-active {
+    background  : var(--mkcp-ui-accent, #6366f1);
+    color       : #fff;
+    border-color: var(--mkcp-ui-accent, #6366f1);
+}
+
+.mkcp-toolbar-btn:disabled {
+    opacity: .4;
+    cursor : default;
+}
+
+/* Save button — unsaved changes state */
+#mkcp-builder-save-btn.is-dirty {
+    background  : var(--mkcp-ui-accent, #6366f1);
+    color       : #fff;
+    border-color: var(--mkcp-ui-accent, #6366f1);
+    box-shadow  : 0 0 0 3px rgba(93, 107, 248, 0.25);
+    animation   : mkcp-save-pulse 1.8s ease-in-out infinite;
+}
+
+#mkcp-builder-save-btn.is-dirty:hover {
+    background: color-mix(in srgb, var(--mkcp-ui-accent, #6366f1) 85%, #000);
+    animation : none;
+}
+
+@keyframes mkcp-save-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(93, 107, 248, 0.25); }
+    50%       { box-shadow: 0 0 0 6px rgba(93, 107, 248, 0.08); }
+}
+
+/* ── Section toggle (only rendered when Content Builder tab is open) ──────── */
+
+.mkcp-preview-section {
+    position: relative;
+}
+
+.mkcp-preview-section.is-off {
+    pointer-events  : none;
+}
+
+.mkcp-preview-section.is-off .mkcp-preview-toggle-btn {
+    pointer-events  : auto;
+    opacity         : 0.6;
+}
+
+.mkcp-preview-section.is-off > *:not(.mkcp-preview-toggle-btn) {
+    opacity         : 0.38;
+}
+
+/* Full-width label-bar: text on the left, switch on the right */
+.mkcp-preview-toggle-btn {
+    display         : flex;
+    align-items     : center;
+    justify-content : space-between;
+    width           : 100%;
+    padding         : 5px 10px 5px 10px;
+    margin-bottom   : 4px;
+    border          : none;
+    border-top      : 1px solid rgba(93, 107, 248, 0.15);
+    border-bottom   : 1px solid rgba(93, 107, 248, 0.15);
+    border-radius   : 0;
+    background      : rgba(93, 107, 248, 0.10);
+    color           : #5d6bf8;
+    font-size       : 11px;
+    font-weight     : 600;
+    letter-spacing  : 0.02em;
+    text-transform  : uppercase;
+    cursor          : pointer;
+    transition      : background 0.15s;
+    pointer-events  : auto;
+    text-align      : left;
+}
+
+.mkcp-preview-toggle-btn:hover {
+    background      : rgba(93, 107, 248, 0.18);
+}
+
+.mkcp-preview-toggle-sw {
+    display         : inline-block;
+    width           : 28px;
+    height          : 16px;
+    border-radius   : 8px;
+    background      : #ccc;
+    position        : relative;
+    transition      : background 0.2s;
+    flex-shrink     : 0;
+    margin-left     : 10px;
+}
+
+.mkcp-preview-toggle-sw::after {
+    content         : '';
+    position        : absolute;
+    top             : 2px;
+    left            : 2px;
+    width           : 12px;
+    height          : 12px;
+    border-radius   : 50%;
+    background      : #fff;
+    transition      : transform 0.2s;
+}
+
+.mkcp-preview-toggle-sw.is-on {
+    background      : #5d6bf8;
+}
+
+.mkcp-preview-toggle-sw.is-on::after {
+    transform       : translateX( 12px );
+}
+
+/* ── Dirty banner: only relevant when builder tab is open ────────────────── */
+
+#mkcp-admin-wrap:not([data-active-panel="builder"]) #mkcp-dirty-banner {
+    display         : none;
+}
+
+/* ── Dirty banner (niet-opgeslagen wijzigingen) ──────────────────────────── */
+
+#mkcp-dirty-banner {
+    display         : none;
+    align-items     : center;
+    gap             : 7px;
+    padding         : 9px 14px;
+    background      : #fffbeb;
+    border-bottom   : 1px solid #f59e0b;
+    color           : #92400e;
+    font-size       : 12px;
+    font-weight     : 500;
+    line-height     : 1.4;
+    flex-shrink     : 0;
+}
+
+#mkcp-dirty-banner.is-visible {
+    display         : flex;
+}
+
+#mkcp-dirty-banner svg {
+    flex-shrink     : 0;
+    stroke          : #d97706;
+}
+
+#mkcp-dirty-banner strong {
+    font-weight     : 700;
+}
+
+/* ── Auto-save toast ─────────────────────────────────────────────────────── */
+
+#mkcp-save-toast {
+    position        : fixed;
+    bottom          : 28px;
+    left            : 50%;
+    transform       : translateX(-50%) translateY(12px);
+    z-index         : 999999;
+    padding         : 11px 20px;
+    border-radius   : 8px;
+    font-size       : 13px;
+    font-weight     : 600;
+    white-space     : nowrap;
+    pointer-events  : none;
+    opacity         : 0;
+    box-shadow      : 0 4px 20px rgba(0, 0, 0, 0.18);
+    transition      : opacity 0.22s ease, transform 0.22s ease;
+}
+
+#mkcp-save-toast.is-success {
+    background      : #166534;
+    color           : #dcfce7;
+}
+
+#mkcp-save-toast.is-error {
+    background      : #7f1d1d;
+    color           : #fee2e2;
+}
+
+#mkcp-save-toast.is-visible {
+    opacity         : 1;
+    transform       : translateX(-50%) translateY(0);
+}
+
+/* ── Ghosted item-level features (stock badge, bewaar-knop) ─────────────── */
+
+.mkcp-ghost-feature {
+    opacity         : 0.35;
+    pointer-events  : none;
+}
+
+/* ── Preview fade-in on refresh (gives smooth section reveal feel) ────────── */
+
+@keyframes mkcp-preview-in {
+    from { opacity: 0.55; transform: translateY( 2px ); }
+    to   { opacity: 1;    transform: translateY( 0 );   }
+}
+
+.mk-cart-popup.mkcp-is-preview.mkcp-preview-in {
+    animation: mkcp-preview-in 0.22s ease forwards;
+}
+
+/* ── Floating field label ─────────────────────────────────────────────────── */
+
+#mkcp-field-label {
+    position        : fixed;
+    z-index         : 999999;
+    pointer-events  : none;
+    padding         : 2px 7px;
+    border-radius   : 4px;
+    background      : #5d6bf8;
+    color           : #fff;
+    font-size       : 11px;
+    font-weight     : 600;
+    letter-spacing  : 0.01em;
+    white-space     : nowrap;
+    opacity         : 0;
+    transform       : translateY( 2px );
+    transition      : opacity 0.12s ease, transform 0.12s ease;
+}
+
+#mkcp-field-label.is-visible {
+    opacity         : 1;
+    transform       : translateY( 0 );
+}
+
+/* ── "Klik om te bewerken" one-time tooltip ──────────────────────────────── */
+
+#mkcp-edit-tip {
+    position        : fixed;
+    z-index         : 999999;
+    pointer-events  : none;
+    padding         : 5px 10px;
+    border-radius   : 6px;
+    background      : rgba(30, 30, 40, 0.88);
+    color           : #fff;
+    font-size       : 12px;
+    white-space     : nowrap;
+    opacity         : 0;
+    transform       : translateY( -4px );
+    transition      : opacity 0.18s ease, transform 0.18s ease;
+}
+
+#mkcp-edit-tip.is-visible {
+    opacity         : 1;
+    transform       : translateY( 0 );
+}
+
+#mkcp-edit-tip.is-out {
+    opacity         : 0;
+    transform       : translateY( -4px );
+}

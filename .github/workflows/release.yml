@@ -1,0 +1,81 @@
+name: Release Plugin
+
+# Draait alleen als je op GitHub een Release publiceert.
+# Pushen naar main of dev triggert deze workflow NIET.
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── 1. Builder bouwen ───────────────────────────────────────────────────
+      - name: Build
+        run: npm ci && npm run build
+
+      # ── 2. Plugin-zip aanmaken ──────────────────────────────────────────────
+      # Bevat alleen wat eindgebruikers nodig hebben — geen dev-bestanden.
+      - name: Create zip
+        run: |
+          mkdir -p /tmp/build
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='src/' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='vite.config.js' \
+            --exclude='.gitignore' \
+            --exclude='DEVELOPMENT.md' \
+            ./ /tmp/build/mk-cart-popup/
+          cd /tmp/build
+          zip -r mk-cart-popup.zip mk-cart-popup/
+
+      # ── 3. Zip uploaden naar de GitHub Release ──────────────────────────────
+      - name: Upload zip to release
+        run: gh release upload ${{ github.ref_name }} /tmp/build/mk-cart-popup.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 4. Update-manifest bijwerken met nieuwe versie + download-URL ───────
+      - name: Update manifest
+        run: |
+          python3 - <<'EOF'
+          import json
+
+          with open('mk-cart-popup-update.json', 'r') as f:
+              data = json.load(f)
+
+          tag     = '${{ github.ref_name }}'
+          version = tag.lstrip('v')
+
+          data['version']      = version
+          data['download_url'] = (
+              f'https://github.com/mediakanjers/mk-cart-popup'
+              f'/releases/download/{tag}/mk-cart-popup.zip'
+          )
+
+          with open('mk-cart-popup-update.json', 'w') as f:
+              json.dump(data, f, indent=4, ensure_ascii=False)
+              f.write('\n')
+          EOF
+
+      # ── 5. Bijgewerkt manifest committen naar main ──────────────────────────
+      - name: Commit manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mk-cart-popup-update.json
+          git commit -m "chore: bump manifest to ${{ github.ref_name }}"
+          git push origin HEAD:main

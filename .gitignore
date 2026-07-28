@@ -1,0 +1,31 @@
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Vite ─────────────────────────────────────────────────────────────────────
+.vite/
+
+# ── OS-bestanden ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Editors ───────────────────────────────────────────────────────────────────
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+.claude/
+
+# ── Omgevingsbestanden ────────────────────────────────────────────────────────
+.env
+.env.local
+
+# ── NIET uitsluiten ───────────────────────────────────────────────────────────
+# admin/assets/builder.js  ← build-output, maar wél committen:
+#   eindgebruikers die de plugin installeren hebben geen Node.js,
+#   dus de gebouwde file moet in de repository zitten.
+# package-lock.json        ← committen voor reproduceerbare builds

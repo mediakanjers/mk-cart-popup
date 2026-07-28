@@ -1,0 +1,3140 @@
+/*
+ * MK Cart Popup — Stylesheet
+ *
+ * All visual properties are driven by CSS custom properties.
+ * Override any of them from your theme CSS — no need to edit this file:
+ *
+ *   :root {
+ *       --mkcp-accent : #your-brand-color;
+ *       --mkcp-width  : 420px;
+ *   }
+ */
+
+
+/* ── Custom properties / design tokens ───────────────────────────────────────── */
+
+:root {
+    /* Layout */
+    --mkcp-width  : 500px;
+    --mkcp-z      : 10000000;
+    --mkcp-anim   : 460ms cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Surface */
+    --mkcp-bg      : #ffffff;
+    --mkcp-shadow  : -4px 0 32px rgba(0, 0, 0, 0.12);
+    --mkcp-backdrop: rgba(0, 0, 0, 0.4);
+
+    /* Brand / accent — override this with your primary color */
+    --mkcp-accent  : #2e7d32;
+    --mkcp-primary : #2e7d32;   /* same as accent by default */
+    /* Zachte tint van de accentkleur, voor achtergronden (fallback-kaart,
+       USP-chips, is-flashing) — color-mix() zodat 'ie automatisch meegaat met
+       zowel deze default als een eventuele --mkcp-accent-override elders. */
+    --mkcp-accent-soft: color-mix(in srgb, var(--mkcp-accent) 12%, var(--mkcp-bg) 88%);
+
+    /* Text */
+    --mkcp-text        : #1a1a1a;
+    /* WCAG AA (4,5:1): #888888 haalde maar 3,54:1 op wit — #5b6472 haalt
+       5,98:1 op wit / 5,49:1 op de #f5f5f5-kaartachtergrond. */
+    --mkcp-text-light  : #5b6472;
+    --mkcp-dark        : #333333;
+
+    /* Borders / backgrounds */
+    --mkcp-light       : #f5f5f5;   /* hover backgrounds */
+    --mkcp-light1      : #e8e8e8;   /* borders, dividers */
+    --mkcp-light2      : #cccccc;   /* secondary borders */
+
+    /* Status */
+    --mkcp-danger      : #d32f2f;
+
+    /* Free-shipping progress bar */
+    --mkcp-progress-bg : #e3f2fd;
+
+    /* Buttons — primary (checkout) */
+    --mkcp-btn-p-bg    : var(--mkcp-accent);
+    --mkcp-btn-p-text  : #ffffff;
+    --mkcp-btn-p-border: none;
+
+    /* Buttons — secondary */
+    --mkcp-btn-s-bg     : transparent;
+    --mkcp-btn-s-text   : var(--mkcp-text);
+    --mkcp-btn-s-border : var(--mkcp-light2);
+
+    /*
+     * ── Spacing & typography tokens (em) ───────────────────────────────────
+     *
+     * All values in em, relative to the 16px font-size pinned on .mk-cart-popup
+     * below — NOT the page's root font-size. Themes routinely set a different
+     * html/body font-size (e.g. 62.5% or 20px for their own type scale); using
+     * rem here would inherit that and make the whole popup scale with it. em
+     * anchored to our own fixed 16px keeps the popup's proportions identical
+     * on every theme, while still scaling with the user's browser zoom.
+     *
+     * Override in your theme CSS if needed:
+     *   :root { --mkcp-space-outer: 1.25em; }
+     */
+
+    /* Horizontal padding (header, footer, items, progress) */
+    --mkcp-space-outer : 1.25em;     /* 20px @ 16px root */
+    /* Vertical padding (header, item rows, footer) */
+    --mkcp-space-inner : 1em;        /* 16px */
+    /* Small gap (progress bar, badges, section headers) */
+    --mkcp-space-sm    : 0.75em;     /* 12px */
+
+    /* Typography — compact schaal, vergelijkbaar met gangbare mini-cart widgets */
+    --mkcp-font-title  : 1.25em;     /* 20px — popup heading */
+    --mkcp-font-base   : 0.875em;    /* 14px — body text */
+    --mkcp-font-sm     : 0.75em;     /* 12px — meta / labels */
+    --mkcp-font-xs     : 0.6875em;   /* 11px — badges / hints */
+    /* meta/2xs blijven staan — al op het minimum voor leesbare tekst */
+    --mkcp-font-meta   : 0.72em;     /* ~11.5px — dense variation/meta list (dl.variation) */
+    --mkcp-font-2xs    : 0.625em;    /* ~10px — kleine uppercase labels (crosssell) */
+
+    /* Product image in cart row */
+    --mkcp-img-size    : 3.5em;        /* 64px */
+}
+
+/* ── Outer container (fixed, full-screen) ─────────────────────────────────── */
+.mk-cart-popup {
+    /* Pin the type baseline so the em-based tokens above never inherit the
+       theme's html/body font-size — see comment on the tokens block. */
+    font-size  : 16px;
+    position   : fixed;
+    inset      : 0;
+    z-index    : var(--mkcp-z);
+    pointer-events: none;
+    visibility : hidden;
+    transition : visibility 0s var(--mkcp-anim);
+    &.is-open {
+        pointer-events: all;
+        visibility : visible;
+        transition : visibility 0s;
+    }
+}
+
+/* ── Backdrop ─────────────────────────────────────────────────────────────── */
+.mk-cart-popup__backdrop {
+    position    : absolute;
+    inset       : 0;
+    background  : var(--mkcp-backdrop);
+    opacity     : 0;
+    transition  : opacity var(--mkcp-anim);
+    touch-action: none; /* iOS: aanraking op de backdrop mag de pagina erachter niet scrollen */
+    .is-open & {
+        opacity: 1;
+    }
+}
+
+/* ── Drawer panel ─────────────────────────────────────────────────────────── */
+.mk-cart-popup__drawer {
+    position      : absolute;
+    top: 0; right: 0; bottom: 0;
+    width         : var(--mkcp-width);
+    max-width     : 100vw;
+    background    : var(--mkcp-bg);
+    color         : var(--mkcp-text);
+    box-shadow    : var(--mkcp-shadow);
+    display       : flex;
+    flex-direction: column;
+    overflow      : hidden;
+    transform     : translateX(100%);
+    opacity       : 0;
+    transition    : transform var(--mkcp-anim), opacity var(--mkcp-anim), width var(--mkcp-anim), max-width var(--mkcp-anim);
+    .is-open & {
+        transform: translateX(0);
+        opacity  : 1;
+    }
+}
+
+/* ── Zichtbare focus-ring (toetsenbordnavigatie) ─────────────────────────────
+ * Het thema haalt sitebreed `outline` weg op button/input (zie style-main.css)
+ * zonder een zichtbaar alternatief terug te zetten. Voor de meeste bezoekers
+ * onopgemerkt (muisgebruik), maar binnen deze drawer draait de focus-trap
+ * juist om toetsenbordnavigatie — zonder eigen ring hierboven is voor die
+ * gebruiker onzichtbaar waar de focus staat. :focus-visible i.p.v. :focus,
+ * zodat een muisklik geen ring geeft, alleen Tab-navigatie. */
+#mk-cart-popup :is(a, button, input, select, textarea):focus-visible {
+    outline       : 2px solid var(--mkcp-accent);
+    outline-offset: 2px;
+}
+
+/* ── Volledig-scherm review-modus (Instellingen → Styling, premium) ─────────
+ * Toggle-knop in de header (.js-mkcp-expand-toggle, assets/cart-popup.js) zet
+ * .is-expanded op de root — géén losse instelling, gewoon een tijdelijke
+ * weergavekeuze van de klant zelf, per keer dat de drawer opent altijd weer
+ * ingeklapt begint. */
+.is-expanded .mk-cart-popup__drawer {
+    width: 100vw;
+}
+
+.mk-cart-popup--pos-center.is-expanded .mk-cart-popup__drawer {
+    max-width : 96vw;
+    max-height: 92vh;
+}
+
+/* ── Split-layout in volledig-scherm modus: 50% producten / 25% cross-sell /
+ * 25% samenvatting. Zonder cross-sell-producten valt dat terug op 75% / 25%
+ * (de kolom + scheidingslijn bestaan dan simpelweg niet in de HTML, zie
+ * cart-popup.php). .mk-cart-popup__content/__col-items/__col-cross/__col-side
+ * zijn normaal display:contents — géén visueel verschil met de bestaande
+ * gestapelde layout. Alleen vanaf 720px breed geactiveerd, anders passen twee
+ * extra kolommen niet naast de productlijst. */
+.mk-cart-popup__content,
+.mk-cart-popup__col-items,
+.mk-cart-popup__col-cross,
+.mk-cart-popup__col-side {
+    display: contents;
+}
+
+.mk-cart-popup__divider {
+    display: none;
+}
+
+/* De verzendbalk verhuist in split-modus naar de samenvatting-kolom (verderop
+ * in de HTML, zie cart-popup.php), maar moeten in de normale, gestapelde
+ * modus nog steeds bovenaan staan — order werkt ongeacht waar in de DOM iets
+ * zich bevindt, dus deze twee declaraties zijn genoeg om ze terug naar voren
+ * te halen in de (geflatte) flex-context van .mk-cart-popup__body. In de
+ * zijbalk zelf (waar ze sowieso al als eerste kinderen staan) verandert dit
+ * niets. */
+.mk-cart-popup__btw-switch {
+    order: -20;
+}
+
+.mk-cart-popup__progress {
+    order: -10;
+}
+
+.mk-cart-popup__delivery-preview {
+    order: -5;
+}
+
+.mk-cart-popup__crosssell-reason {
+    display: none;
+}
+
+.mk-cart-popup__crosssell-fallback,
+.mk-cart-popup__progress-link,
+.mk-cart-popup__cross-usps,
+.mk-cart-popup__cross-usps-title,
+.mk-cart-popup__coupon-label {
+    display: none;
+}
+
+@media screen and (min-width: 720px) {
+
+    .is-expanded .mk-cart-popup__body {
+        overflow: hidden;
+    }
+
+    .is-expanded .mk-cart-popup__content {
+        display   : flex;
+        flex      : 1;
+        min-height: 0;
+    }
+
+    .is-expanded .mk-cart-popup__col-items {
+        display   : block;
+        flex      : 3 1 0%; // 75% zonder cross-sell-kolom
+        min-width : 0;
+        overflow-y: auto;
+
+        // Gestaggerde infade bij het uitklappen (samen met .is-entering
+        // hieronder en cart-popup.js, dat de klasse één frame later
+        // verwijdert zodat de transition ook echt afspeelt).
+        opacity   : 1;
+        transform : translateY(0);
+        transition: opacity 320ms ease, transform 320ms ease;
+    }
+
+    .is-expanded .mk-cart-popup__content:has(.mk-cart-popup__col-cross) .mk-cart-popup__col-items {
+        flex: 2 1 0%; // 50% zodra de cross-sell-kolom er wél is
+    }
+
+    /* ── Producten als kaarten i.p.v. rijen, in een grid die meeschaalt met de
+       beschikbare breedte. Dezelfde HTML als de normale lijst — puur een
+       CSS-herschikking, net als bij de cross-sell-kolom hiernaast. */
+    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__items {
+        display              : grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        align-items          : start;
+        gap                  : 14px;
+    }
+
+    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item {
+        grid-template-columns: 1fr;
+        gap          : 0;
+        padding      : 12px;
+        border       : 1px solid var(--mkcp-light1);
+        border-radius: 12px;
+    }
+
+    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item-image {
+        width        : 100%;
+        height        : 120px;
+        margin-bottom: 10px;
+
+        img {
+            width        : 100%;
+            height        : 100%;
+            object-fit   : cover;
+            border-radius: 9px;
+        }
+    }
+
+    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item-actions {
+        flex-wrap      : wrap;
+        justify-content: space-between;
+    }
+
+    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item-col-price {
+        margin-top : 8px;
+        padding-top: 8px;
+        border-top : 1px solid var(--mkcp-light1);
+
+        &::before {
+            content    : "Totaal: ";
+            font-weight: 400;
+            color      : var(--mkcp-text-light);
+            font-size  : var(--mkcp-font-xs);
+        }
+    }
+
+    .is-expanded .mk-cart-popup__col-cross {
+        display         : flex;
+        flex-direction  : column;
+        flex            : 1 1 0%; // 25%
+        min-width       : 0;
+        overflow        : hidden; // de twee zones hieronder scrollen ieder voor zich
+        opacity         : 1;
+        transform       : translateY(0);
+        transition      : background 400ms ease, opacity 320ms ease, transform 320ms ease;
+        transition-delay: 0ms, 60ms, 60ms; // 2e kolom in de gestaggerde infade
+
+        /* Kort oplichten na klikken op "Bekijk suggesties" bij de verzendbalk
+           (.js-mkcp-progress-link, assets/cart-popup.js) — legt het verband
+           tussen de balk en deze kolom. */
+        &.is-flashing {
+            background: var(--mkcp-accent-soft);
+        }
+    }
+
+    /* ── 70/30 hoogtesplit: cross-sell (of de fallback-melding) bovenin,
+       USP's onderin — altijd in deze verhouding, ongeacht hoeveel content
+       er daadwerkelijk in elke zone staat. */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell,
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-fallback {
+        flex      : 7 1 0%;
+        min-height: 0;
+        overflow-y: auto;
+
+        // Vervaagt zachtjes naar wit onderaan i.p.v. een harde knip vlak voor
+        // de USP's — mask-image blijft (anders dan een pseudo-element) aan de
+        // zichtbare rand plakken, ongeacht scrollpositie.
+        -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent 100%);
+        mask-image        : linear-gradient(to bottom, #000 calc(100% - 36px), transparent 100%);
+    }
+
+
+    .is-expanded .mk-cart-popup__progress-link {
+        display      : inline-flex;
+        align-items  : center;
+        gap          : 4px;
+        margin-top   : 8px;
+        padding      : 0;
+        border       : none;
+        background   : none;
+        font-size    : var(--mkcp-font-xs);
+        font-weight  : 600;
+        color        : var(--mkcp-accent);
+        cursor       : pointer;
+
+        svg {
+            width : 12px;
+            height: 12px;
+        }
+    }
+
+    /* Compacte balk → uitgelichte kaart met echt wat aanwezigheid: groot
+       icoon-badge in de accentkleur, duidelijke typografische hiërarchie en
+       genoeg ademruimte i.p.v. alles tegen elkaar aan. */
+    .is-expanded .mk-cart-popup__delivery-preview {
+        align-items  : center;
+        gap          : 14px;
+        // Verticale marge (naast de horizontale) zodat de kaart niet meer
+        // vastplakt aan de verzendbalk erboven en de footer eronder.
+        margin       : 12px var(--mkcp-space-outer);
+        padding      : 18px;
+        border       : 1px solid var(--mkcp-light1);
+        border-radius: 12px;
+        background   : var(--mkcp-accent-soft);
+        box-shadow   : 0 1px 3px rgba(0, 0, 0, .06);
+    }
+
+    .is-expanded .mk-cart-popup__delivery-preview-icon {
+        width          : 48px;
+        height         : 48px;
+        align-items    : center;
+        justify-content: center;
+        border-radius  : 11px;
+        background     : var(--mkcp-accent);
+        color          : #fff;
+
+        svg { width: 23px; height: 23px; }
+    }
+
+    .is-expanded .mk-cart-popup__delivery-preview-text {
+        flex-direction: column;
+        align-items   : flex-start;
+        gap           : 2px;
+    }
+
+    .is-expanded .mk-cart-popup__delivery-preview-label {
+        font-size     : var(--mkcp-font-sm);
+        font-weight   : 700;
+        line-height   : 1.2;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color         : var(--mkcp-accent);
+
+        &::after {
+            content: "";
+        }
+    }
+
+    .is-expanded .mk-cart-popup__delivery-preview-date {
+        font-size  : 1.45em;
+        font-weight: 700;
+        line-height: 1.2;
+        color      : var(--mkcp-dark);
+    }
+
+    .is-expanded .mk-cart-popup__delivery-preview-note {
+        display    : block;
+        margin-top : 3px;
+        font-size  : var(--mkcp-font-sm);
+        color      : var(--mkcp-text-light);
+        line-height: 1.35;
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-fallback {
+        display      : flex;
+        align-items  : flex-start;
+        gap          : 8px;
+        padding      : var(--mkcp-space-inner) var(--mkcp-space-outer);
+        font-size    : var(--mkcp-font-sm);
+        line-height  : 1.5;
+        color        : var(--mkcp-text-light);
+
+        svg {
+            width      : 16px;
+            height     : 16px;
+            flex-shrink: 0;
+            color      : var(--mkcp-accent);
+            margin-top : 1px;
+        }
+    }
+
+    .is-expanded .mk-cart-popup__col-side {
+        display         : flex;
+        flex-direction  : column;
+        flex            : 1 1 0%; // 25%
+        min-width       : 0;
+        overflow-y      : auto;
+        box-shadow      : -22px 0 34px -26px rgba(0, 0, 0, .28);
+        opacity         : 1;
+        transform       : translateY(0);
+        transition      : opacity 320ms ease, transform 320ms ease;
+        transition-delay: 120ms; // 3e kolom in de gestaggerde infade
+    }
+
+    /* Startstand van de gestaggerde infade — cart-popup.js zet .is-entering
+       gelijk met .is-expanded en verwijdert 'm pas een frame later, zodat de
+       browser deze startstand eerst commit en de transition hierboven (met
+       oplopende transition-delay per kolom) daadwerkelijk afspeelt i.p.v. de
+       kolommen instant te tonen. */
+    .is-expanded.is-entering .mk-cart-popup__col-items,
+    .is-expanded.is-entering .mk-cart-popup__col-cross,
+    .is-expanded.is-entering .mk-cart-popup__col-side {
+        opacity  : 0;
+        transform: translateY(10px);
+    }
+
+    .is-expanded .mk-cart-popup__items-header {
+        display: none;
+    }
+
+    .is-expanded .mk-cart-popup__divider {
+        display    : block;
+        width      : 2px;
+        flex-shrink: 0;
+        position   : relative;
+        background : linear-gradient(
+            180deg,
+            transparent,
+            color-mix(in srgb, var(--mkcp-accent) 55%, transparent) 18%,
+            color-mix(in srgb, var(--mkcp-accent) 55%, transparent) 82%,
+            transparent
+        );
+    }
+
+    /* ── Cross-sell in de eigen 25%-kolom: blokjes onder elkaar i.p.v. de
+       horizontale slider. Puur een CSS-herschikking van dezelfde HTML — de
+       slider in de normale (smalle) drawer blijft volledig ongewijzigd. */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell {
+        border-top : none;
+        margin-top : 0;
+        // De 70%-zone kreeg net haar eigen overflow-y (regel hierboven) en dus
+        // geen ambient padding meer van .col-cross zelf — hier teruggezet.
+        padding-top: var(--mkcp-space-inner);
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-track {
+        &::before,
+        &::after {
+            display: none;
+        }
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-nav {
+        display: none;
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-list {
+        flex-direction  : column;
+        overflow        : visible;
+        scroll-snap-type: none;
+        cursor          : default;
+
+        &::before {
+            display: none;
+        }
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-title {
+        font-size     : var(--mkcp-font-base);
+        letter-spacing: 0;
+    }
+
+    /* Blokjes met de volle kolombreedte: grote foto bovenaan, tekst + knop
+       eronder — i.p.v. het compacte rijtje uit de smalle slider-kaart. Nog
+       steeds dezelfde elementen, alleen flex-direction + afmetingen wijzigen
+       binnen dit scope. */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-item {
+        width         : 100%;
+        flex-direction: column;
+        align-items   : stretch;
+        gap           : 10px;
+        padding       : 12px;
+        border-radius : 12px;
+        overflow      : hidden;
+        transition    : max-height 300ms ease, opacity 200ms ease, margin-bottom 300ms ease,
+                        padding 300ms ease, border-width 300ms ease;
+
+        &[data-fits-gap] {
+            order       : -1;
+            border-color: color-mix(in srgb, var(--mkcp-accent) 45%, var(--mkcp-light1));
+        }
+
+        /* Krimpt zachtjes weg i.p.v. abrupt te verdwijnen zodra .js-mkcp-crosssell-atc
+           het toevoegen bevestigd heeft (zie animateCrosssellRemoval in cart-popup.js). */
+        &.is-leaving {
+            opacity       : 0;
+            margin-bottom : 0;
+            padding-top   : 0;
+            padding-bottom: 0;
+            border-width  : 0;
+        }
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-img {
+        width        : 100%;
+        height        : 96px;
+        border-radius: 9px;
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-info {
+        flex: 0 1 auto;
+        gap : 4px;
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-name {
+        font-size  : var(--mkcp-font-base);
+        white-space: normal;
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-price {
+        font-size: var(--mkcp-font-base);
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-reason {
+        display    : block;
+        font-size  : var(--mkcp-font-2xs);
+        font-weight: 600;
+        color      : var(--mkcp-accent);
+        line-height: 1.3;
+        margin     : 2px 0;
+    }
+
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-view {
+        width      : 100%;
+        text-align : center;
+        padding    : 9px 12px;
+        border-radius: 8px;
+    }
+
+    /* Ronde icoon-knop → volle-breedte knop met tekstlabel. De tekst komt via
+       ::after (niet als los DOM-element) zodat de bestaande JS — die bij
+       succes .html(CHECK_SVG) zet, zie assets/cart-popup.js — 'm niet per
+       ongeluk wegveegt. .is-loading::after herstelt bewust weer een lege
+       content zodat de bestaande spinner (elders in dit bestand) intact
+       blijft; alle andere spinner-eigenschappen (rand, animatie) komen nog
+       gewoon van die oorspronkelijke regel, want die worden hier niet
+       overschreven. */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-atc {
+        width         : 100%;
+        height        : auto;
+        border-radius : 8px;
+        padding       : 9px 12px;
+        gap           : 6px;
+
+        svg { width: 14px; height: 14px; }
+
+        &::after {
+            content    : "Toevoegen";
+            font-size  : var(--mkcp-font-xs);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        &.is-loading::after {
+            content: '';
+        }
+
+        &.is-added::after {
+            content: "Toegevoegd";
+        }
+    }
+
+    /* USP's vullen de onderste 30% van de kolom, als stapel volle regels i.p.v.
+       de gecentreerde rij-met-wrap uit de footer-versie hieronder (die in deze
+       situatie verborgen wordt, zie .mk-cart-popup__footer .mk-cart-popup__usps
+       verderop — geen dubbele USP's tegelijk zichtbaar). */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__cross-usps {
+        display        : flex;
+        flex-direction : column;
+        align-items    : stretch;
+        justify-content: center;
+        flex           : 3 1 0%;
+        min-height     : 0;
+        overflow-y     : auto;
+        gap            : 10px;
+        padding        : 14px var(--mkcp-space-outer) 0;
+    }
+
+    /* Titel boven de USP's — alleen zichtbaar hier (volledig-scherm modus),
+       want .mk-cart-popup__cross-usps zelf is buiten .is-expanded al
+       display:none. De footer-versie van de USP's blijft titelloos. */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__cross-usps-title {
+        display       : block;
+        font-size     : var(--mkcp-font-2xs);
+        font-weight   : 700;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color         : var(--mkcp-text-light);
+    }
+
+    /* Groter en met eigen achtergrond-chip i.p.v. de kleine, platte tekstregel
+       uit de footer-versie — hoort meer te wegen nu het de hele onderste 30%
+       van de kolom vult. */
+    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__cross-usps .mk-cart-popup__usp {
+        gap          : 9px;
+        padding      : 9px 11px;
+        border-radius: 8px;
+        background   : var(--mkcp-accent-soft);
+        font-size    : var(--mkcp-font-base);
+        font-weight  : 500;
+
+        svg {
+            width : 16px;
+            height: 16px;
+        }
+    }
+
+    /* Voorkomt dubbele USP's: zodra de cross-sell-kolom bestaat, staan ze
+       daarin (hierboven) i.p.v. in de footer van de zijbalk. Zonder cross-sell
+       (75%/25%-fallback) blijft de footer-versie gewoon zichtbaar. */
+    .is-expanded .mk-cart-popup__content:has(.mk-cart-popup__col-cross) .mk-cart-popup__footer .mk-cart-popup__usps {
+        display: none;
+    }
+
+    /* Totalen + coupon + CTA blijven altijd in beeld onderin de zijbalk, ook
+       als de cross-sell-lijst erboven scrollt. */
+    .is-expanded .mk-cart-popup__footer {
+        // margin-top: auto (van de basisregel) blijft hier bewust intact —
+        // verankert dit blok onderin de kolom i.p.v. los te blijven staan
+        // vlak onder de bezorgdatum/kortingscode-kaarten, met een kale
+        // restruimte eronder.
+        position: sticky;
+        bottom  : 0;
+        z-index : 2;
+    }
+
+    /* De losstaande "vastgeplakte knop"-logica (IntersectionObserver op
+       .mk-cart-popup__ctas-sentinel, zie cart-popup.js) is overbodig zodra de
+       hele footer al sticky staat — neutraliseer 'm zodat er geen dubbele
+       fixed-position knop binnen de al-vastgeplakte zijbalk ontstaat. */
+    .is-expanded .mk-cart-popup__ctas.is-pinned {
+        position: static;
+        margin  : 8px calc(-1 * var(--mkcp-space-outer)) calc(-1 * var(--mkcp-space-inner));
+        z-index : auto;
+    }
+
+    /* Kortingscode als eigen kaartje i.p.v. een kaal inline rijtje — sluit aan
+       bij de kaart-behandeling die de bezorgdatum en USP's al kregen, zodat
+       de hele zijbalk consistent oogt. Puur een CSS-omhulsel om dezelfde
+       input/knop; de bestaande apply/feedback-JS blijft ongemoeid. */
+    .is-expanded .mk-cart-popup__coupon {
+        padding      : 12px;
+        border       : 1px solid var(--mkcp-light1);
+        border-radius: 10px;
+    }
+
+    .is-expanded .mk-cart-popup__coupon-label {
+        display       : block;
+        margin-bottom  : 8px;
+        font-size      : var(--mkcp-font-2xs);
+        font-weight    : 700;
+        text-transform : uppercase;
+        letter-spacing : .05em;
+        color          : var(--mkcp-text-light);
+    }
+}
+
+/* ── Drawer-positie (Instellingen → Styling, premium) ────────────────────────
+ * Default (geen modifier-klasse): rechts, zoals hierboven. Deze twee
+ * varianten hebben een hogere specificiteit (2 klassen) dan de basisregel
+ * hierboven en winnen dus altijd, ongeacht declaratievolgorde. */
+
+.mk-cart-popup--pos-left {
+    .mk-cart-popup__drawer {
+        left      : 0;
+        right     : auto;
+        transform : translateX(-100%);
+    }
+    &.is-open .mk-cart-popup__drawer {
+        transform: translateX(0);
+    }
+}
+
+.mk-cart-popup--pos-center {
+    .mk-cart-popup__drawer {
+        top          : 50%;
+        left         : 50%;
+        right        : auto;
+        bottom       : auto;
+        max-width    : min(94vw, var(--mkcp-width));
+        max-height   : min(88vh, 780px);
+        border-radius: 14px;
+        transform    : translate(-50%, -50%) scale(0.96);
+    }
+    &.is-open .mk-cart-popup__drawer {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.mk-cart-popup__header {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    padding        : var(--mkcp-space-inner) var(--mkcp-space-outer);
+    flex-shrink    : 0;
+    border-bottom  : 1px solid var(--mkcp-light1);
+}
+
+.mk-cart-popup__title {
+    display    : flex;
+    align-items: center;
+    gap        : 0.625em;
+    font-size  : var(--mkcp-font-title);
+    font-weight: 600;
+    color      : var(--mkcp-text);
+    svg {
+        width     : var(--mkcp-font-title);
+        height    : var(--mkcp-font-title);
+        flex-shrink: 0;
+        color     : var(--mkcp-accent);
+    }
+}
+
+.mk-cart-popup__header-actions {
+    display    : flex;
+    align-items: center;
+    gap        : 2px;
+    flex-shrink: 0;
+}
+
+.mk-cart-popup__expand {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 34px;
+    height         : 34px;
+    border         : none;
+    background     : none;
+    cursor         : pointer;
+    padding        : 0;
+    color           : var(--mkcp-dark);
+    border-radius  : 4px;
+    transition     : background 200ms, color 200ms;
+    &:hover {
+        background: var(--mkcp-light);
+        color     : var(--mkcp-text);
+    }
+    svg {
+        width : 18px;
+        height: 18px;
+        display: block;
+    }
+    .mk-cart-popup__expand-icon-collapse { display: none; }
+    .is-expanded & {
+        .mk-cart-popup__expand-icon-expand   { display: none; }
+        .mk-cart-popup__expand-icon-collapse { display: block; }
+    }
+}
+
+.mk-cart-popup__close {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 34px;
+    height         : 34px;
+    border         : none;
+    background     : none;
+    cursor         : pointer;
+    padding        : 0;
+    color          : var(--mkcp-dark);
+    border-radius  : 4px;
+    transition     : background 200ms, color 200ms;
+    &:hover {
+        background: var(--mkcp-light);
+        color     : var(--mkcp-text);
+    }
+    svg {
+        width : 30px;
+        height: 30px;
+        display: block;
+    }
+}
+
+
+/* ── Free-shipping progress bar ───────────────────────────────────────────── */
+
+.mk-cart-popup__progress {
+    padding    : var(--mkcp-space-sm) var(--mkcp-space-outer);
+    background : var(--mkcp-progress-bg);
+    flex-shrink: 0;
+}
+
+.mk-cart-popup__progress-text {
+    font-size    : var(--mkcp-font-base);
+    color        : var(--mkcp-dark);
+    margin-bottom: 7px;
+    line-height  : 1.4;
+
+    &--success {
+        color      : var(--mkcp-accent);
+        font-weight: 500;
+    }
+}
+
+.mk-cart-popup__progress-bar {
+    height       : 5px;
+    background   : var(--mkcp-light1);
+    border-radius: 3px;
+    overflow     : hidden;
+}
+
+.mk-cart-popup__progress-fill {
+    height       : 100%;
+    background   : var(--mkcp-accent);
+    border-radius: 3px;
+    transition   : width 500ms ease;
+}
+
+
+/* ── Bezorgdatum-preview (premium) ────────────────────────────────────────── */
+/* Compacte balk in de normale modus; wordt in de volledig-scherm zijbalk
+   (cart-popup.scss, is-expanded-blok) herschikt tot een uitgelichte kaart —
+   zelfde HTML, alleen CSS-herschikking, net als de andere zijbalk-onderdelen. */
+
+.mk-cart-popup__delivery-preview {
+    display    : flex;
+    align-items: center;
+    gap        : 8px;
+    padding    : var(--mkcp-space-sm) var(--mkcp-space-outer);
+    border-top : 1px solid var(--mkcp-light1);
+    flex-shrink: 0;
+}
+
+.mk-cart-popup__delivery-preview-icon {
+    display    : flex;
+    flex-shrink: 0;
+    color      : var(--mkcp-accent);
+
+    svg { width: 14px; height: 14px; }
+}
+
+.mk-cart-popup__delivery-preview-text {
+    display    : flex;
+    flex-wrap  : wrap;
+    align-items: baseline;
+    gap        : 4px;
+    font-size  : var(--mkcp-font-xs);
+    color      : var(--mkcp-text-light);
+}
+
+.mk-cart-popup__delivery-preview-label::after {
+    content: ":";
+}
+
+.mk-cart-popup__delivery-preview-date {
+    font-weight: 600;
+    color      : var(--mkcp-dark);
+}
+
+.mk-cart-popup__delivery-preview-note {
+    display: none; // alleen zichtbaar in de kaart-weergave hieronder
+}
+
+
+/* ── Scrollable body (items + footer + saved) ────────────────────────────── */
+
+.mk-cart-popup__body {
+    flex           : 1;
+    overflow-y     : auto;
+    overflow-x     : hidden;
+    display        : flex;
+    flex-direction : column;
+    min-height     : 0;
+    overscroll-behavior: contain; /* scroll-chaining naar de pagina erachter blokkeren */
+    scrollbar-width: thin;
+    scrollbar-color: var(--mkcp-light2) transparent;
+    &::-webkit-scrollbar       { width: 4px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background: var(--mkcp-light2); border-radius: 2px; }
+}
+
+
+/* ── Item list ────────────────────────────────────────────────────────────── */
+
+.mk-cart-popup__items-header {
+    display        : flex;
+    justify-content: space-between;
+    padding        : var(--mkcp-space-sm) var(--mkcp-space-outer);
+    border-bottom  : 1px solid var(--mkcp-light1);
+
+    span {
+        font-size      : var(--mkcp-font-xs);
+        text-transform : uppercase;
+        letter-spacing : 0.7px;
+        color          : var(--mkcp-text-light);
+    }
+}
+
+.mk-cart-popup__items {
+    flex          : 0 0 auto;
+    padding       : var(--mkcp-space-inner) var(--mkcp-space-outer);
+    display       : flex;
+    flex-direction: column;
+    gap           : var(--mkcp-space-inner);
+}
+
+
+/* ── Single cart item ─────────────────────────────────────────────────────── */
+
+.mk-cart-popup__item {
+    display              : grid;
+    grid-template-columns: var(--mkcp-img-size) 1fr auto;
+    gap                  : 1em;
+    align-items          : start;
+    padding-bottom       : var(--mkcp-space-inner);
+
+    &:last-child {
+        border-bottom : none;
+        padding-bottom: 0;
+    }
+}
+
+.mk-cart-popup__item-image {
+    display: block;
+
+    img {
+        width        : var(--mkcp-img-size);
+        height       : var(--mkcp-img-size);
+        object-fit   : contain;
+        border-radius: 4px;
+        display      : block;
+    }
+}
+
+.mk-cart-popup__item-info {
+    display       : flex;
+    flex-direction: column;
+    gap           : 0;
+
+    .variation {
+        display               : grid;
+        grid-template-columns : auto 1fr;
+        column-gap            : 6px;
+        row-gap               : 1px;
+        /* Eigen token i.p.v. --mkcp-font-xs (16px) — die is bedoeld voor losse
+           badges/hints, niet voor een dichte lijst van meerdere attributen.
+           Blijft in em zodat 'ie meeschaalt met de rest en overschrijfbaar
+           blijft via :root, net als alle andere --mkcp-* tokens. */
+        font-size             : var(--mkcp-font-meta);
+        color                 : var(--mkcp-text-light);
+        margin                : 4px 0 0;
+        padding               : 0;
+        line-height: 1.4;
+
+        dt {
+            font-weight : 500;
+            white-space : nowrap;
+            padding     : 0;
+            margin      : 0;
+        }
+
+        dd {
+            margin      : 0;
+            padding     : 0;
+            color       : var(--mkcp-text);
+            font-weight : 400;
+        }
+
+        p {
+            margin  : 0;
+            padding : 0;
+        }
+    }
+}
+
+.mk-cart-popup__item-name-wrap {
+    position: relative;
+
+    &::after {
+        content      : attr(data-name);
+        position     : absolute;
+        top          : calc(100% + 5px);
+        left         : 0;
+        background   : var(--mkcp-bg);
+        border       : 1px solid var(--mkcp-light2);
+        border-radius: 6px;
+        padding      : 9px 13px;
+        font-size    : var(--mkcp-font-base);
+        font-weight  : 400;
+        color        : var(--mkcp-text);
+        line-height  : 1.55;
+        box-shadow   : 0 4px 16px rgba(0, 0, 0, .1);
+        width        : max-content;
+        max-width    : 260px;
+        white-space  : normal;
+        pointer-events: none;
+        opacity      : 0;
+        transition   : opacity 150ms;
+        z-index      : 10;
+    }
+
+    &:hover::after {
+        opacity: 1;
+    }
+}
+
+.mk-cart-popup__item-name {
+    display             : -webkit-box;
+    -webkit-line-clamp  : 2;
+    line-clamp          : 2;
+    -webkit-box-orient  : vertical;
+    overflow            : hidden;
+    font-size           : var(--mkcp-font-base);
+    font-weight         : 500;
+    color               : var(--mkcp-text);
+    text-decoration     : none;
+    line-height         : 1.35;
+
+    &:hover {
+        color: var(--mkcp-primary);
+    }
+}
+
+.mkcp-var-surcharge {
+    display      : inline-block;
+    font-size    : 0.85em;
+    font-weight  : 700;
+    color        : var(--mkcp-accent);
+    border       : 1px solid var(--mkcp-accent);
+    padding      : 0 4px;
+    border-radius: 3px;
+    margin-left  : 3px;
+    white-space  : nowrap;
+    opacity      : 0.85;
+    vertical-align: middle;
+}
+
+.mk-cart-popup__item-price {
+    font-size  : var(--mkcp-font-sm);
+    font-weight: 600;
+    color      : var(--mkcp-text-light);
+    margin-top : 0;
+}
+
+.mk-cart-popup__item-col-price {
+    text-align : right;
+    font-size  : var(--mkcp-font-base);
+    font-weight: 400;
+    color      : var(--mkcp-text);
+    white-space: nowrap;
+    padding-top: 2px;
+}
+
+.mk-cart-popup__item-actions {
+    display    : flex;
+    align-items: center;
+    margin-top : 8px;
+    gap        : 3px;
+}
+
+
+/* ── Quantity stepper ─────────────────────────────────────────────────────── */
+
+.mk-cart-popup__qty {
+    display      : flex;
+    align-items  : center;
+    border       : 1px solid var(--mkcp-light2);
+    border-radius: 6px;
+    overflow     : hidden;
+    height       : 34px;
+}
+
+.mk-cart-popup__qty-btn {
+    width          : 32px;
+    height         : 100%;
+    border         : none;
+    background     : var(--mkcp-light);
+    cursor         : pointer;
+    font-size      : 1em;
+    color          : var(--mkcp-text);
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex-shrink    : 0;
+    transition     : background 150ms;
+    line-height    : 1;
+
+    &:hover {
+        background: var(--mkcp-light1);
+    }
+
+    &.is-disabled,
+    &[disabled] {
+        opacity       : 0.35;
+        cursor        : not-allowed;
+        pointer-events: none;
+    }
+}
+
+.mk-cart-popup__qty-input {
+    width        : 40px;
+    height       : 100%;
+    border       : none;
+    border-left  : 1px solid var(--mkcp-light2);
+    border-right : 1px solid var(--mkcp-light2);
+    text-align   : center;
+    /* 1em (16px), niet --mkcp-font-base: iOS Safari zoomt in bij focus op een
+       invoerveld met font-size < 16px. Losstaand van de tekst-schaal elders. */
+    font-size    : 1em;
+    font-family  : inherit;
+    color        : var(--mkcp-text);
+    background   : var(--mkcp-bg);
+    -moz-appearance: textfield;
+    padding      : 0;
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    &:focus {
+        outline: none;
+    }
+}
+
+
+/* ── Remove button ───────────────────────────────────────────────────────── */
+
+.mk-cart-popup__item-remove {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 30px;
+    height         : 30px;
+    border         : none;
+    background     : none;
+    cursor         : pointer;
+    padding        : 0;
+    color          : var(--mkcp-danger);
+    border-radius  : 4px;
+    transition     : color 200ms, background 200ms;
+
+    svg {
+        width : 20px;
+        height: 20px;
+        display: block;
+    }
+}
+
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+
+.mk-cart-popup__empty {
+    flex          : 1;
+    display       : flex;
+    flex-direction: column;
+    align-items   : center;
+    gap           : 1em;
+    padding       : 3.75em var(--mkcp-space-outer);
+    text-align    : center;
+    color         : var(--mkcp-dark);
+
+    svg {
+        width : 5em;
+        height: 5em;
+        color : var(--mkcp-light2);
+    }
+
+    h2 {
+        font-size  : 1.375em;
+        font-weight: 700;
+        color      : var(--mkcp-text, #000);
+        margin     : 0;
+    }
+
+    p {
+        font-size: var(--mkcp-font-base);
+        margin   : 0;
+    }
+}
+
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.mk-cart-popup__footer {
+    flex-shrink   : 0;
+    margin-top    : auto;
+    border-top    : 1px solid var(--mkcp-light1);
+    background    : var(--mkcp-bg);
+    padding       : var(--mkcp-space-inner) var(--mkcp-space-outer);
+    display       : flex;
+    flex-direction: column;
+    gap           : 0;
+}
+
+.mk-cart-popup__totals {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+}
+
+.mk-cart-popup__totals-label {
+    font-size  : var(--mkcp-font-title);
+    font-weight: 600;
+}
+
+.mk-cart-popup__totals-value {
+    font-size           : var(--mkcp-font-base);
+    font-weight         : 400;
+    text-align          : right;
+    font-variant-numeric: tabular-nums;
+
+    .price-excl-tax,
+    .price-incl-tax {
+        display       : flex;
+        flex-direction: column;
+        align-items   : flex-end;
+        gap           : 0;
+    }
+
+    .tax {
+        font-size  : var(--mkcp-font-xs);
+        font-weight: 400;
+        line-height: 1em;
+        color      : var(--mkcp-text-light);
+    }
+
+    /* Trekt de blik kort naar het bedrag als het wijzigt terwijl de klant
+       elders kijkt — vooral relevant in de split-layout hierboven, waar de
+       zijbalk niet per se in beeld is als iemand een cross-sell toevoegt. */
+    &.is-pulsing {
+        display  : inline-block;
+        animation: mkcp-totals-pulse 650ms cubic-bezier(.34, 1.56, .64, 1);
+    }
+}
+
+@keyframes mkcp-totals-pulse {
+    0%   { transform: scale(1);   color: var(--mkcp-accent); }
+    45%  { transform: scale(1.1); color: var(--mkcp-accent); }
+    100% { transform: scale(1);   color: inherit; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mk-cart-popup__totals-value.is-pulsing { animation: none; }
+
+    .mk-cart-popup__col-items,
+    .mk-cart-popup__col-cross,
+    .mk-cart-popup__col-side {
+        transition: none;
+    }
+}
+
+
+/* ── CTA buttons ──────────────────────────────────────────────────────────── */
+
+.mk-cart-popup__ctas-sentinel {
+    height: 0;
+}
+
+.mk-cart-popup__ctas {
+    display       : flex;
+    flex-direction: column;
+    gap           : 8px;
+
+    /* Volle-breedte "kaart"-look, ook in normale flow: de negatieve margins
+       doorbreken de padding van .mk-cart-popup__footer zodat de balk
+       edge-to-edge loopt i.p.v. binnen de bestaande contentbreedte. */
+    background    : var(--mkcp-bg);
+    box-shadow    : 0 -6px 16px rgba(0, 0, 0, .08);
+    margin        : 8px calc(-1 * var(--mkcp-space-outer)) calc(-1 * var(--mkcp-space-inner));
+    padding       : 12px var(--mkcp-space-outer);
+
+    /* .is-pinned wordt door JS gezet (IntersectionObserver op .mk-cart-popup__ctas-sentinel
+       hierboven) zodra de knop anders buiten beeld zou vallen — plakt 'm dan
+       vast onderin de drawer. .mk-cart-popup__drawer heeft een transform,
+       wat een containing block vormt zodat fixed hier relatief aan de
+       drawer werkt i.p.v. aan het hele browservenster. */
+    &.is-pinned {
+        position: fixed;
+        left    : 0;
+        right   : 0;
+        bottom  : 0;
+        margin  : 0;
+        z-index : 5;
+    }
+}
+
+.mk-cart-popup__btn {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : 8px;
+    padding        : 0.875em 1.25em;
+    border-radius  : 6px;
+    font-size      : var(--mkcp-font-base);
+    font-weight    : 500;
+    font-family    : inherit;
+    text-decoration: none;
+    text-align     : center;
+    transition     : opacity 200ms, background 200ms;
+    cursor         : pointer;
+    border         : none;
+    line-height    : 1.4;
+
+    /* Voorkomt een dun "naad"-lijntje op de afgeronde hoeken: de knop zit
+       binnen .mk-cart-popup__drawer, dat een transform (containing block)
+       heeft. Chrome kan de border-radius-clip dan net anders rasteren dan
+       de achtergrondkleur, wat als haarlijntje zichtbaar wordt. Een eigen
+       compositing layer lost dat op. */
+    transform      : translateZ(0);
+    overflow       : hidden;
+
+    svg {
+        width     : 15px;
+        height    : 15px;
+        flex-shrink: 0;
+    }
+
+    &--primary {
+        background: var(--mkcp-btn-p-bg);
+        color     : var(--mkcp-btn-p-text) !important;
+        border    : var(--mkcp-btn-p-border, none);
+
+        &:hover {
+            opacity: 0.88;
+        }
+    }
+
+    &--secondary {
+        background: var(--mkcp-btn-s-bg);
+        color     : var(--mkcp-btn-s-text) !important;
+        border    : 1px solid var(--mkcp-btn-s-border);
+
+        &:hover {
+            background: var(--mkcp-light);
+        }
+    }
+
+    &.is-disabled {
+        opacity       : 0.45;
+        pointer-events: none;
+        cursor        : not-allowed;
+    }
+}
+
+
+/* ── Cross-selling ────────────────────────────────────────────────────────── */
+
+.mk-cart-popup__crosssell {
+    border-top : 1px solid var(--mkcp-light1);
+    padding-top: 10px;
+    margin-top : 4px;
+}
+
+.mk-cart-popup__crosssell-title {
+    font-size     : var(--mkcp-font-2xs);
+    font-weight   : 700;
+    color         : var(--mkcp-dark);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom : 8px;
+    padding       : 0 var(--mkcp-space-outer);
+}
+
+.mk-cart-popup__crosssell-track {
+    position: relative;
+
+    /* Right fade — always present, hidden via opacity when at end */
+    &::after {
+        content        : '';
+        position       : absolute;
+        top            : 0;
+        right          : 0;
+        bottom         : 10px;
+        width          : 52px;
+        background     : linear-gradient( to right, transparent, var(--mkcp-bg) 85% );
+        pointer-events : none;
+        transition     : opacity .25s;
+        z-index        : 1;
+    }
+
+    /* Left fade — only shown when scrolled away from start */
+    &::before {
+        content        : '';
+        position       : absolute;
+        top            : 0;
+        left           : 0;
+        bottom         : 10px;
+        width          : 52px;
+        background     : linear-gradient( to left, transparent, var(--mkcp-bg) 85% );
+        pointer-events : none;
+        opacity        : 0;
+        transition     : opacity .25s;
+        z-index        : 1;
+    }
+
+    &.can-scroll-left::before { opacity: 1; }
+    &.at-end::after            { opacity: 0; }
+
+    &:hover .mk-cart-popup__crosssell-nav:not([hidden]) {
+        opacity       : 1;
+        pointer-events: auto;
+    }
+}
+
+.mk-cart-popup__crosssell-list {
+    display                   : flex;
+    flex-direction            : row;
+    gap                       : 8px;
+    overflow-x                : auto;
+    scroll-snap-type          : x mandatory;
+    scroll-padding-inline-start: var(--mkcp-space-outer);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width           : none;
+    padding                   : 0 var(--mkcp-space-outer) 10px;
+    cursor                    : grab;
+
+    &::-webkit-scrollbar { display: none; }
+
+    &.is-dragging {
+        cursor     : grabbing;
+        user-select: none;
+    }
+
+    /* Webkit clips start-padding in overflow flex — spacer pseudo fixes it */
+    &::before {
+        content    : '';
+        flex-shrink: 0;
+        width      : 1px;
+        margin-left: -1px;
+    }
+}
+
+.mk-cart-popup__crosssell-nav {
+    position       : absolute;
+    top            : 50%;
+    transform      : translateY( calc( -50% - 5px ) );
+    z-index        : 2;
+    width          : 28px;
+    height         : 28px;
+    border-radius  : 50%;
+    background     : var(--mkcp-bg);
+    border         : 1px solid var(--mkcp-light1);
+    box-shadow     : 0 2px 8px rgba(0,0,0,.14);
+    color          : var(--mkcp-dark);
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    cursor         : pointer;
+    padding        : 0;
+    opacity        : 0;
+    transition     : opacity .2s, background .15s;
+    pointer-events : none;
+
+    svg { width: 13px; height: 13px; }
+
+    &--prev { left : calc( var(--mkcp-space-outer) - 4px ); }
+    &--next { right: calc( var(--mkcp-space-outer) - 4px ); }
+
+    &:hover { background: var(--mkcp-light1); }
+}
+
+.mk-cart-popup__crosssell-item {
+    flex-shrink      : 0;
+    width            : 215px;
+    display          : flex;
+    flex-direction   : row;
+    align-items      : center;
+    gap              : 9px;
+    scroll-snap-align: start;
+    background       : var(--mkcp-light);
+    border           : 1px solid var(--mkcp-light1);
+    border-radius    : 8px;
+    padding          : 8px 10px;
+}
+
+.mk-cart-popup__crosssell-img {
+    flex-shrink  : 0;
+    width        : 50px;
+    height       : 50px;
+    border-radius: 5px;
+    overflow     : hidden;
+    display      : block;
+
+    img {
+        width     : 100%;
+        height    : 100%;
+        object-fit: cover;
+        display   : block;
+    }
+}
+
+.mk-cart-popup__crosssell-info {
+    flex          : 1;
+    min-width     : 0;
+    display       : flex;
+    flex-direction: column;
+    gap           : 2px;
+}
+
+.mk-cart-popup__crosssell-name {
+    font-size         : var(--mkcp-font-meta);
+    font-weight       : 500;
+    color             : var(--mkcp-dark);
+    text-decoration   : none;
+    display           : -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow          : hidden;
+    line-height       : 1.35;
+
+    &:hover { text-decoration: underline; }
+}
+
+.mk-cart-popup__crosssell-price {
+    font-size  : 0.75em;
+    font-weight: 700;
+    color      : var(--mkcp-dark);
+}
+
+@keyframes mkcp-cs-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes mkcp-cs-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.35); }
+    100% { transform: scale(1); }
+}
+
+.mk-cart-popup__crosssell-atc {
+    flex-shrink    : 0;
+    width          : 28px;
+    height         : 28px;
+    border         : 1.5px solid var(--mkcp-accent);
+    border-radius  : 50%;
+    background     : transparent;
+    color          : var(--mkcp-accent);
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    cursor         : pointer;
+    transition     : background .15s, color .15s;
+    padding        : 0;
+
+    &:hover {
+        background: var(--mkcp-accent);
+        color     : #fff;
+    }
+
+    &:disabled {
+        opacity: .45;
+        cursor : default;
+    }
+
+    svg {
+        width : 13px;
+        height: 13px;
+    }
+
+    &.is-loading {
+        border-color: transparent;
+
+        svg { display: none; }
+
+        &::after {
+            content      : '';
+            display      : block;
+            width        : 11px;
+            height       : 11px;
+            border       : 2px solid var(--mkcp-accent);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation    : mkcp-cs-spin .6s linear infinite;
+        }
+    }
+
+    &.is-added {
+        background    : var(--mkcp-accent);
+        border-color  : var(--mkcp-accent);
+        color         : #fff;
+        animation     : mkcp-cs-pop .35s ease;
+    }
+}
+
+.mk-cart-popup__crosssell-view {
+    flex-shrink    : 0;
+    font-size      : var(--mkcp-font-2xs);
+    color          : var(--mkcp-accent);
+    text-decoration: none;
+    border         : 1px solid var(--mkcp-accent);
+    border-radius  : 12px;
+    padding        : 4px 8px;
+    white-space    : nowrap;
+
+    &:hover { background: var(--mkcp-accent); color: #fff; }
+}
+
+
+/* ── USP trust strip ─────────────────────────────────────────────────────── */
+
+.mk-cart-popup__usps {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : var(--mkcp-space-sm);
+    flex-wrap      : wrap;
+    padding-top    : var(--mkcp-space-sm);
+    padding-bottom : var(--mkcp-space-sm);
+    border-top     : 1px solid var(--mkcp-light1);
+}
+
+.mk-cart-popup__usp {
+    display    : flex;
+    align-items: center;
+    gap        : 5px;
+    font-size  : var(--mkcp-font-xs);
+    color      : var(--mkcp-dark);
+    line-height: 1.2;
+
+    svg {
+        width     : 0.8125em;
+        height    : 0.8125em;
+        flex-shrink: 0;
+    }
+}
+
+
+/* ── Global side-effects ──────────────────────────────────────────────────── */
+
+/* Op zowel html als body: CSS's overflow-propagatie van body naar de
+   viewport geldt alleen als <html> zélf geen eigen overflow heeft. Zet een
+   thema (zoals hier) wél een overflow op html, dan is html — niet body —
+   het daadwerkelijke scrollende element (document.scrollingElement), en
+   blijft de achtergrond scrollbaar met alleen deze regel op body. */
+html.mk-cart-open,
+body.mk-cart-open {
+    overflow: hidden;
+    overscroll-behavior: contain; /* pull-to-refresh/scroll-chaining uit terwijl de drawer open is */
+}
+
+body.woocommerce-cart .mk-cart-popup { display: none !important; }
+
+
+/* ── Add-to-cart loading state (single product form) ─────────────────────── */
+
+@keyframes mk-cart-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+
+form.cart.mk-loading {
+    animation    : mk-cart-pulse 1800ms ease-in-out infinite;
+    pointer-events: none;
+    user-select  : none;
+}
+
+
+/* ── Drawer loading state (qty / remove) ─────────────────────────────────── */
+
+.mk-cart-popup__drawer.mk-loading {
+    .mk-cart-popup__progress,
+    .mk-cart-popup__items,
+    .mk-cart-popup__footer {
+        pointer-events: none;
+        user-select   : none;
+        animation     : mk-cart-pulse 1800ms ease-in-out infinite;
+    }
+}
+
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media screen and (max-width: 479px) {
+    .mk-cart-popup__drawer       { width: 100vw; }
+    .mk-cart-popup__footer       { padding: 1em; }
+    .mk-cart-popup__items        { padding: 1em; }
+    .mk-cart-popup__header       { padding: 1em; }
+    .mk-cart-popup__progress     { padding: var(--mkcp-space-sm) 1em; }
+    .mk-cart-popup__items-header { padding: 10px 1em var(--mkcp-space-sm); }
+    .mk-cart-popup__btw-switch   { padding: var(--mkcp-space-sm) 1em; }
+    .mk-cart-popup__saved        { padding: var(--mkcp-space-sm) 1em; }
+}
+
+
+/* ── Payment icons strip ─────────────────────────────────────────────────── */
+
+.mk-cart-popup__payment-icons {
+    display        : flex;
+    align-items    : center;
+    flex-wrap      : wrap;
+    gap            : 6px;
+    margin-bottom  : 12px;
+
+    svg, img {
+        width        : 50px;
+        height       : 30px;
+        border-radius: 4px;
+        display      : block;
+        flex-shrink  : 0;
+        filter       : drop-shadow(0 1px 2px rgba(0,0,0,.12));
+        object-fit   : contain;
+        &:hover {
+            transform: scale(1.08);
+            transition: transform 150ms;
+        }
+    }
+}
+
+
+/* ── Applied coupon tags ──────────────────────────────────────────────────── */
+
+.mk-cart-popup__applied-coupons {
+    display    : flex;
+    flex-wrap  : wrap;
+    gap        : 6px;
+    margin-bottom: 10px;
+}
+
+.mk-cart-popup__coupon-tag {
+    display      : flex;
+    align-items  : center;
+    gap          : 5px;
+    background   : #e8f5e9;
+    border       : 1px solid #a5d6a7;
+    border-radius: 4px;
+    padding      : 3px 8px;
+    font-size    : var(--mkcp-font-sm);
+    font-weight  : 500;
+    color        : #2e7d32;
+}
+
+.mk-cart-popup__coupon-tag-code {
+    letter-spacing: .5px;
+}
+
+.mk-cart-popup__coupon-tag-amount {
+    font-weight: 400;
+    color      : var(--mkcp-text-light);
+}
+
+.mk-cart-popup__coupon-tag-remove {
+    background  : none;
+    border      : none;
+    cursor      : pointer;
+    padding     : 0 0 0 2px;
+    font-size   : 0.9375em;
+    line-height : 1;
+    color       : #2e7d32;
+    opacity     : .7;
+    transition  : opacity 150ms;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+
+/* ── Coupon input form ────────────────────────────────────────────────────── */
+
+.mk-cart-popup__coupon {
+    margin-bottom: 12px;
+}
+
+.mk-cart-popup__coupon-row {
+    display: flex;
+    gap    : 6px;
+}
+
+.mk-cart-popup__coupon-input {
+    flex         : 1;
+    height       : 34px;
+    padding      : 0 10px;
+    border       : 1px solid var(--mkcp-light2);
+    border-radius: 6px;
+    /* 1em (16px): voorkomt iOS Safari auto-zoom bij focus, zie qty-input.
+       Alleen de hoogte/padding hierboven mogen dus kleiner, deze niet. */
+    font-size    : 1em;
+    font-family  : inherit;
+    color        : var(--mkcp-text);
+    background   : var(--mkcp-bg);
+    transition   : border-color 200ms;
+    outline      : none;
+
+    &:focus {
+        border-color: var(--mkcp-accent);
+    }
+}
+
+.mk-cart-popup__coupon-btn {
+    height       : 34px;
+    padding      : 0 12px;
+    background   : var(--mkcp-light);
+    color        : var(--mkcp-text);
+    border       : 1px solid var(--mkcp-light2);
+    border-radius: 6px;
+    font-size    : var(--mkcp-font-sm);
+    font-family  : inherit;
+    font-weight  : 500;
+    cursor       : pointer;
+    white-space  : nowrap;
+    transition   : background 150ms, border-color 150ms;
+
+    &:hover {
+        background  : var(--mkcp-light1);
+        border-color: var(--mkcp-light1);
+    }
+
+    &:disabled {
+        opacity: .6;
+        cursor : not-allowed;
+    }
+}
+
+.mk-cart-popup__coupon-feedback {
+    font-size  : var(--mkcp-font-sm);
+    line-height: 1.4;
+
+    &:not(:empty) {
+        margin-top: 5px;
+    }
+
+    &.is-success { color: var(--mkcp-accent); }
+    &.is-error   { color: var(--mkcp-danger); }
+}
+
+
+/* ── Minimum order warning ────────────────────────────────────────────────── */
+
+.mk-cart-popup__min-order-warning {
+    display      : flex;
+    align-items  : flex-start;
+    gap          : 8px;
+    background   : #fff8e1;
+    border       : 1px solid #ffe082;
+    border-radius: 6px;
+    padding      : 10px 12px;
+    font-size    : var(--mkcp-font-base);
+    color        : #6d4c00;
+    margin-bottom: 12px;
+    line-height  : 1.4;
+
+    svg {
+        width     : 16px;
+        height    : 16px;
+        flex-shrink: 0;
+        margin-top : 1px;
+        color      : #f9a825;
+    }
+}
+
+
+/* ── Added-to-cart toast ─────────────────────────────────────────────────── */
+
+@keyframes mkcp-toast-progress {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+
+@keyframes mkcp-toast-shake {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    20%      { transform: translateY(0) translateX(-7px); }
+    40%      { transform: translateY(0) translateX(7px); }
+    60%      { transform: translateY(0) translateX(-4px); }
+    80%      { transform: translateY(0) translateX(4px); }
+}
+
+.mk-cart-popup__added-toast {
+    position   : absolute;
+    top        : 0;
+    left       : 0;
+    right      : 0;
+    display    : flex;
+    align-items: center;
+    gap        : 8px;
+    background : var(--mkcp-accent);
+    color      : #fff;
+    padding    : 11px var(--mkcp-space-outer);
+    font-size  : var(--mkcp-font-base);
+    font-weight: 500;
+    overflow   : hidden;
+    transform  : translateY(-110%);
+    opacity    : 0;
+    transition : transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1),
+                 opacity   200ms ease,
+                 background 300ms ease;
+    z-index    : 20;
+    pointer-events: none;
+
+    /* Progress bar */
+    &::after {
+        content         : '';
+        position        : absolute;
+        bottom          : 0;
+        left            : 0;
+        height          : 2px;
+        width           : 100%;
+        background      : rgba(255,255,255,0.45);
+        transform-origin: left center;
+        transform       : scaleX(0);
+    }
+
+    &.is-visible {
+        transform : translateY(0);
+        opacity   : 1;
+
+        &::after {
+            animation: mkcp-toast-progress var(--mkcp-toast-dur, 2500ms) linear forwards;
+        }
+    }
+
+    &.is-hiding {
+        transform  : translateY(-110%);
+        opacity    : 0;
+        transition : transform 260ms cubic-bezier(0.4, 0, 0.8, 0.4),
+                     opacity   180ms ease;
+    }
+
+    &.is-error {
+        background: #c0392b;
+
+        &.is-visible {
+            animation: mkcp-toast-shake 420ms ease 180ms;
+        }
+    }
+
+    &.is-neutral {
+        background: #555e6e;
+    }
+}
+
+.js-mkcp-added-toast-icon svg {
+    transform  : scale(0.4);
+    opacity    : 0;
+    transition : transform 380ms cubic-bezier(0.34, 1.4, 0.64, 1) 80ms,
+                 opacity   180ms ease 80ms;
+
+    .mk-cart-popup__added-toast.is-visible & {
+        transform : scale(1);
+        opacity   : 1;
+    }
+}
+
+
+/* ── Undo toast ───────────────────────────────────────────────────────────── */
+
+.mk-cart-popup__undo-toast {
+    position    : absolute;
+    bottom      : 0;
+    left        : 0;
+    right       : 0;
+    display     : flex;
+    align-items : center;
+    justify-content: space-between;
+    gap         : 12px;
+    background  : #323232;
+    color       : #fff;
+    padding     : 0.75em var(--mkcp-space-outer);
+    font-size   : var(--mkcp-font-base);
+    transform   : translateY(100%);
+    transition  : transform 250ms cubic-bezier(.4, 0, .2, 1);
+    z-index     : 10;
+
+    &.is-visible {
+        transform: translateY(0);
+    }
+}
+
+.mk-cart-popup__undo-msg {
+    flex: 1;
+}
+
+/* Aflopende timerbalk — breedte + duur worden door JS gezet zodat de balk
+   exact synchroon loopt met de undo-termijn (en pauzeert bij aanraking). */
+.mk-cart-popup__undo-timer {
+    position  : absolute;
+    left      : 0;
+    bottom    : 0;
+    height    : 3px;
+    width     : 100%;
+    background: rgba(255, 255, 255, .45);
+    pointer-events: none;
+}
+
+.mk-cart-popup__undo-action {
+    background   : none;
+    border       : 1px solid rgba(255,255,255,.6);
+    border-radius: 4px;
+    color        : #fff;
+    cursor       : pointer;
+    font-size    : var(--mkcp-font-sm);
+    font-family  : inherit;
+    font-weight  : 500;
+    padding      : 4px 10px;
+    white-space  : nowrap;
+    transition   : background 150ms;
+
+    &:hover {
+        background: rgba(255,255,255,.15);
+    }
+}
+
+
+/* ── BTW split: fade transition on price areas ───────────────────────────── */
+
+.mk-cart-popup__item-price,
+.mk-cart-popup__item-col-price,
+.mk-cart-popup__totals-value {
+    transition: opacity 130ms ease;
+}
+
+
+/* ── BTW row (Waarvan BTW) ───────────────────────────────────────────────── */
+
+.mk-cart-popup__btw-row {
+    display        : flex;
+    justify-content: space-between;
+    font-size      : var(--mkcp-font-sm);
+    color          : var(--mkcp-text-light);
+    margin-top     : 4px;
+    margin-bottom  : 4px;
+}
+
+
+/* ── BTW switch pill ──────────────────────────────────────────────────────── */
+
+.mk-cart-popup__btw-switch {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    padding        : var(--mkcp-space-sm) var(--mkcp-space-outer);
+    border-bottom  : 1px solid var(--mkcp-light1);
+    flex-shrink    : 0;
+}
+
+.mk-cart-popup__btw-label {
+    font-size  : var(--mkcp-font-sm);
+    color      : var(--mkcp-text-light);
+}
+
+.mk-cart-popup__btw-pills {
+    display      : flex;
+    background   : var(--mkcp-bg);
+    border       : 1px solid var(--mkcp-light2);
+    border-radius: 7px;
+    padding      : 2px;
+    gap          : 2px;
+}
+
+.mk-cart-popup__btw-opt {
+    padding       : 4px 12px;
+    font-size     : var(--mkcp-font-xs);
+    font-weight   : 500;
+    font-family   : inherit;
+    border        : none;
+    background    : transparent;
+    cursor        : pointer;
+    border-radius : 5px;
+    color         : var(--mkcp-text-light);
+    transition    : background 150ms, color 150ms, box-shadow 150ms;
+    line-height   : 1.4;
+    white-space   : nowrap;
+
+    &.is-active {
+        background: var(--mkcp-primary);
+        color     : #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+    }
+
+    // Vergrendelde staat (bv. checkout: BTW-verlegging bij een geldig
+    // BTW-nummer, zie window.mkcpBtwSwitch.lock() in checkout-btw.js) — blijft
+    // de .is-active-kleur tonen (welke stand geforceerd is), maar gedempt.
+    &:disabled {
+        opacity        : .45;
+        cursor         : not-allowed;
+        pointer-events : none;
+    }
+}
+
+
+/* ── BTW label toggle ────────────────────────────────────────────────────── */
+
+.mk-cart-popup.is-btw-incl .mkcp-btw-label-excl,
+.mk-cart-popup.is-btw-excl .mkcp-btw-label-incl,
+.mk-cart-popup.has-btw-switch:not(.is-btw-incl):not(.is-btw-excl) .mkcp-btw-label-excl {
+    display: none;
+}
+
+
+/* ── BTW split: price visibility states ──────────────────────────────────── */
+
+.mk-cart-popup.has-btw-switch {
+    .price-excl-tax,
+    .price-incl-tax {
+        display: none;
+    }
+}
+
+.mk-cart-popup.is-btw-incl .price-incl-tax,
+.mk-cart-popup.is-btw-excl .price-excl-tax {
+    display: block;
+}
+
+.mk-cart-popup.is-btw-incl .mk-cart-popup__totals-value .price-incl-tax,
+.mk-cart-popup.is-btw-excl .mk-cart-popup__totals-value .price-excl-tax {
+    display: flex;
+}
+
+
+/* ── Content Builder blocks ─────────────────────────────────────────────── */
+
+.mkcp-zone-render {
+    display: flex;
+    flex-direction: column;
+
+    &--above-items,
+    &--below-items {
+        padding-left : var(--mkcp-space-outer);
+        padding-right: var(--mkcp-space-outer);
+    }
+
+    &--below-totals,
+    &--below-payment,
+    &--below-checkout {
+        padding-left : 0;
+        padding-right: 0;
+    }
+
+    &--above-items .mkcp-block--divider,
+    &--below-items .mkcp-block--divider {
+        margin-left : calc(-1 * var(--mkcp-space-outer));
+        margin-right: calc(-1 * var(--mkcp-space-outer));
+    }
+}
+
+.mkcp-block {
+    width: 100%;
+
+    &--text {
+        padding   : 8px 0;
+        font-size : var(--mkcp-font-base);
+        line-height: 1.55;
+        color     : var(--mkcp-text, #333);
+
+        p:first-child { margin-top: 0; }
+        p:last-child  { margin-bottom: 0; }
+    }
+
+    &--divider {
+        padding: 4px 0;
+    }
+
+    &--usp {
+        display    : flex;
+        align-items: center;
+        gap        : 8px;
+        padding    : 6px 0;
+        font-size  : var(--mkcp-font-sm);
+        color      : var(--mkcp-text2, #555);
+    }
+
+    &--image {
+        padding: 6px 0;
+    }
+
+    &--banner {
+        padding      : 8px 12px;
+        border-radius: 6px;
+        font-size    : 1.2em;
+        font-weight  : 500;
+        line-height  : 1.4;
+        text-align: center;
+        margin: 10px auto 0px auto;
+        width: 100%;
+        border-left  : 3px solid currentColor;
+    }
+
+    &--button {
+        padding: 6px 0;
+    }
+}
+
+.mkcp-divider {
+    border: none;
+    margin: 0;
+    height: 1px;
+    background: var(--mkcp-light1, rgba(0,0,0,.1));
+
+    &--dashed {
+        border-top: 1px dashed var(--mkcp-light1, rgba(0,0,0,.15));
+        background: none;
+        height: 0;
+    }
+
+    &--dotted {
+        border-top: 1px dotted var(--mkcp-light1, rgba(0,0,0,.15));
+        background: none;
+        height: 0;
+    }
+
+    &--spacer {
+        background: none;
+        height: 12px;
+    }
+}
+
+.mkcp-usp-icon {
+    flex-shrink  : 0;
+    width        : 18px;
+    height       : 18px;
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    border-radius: 50%;
+    background   : rgba(93,107,248,.1);
+    color        : var(--mkcp-accent, #5d6bf8);
+    font-size    : 0.625em;
+    font-weight  : 700;
+    line-height  : 1;
+}
+
+.mkcp-usp-text {
+    flex       : 1;
+    line-height: 1.4;
+}
+
+.mkcp-block-img {
+    max-width    : 100%;
+    height       : auto;
+    display      : block;
+    border-radius: 6px;
+}
+
+a.mkcp-block-img-link {
+    display: block;
+
+    &:hover .mkcp-block-img {
+        opacity: .9;
+    }
+}
+
+.mkcp-banner--info    { background: #eff6ff; color: #1d4ed8; }
+.mkcp-banner--success { background: #f0fdf4; color: #15803d; }
+.mkcp-banner--warning { background: #fffbeb; color: #b45309; }
+.mkcp-banner--danger  { background: #fef2f2; color: #dc2626; }
+
+.mkcp-btn-block {
+    display        : inline-block;
+    padding        : 10px 20px;
+    border-radius  : 6px;
+    font-size      : .875em;
+    font-weight    : 600;
+    text-decoration: none;
+    cursor         : pointer;
+    transition     : opacity .15s, box-shadow .15s;
+
+    &:hover { opacity: .88; }
+
+    &--primary   { background: var(--mkcp-accent, #2563eb); color: #fff; }
+    &--secondary { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+    &--ghost     { background: transparent; color: var(--mkcp-accent, #2563eb); border: 1.5px solid currentColor; }
+}
+
+
+/* ── Stock indicator badge ───────────────────────────────────────────────── */
+
+.mk-cart-popup__stock-badge {
+    display    : inline-flex;
+    align-items: center;
+    width      : fit-content;
+    gap        : 4px;
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 500;
+    color      : #c0392b;
+    background : #fdf2f2;
+    border     : 1px solid #f5c6c6;
+    border-radius: 4px;
+    padding    : 2px 7px;
+    margin-top : 4px;
+    line-height: 1.4;
+
+    svg {
+        width    : 11px;
+        height   : 11px;
+        flex-shrink: 0;
+    }
+}
+
+
+/* ── Save for later ──────────────────────────────────────────────────────── */
+
+.mk-cart-popup__save-later {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 4px;
+    background : none;
+    border     : 1px solid var(--mkcp-light2);
+    border-radius: 5px;
+    padding    : 3px 8px;
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 500;
+    font-family: inherit;
+    color      : var(--mkcp-text-light);
+    cursor     : pointer;
+    transition : color 150ms, border-color 150ms, background 150ms;
+    white-space: nowrap;
+
+    svg {
+        width    : 11px;
+        height   : 11px;
+        flex-shrink: 0;
+    }
+
+    &:hover {
+        color        : var(--mkcp-accent);
+        border-color : var(--mkcp-accent);
+        background   : rgba(46,125,50,.06);
+    }
+}
+
+
+/* ── Saved items section ─────────────────────────────────────────────────── */
+
+.mk-cart-popup__saved {
+    border-top : 1px solid var(--mkcp-light1);
+    padding    : var(--mkcp-space-sm) var(--mkcp-space-outer);
+    flex-shrink: 0;
+}
+
+.mk-cart-popup__saved-header {
+    display    : flex;
+    align-items: center;
+    gap        : 6px;
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 600;
+    color      : var(--mkcp-text-light);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom : 6px;
+
+    svg {
+        width    : 12px;
+        height   : 12px;
+        flex-shrink: 0;
+    }
+}
+
+.mk-cart-popup__saved-count {
+    background  : var(--mkcp-light1);
+    color       : var(--mkcp-text-light);
+    border-radius: 12px;
+    font-size: var(--mkcp-font-xs);
+    height: 25px;
+    width: 25px;
+    padding: 1px 6px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 2em;
+}
+
+.mk-cart-popup__saved-list {
+    display        : flex;
+    flex-direction : column;
+    gap            : 3px;
+    max-height     : 160px;
+    overflow-y     : auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--mkcp-light2) transparent;
+
+    &::-webkit-scrollbar       { width: 3px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background: var(--mkcp-light2); border-radius: 2px; }
+}
+
+.mk-cart-popup__saved-item {
+    display    : flex;
+    align-items: center;
+    gap        : 8px;
+    padding    : 5px 8px;
+    background : var(--mkcp-light);
+    border-radius: 8px;
+    font-size  : var(--mkcp-font-sm);
+}
+
+.mk-cart-popup__saved-thumb {
+    width       : 32px;
+    height      : 32px;
+    object-fit  : cover;
+    border-radius: 4px;
+    flex-shrink : 0;
+    border      : 1px solid var(--mkcp-light1);
+}
+
+.mk-cart-popup__saved-thumb-placeholder {
+    width        : 32px;
+    height       : 32px;
+    border-radius: 4px;
+    flex-shrink  : 0;
+    background   : linear-gradient(135deg, var(--mkcp-light1) 0%, var(--mkcp-light) 100%);
+    border       : 1px solid var(--mkcp-light1);
+}
+
+.mk-cart-popup__saved-item-info {
+    flex           : 1;
+    display        : flex;
+    flex-direction : column;
+    gap            : 2px;
+    min-width      : 0;
+}
+
+.mk-cart-popup__saved-item-name {
+    color       : var(--mkcp-text);
+    white-space : nowrap;
+    overflow    : hidden;
+    text-overflow: ellipsis;
+    font-weight : 500;
+}
+
+.mk-cart-popup__saved-item-price {
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 600;
+    line-height: 1em;
+    color      : var(--mkcp-text);
+}
+
+.mk-cart-popup__saved-item-time {
+    display: none;
+}
+
+.mk-cart-popup__saved-stock-badge {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 4px;
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 500;
+    border-radius: 4px;
+    padding    : 2px 7px;
+    margin-top : 2px;
+    line-height: 1.4;
+
+    svg {
+        width     : 11px;
+        height    : 11px;
+        flex-shrink: 0;
+    }
+
+    &.is-low {
+        color     : #c0392b;
+        background: #fdf2f2;
+        border    : 1px solid #f5c6c6;
+        width: fit-content;
+    }
+
+    &.is-out {
+        color     : var(--mkcp-text-light, #5b6472);
+        background: var(--mkcp-light1);
+        border    : 1px solid var(--mkcp-light2);
+    }
+}
+
+.mk-cart-popup__saved-item-actions {
+    display    : flex;
+    align-items: center;
+    gap        : 4px;
+    flex-shrink: 0;
+}
+
+.mk-cart-popup__saved-restore {
+    display    : inline-flex;
+    align-items: center;
+    gap        : 4px;
+    background : none;
+    border     : 1px solid var(--mkcp-light2);
+    border-radius: 5px;
+    padding    : 3px 8px;
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 500;
+    font-family: inherit;
+    color      : var(--mkcp-text-light);
+    cursor     : pointer;
+    white-space: nowrap;
+    transition : color 150ms, border-color 150ms, background 150ms;
+    flex-shrink: 0;
+
+    svg {
+        width    : 11px;
+        height   : 11px;
+    }
+
+    &:hover {
+        color       : var(--mkcp-accent);
+        border-color: var(--mkcp-accent);
+        background  : rgba(46,125,50,.06);
+    }
+}
+
+.mk-cart-popup__saved-delete {
+    display    : flex;
+    align-items: center;
+    justify-content: center;
+    width      : 22px;
+    height     : 22px;
+    background : none;
+    border     : none;
+    padding    : 0;
+    cursor     : pointer;
+    color      : var(--mkcp-light2);
+    border-radius: 4px;
+    transition : color 150ms, background 150ms;
+    flex-shrink: 0;
+
+    svg {
+        width : 12px;
+        height: 12px;
+    }
+
+    &:hover {
+        color     : var(--mkcp-danger);
+        background: #fdf2f2;
+    }
+}
+
+@media (max-width: 380px) {
+    .mk-cart-popup__saved-restore span { display: none; }
+    .mk-cart-popup__saved-restore       { padding: 4px 6px; }
+    .mk-cart-popup__saved-thumb,
+    .mk-cart-popup__saved-thumb-placeholder { width: 32px; height: 32px; }
+}
+
+
+/* ── Cart saved badge ────────────────────────────────────────────────────── */
+
+.mkcp-cart-saved-badge {
+    position     : absolute;
+    display      : inline-flex;
+    align-items  : center;
+    gap          : 2px;
+    padding      : 2px 5px 2px 3px;
+    border-radius: 10px;
+    background   : #e8445a;
+    color        : #fff;
+    font-size    : 0.5625em;
+    font-weight  : 700;
+    line-height  : 1;
+    white-space  : nowrap;
+    pointer-events: none;
+    z-index      : 10;
+    box-shadow   : 0 1px 4px rgba(0,0,0,.25);
+
+    svg {
+        width    : 9px;
+        height   : 9px;
+        fill     : currentColor;
+        flex-shrink: 0;
+    }
+
+    &--top-right    { top: -6px; right: -6px; }
+    &--top-left     { top: -6px; left: -6px; }
+    &--bottom-right { bottom: -6px; right: -6px; }
+    &--bottom-left  { bottom: -6px; left: -6px; }
+}
+
+.mkcp-cart-count-badge {
+    position     : absolute;
+    display      : inline-flex;
+    align-items  : center;
+    justify-content: center;
+    min-width    : 25px;
+    height       : 25px;
+    padding      : 5px 5px;
+    border-radius: 50px;
+    background   : var(--mkcp-accent);
+    color        : #fff;
+    font-size    : 0.75em;
+    font-weight  : 700;
+    line-height  : 625em;
+    font-weight  : 700;
+    line-height  : 1;
+    white-space  : nowrap;
+    pointer-events: none;
+    z-index      : 10;
+
+    &--top-right    { top: -13px; right: -13px; }
+    &--top-left     { top: -13px; left: -13px; }
+    &--bottom-right { bottom: -13px; right: -13px; }
+    &--bottom-left  { bottom: -13px; left: -13px; }
+}
+
+
+/* ── Winkelmand bewaren & delen ──────────────────────────────────────────── */
+
+.mk-cart-popup__share {
+    border-top : 1px solid var(--mkcp-light1);
+    padding    : 10px 0px 10px 0px;
+    display    : flex;
+    flex-direction: column;
+    gap        : 0;
+}
+
+.mk-cart-popup__share-heading {
+    display        : flex;
+    align-items    : center;
+    gap            : 6px;
+    font-size      : var(--mkcp-font-xs);
+    font-weight    : 600;
+    color          : var(--mkcp-text-light);
+    text-transform : uppercase;
+    letter-spacing : .5px;
+    background     : var(--mkcp-light);
+    border         : 1px solid var(--mkcp-light1);
+    border-radius  : 6px;
+    padding        : 7px 10px;
+    width          : 100%;
+    cursor         : pointer;
+    font-family    : inherit;
+    text-align     : left;
+    transition     : background 150ms, border-color 150ms, color 150ms;
+
+    &:hover {
+        background  : var(--mkcp-light1);
+        border-color: var(--mkcp-light2);
+        color       : var(--mkcp-text);
+    }
+
+    &[aria-expanded="true"] {
+        border-bottom-left-radius : 0;
+        border-bottom-right-radius: 0;
+        border-bottom-color       : transparent;
+
+        .mk-cart-popup__share-chevron {
+            transform: rotate(180deg);
+        }
+    }
+
+    svg {
+        width    : 13px;
+        height   : 13px;
+        flex-shrink: 0;
+    }
+}
+
+.mk-cart-popup__share-chevron {
+    margin-left: auto;
+    width      : 14px !important;
+    height     : 14px !important;
+    transition : transform 200ms ease;
+}
+
+.mk-cart-popup__share-body {
+    display        : flex;
+    flex-direction : column;
+    gap            : 7px;
+    padding        : 10px;
+    border         : 1px solid var(--mkcp-light1);
+    border-top     : none;
+    border-radius  : 0 0 6px 6px;
+}
+
+.mk-cart-popup__share-url-wrap {
+    display       : flex;
+    flex-direction: column;
+    gap           : 8px;
+}
+
+.mk-cart-popup__share-url-result {
+    display      : flex;
+    align-items  : center;
+    gap          : 6px;
+}
+
+.mk-cart-popup__share-url-input {
+    flex        : 1;
+    height      : 34px;
+    padding     : 0 10px;
+    border      : 1px solid var(--mkcp-light2);
+    border-radius: 5px;
+    /* 1em (16px): voorkomt iOS Safari auto-zoom bij focus, zie qty-input. */
+    font-size   : 1em;
+    font-family : inherit;
+    color       : var(--mkcp-text-light);
+    background  : var(--mkcp-light);
+    outline     : none;
+    white-space : nowrap;
+    overflow    : hidden;
+    text-overflow: ellipsis;
+    min-width   : 0;
+}
+
+.mk-cart-popup__share-copy {
+    height       : 34px;
+    padding      : 0 12px;
+    background   : var(--mkcp-light);
+    border       : 1px solid var(--mkcp-light2);
+    border-radius: 5px;
+    font-size    : var(--mkcp-font-xs);
+    font-family  : inherit;
+    font-weight  : 500;
+    cursor       : pointer;
+    white-space  : nowrap;
+    color        : var(--mkcp-text);
+    transition   : background 150ms, border-color 150ms, color 150ms;
+    flex-shrink  : 0;
+
+    &:hover {
+        background  : var(--mkcp-accent);
+        border-color: var(--mkcp-accent);
+        color       : #fff;
+    }
+}
+
+.mk-cart-popup__share-btn {
+    display      : inline-flex;
+    align-items  : center;
+    justify-content: center;
+    gap          : 6px;
+    height       : 36px;
+    padding      : 0 14px;
+    background   : var(--mkcp-light);
+    border       : 1px solid var(--mkcp-light2);
+    border-radius: 6px;
+    font-size    : var(--mkcp-font-xs);
+    font-family  : inherit;
+    font-weight  : 500;
+    color        : var(--mkcp-text);
+    cursor       : pointer;
+    white-space  : nowrap;
+    transition   : background 150ms, border-color 150ms, color 150ms;
+    align-self   : flex-start;
+
+    svg {
+        width    : 13px;
+        height   : 13px;
+        flex-shrink: 0;
+    }
+
+    &:hover {
+        background  : var(--mkcp-accent);
+        border-color: var(--mkcp-accent);
+        color       : #fff;
+    }
+
+    &:disabled {
+        opacity: .6;
+        cursor : not-allowed;
+    }
+}
+
+.mk-cart-popup__share-email-wrap {
+    display       : flex;
+    flex-direction: column;
+    gap           : 5px;
+}
+
+.mk-cart-popup__share-email-row {
+    display: flex;
+    gap    : 6px;
+}
+
+.mk-cart-popup__share-email-input {
+    flex        : 1;
+    height      : 36px;
+    padding     : 0 10px;
+    border      : 1px solid var(--mkcp-light2);
+    border-radius: 6px;
+    /* 1em (16px): voorkomt iOS Safari auto-zoom bij focus, zie qty-input. */
+    font-size   : 1em;
+    font-family : inherit;
+    color       : var(--mkcp-text);
+    background  : var(--mkcp-bg);
+    outline     : none;
+    transition  : border-color 200ms;
+    min-width   : 0;
+
+    &:focus {
+        border-color: var(--mkcp-accent);
+    }
+}
+
+.mk-cart-popup__share-feedback {
+    font-size  : var(--mkcp-font-xs);
+    line-height: 1.4;
+    min-height : 1em;
+
+    &.is-success { color: var(--mkcp-accent); }
+    &.is-error   { color: var(--mkcp-danger); }
+}
+
+.mk-cart-popup__share-scope {
+    display: flex;
+    gap    : 6px;
+}
+
+.mk-cart-popup__scope-pill {
+    flex           : 1;
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : 4px;
+    padding        : 4px 6px;
+    font-size      : var(--mkcp-font-xs);
+    font-family    : inherit;
+    border         : 1px solid var(--mkcp-light2, #e5e7eb);
+    border-radius  : 20px;
+    background     : transparent;
+    color          : var(--mkcp-text3, #aaa);
+    cursor         : pointer;
+    line-height    : 1.4;
+    transition     : border-color 150ms, color 150ms, background 150ms;
+    white-space    : nowrap;
+
+    svg {
+        width     : 11px;
+        height    : 11px;
+        flex-shrink: 0;
+    }
+
+    &.is-active {
+        background   : var(--mkcp-accent);
+        border-color : var(--mkcp-accent);
+        color        : #fff;
+    }
+
+    &:hover:not(.is-active) {
+        border-color : var(--mkcp-accent);
+        color        : var(--mkcp-accent);
+    }
+}
+
+
+/* ── Mobiele app-ervaring: bottom-sheet (premium, Instellingen → Styling) ──
+   De klasse .mk-cart-popup--app komt uit templates/cart-popup.php als de
+   toggle 'mobile_app_experience' aanstaat. Alle sheet-styling zit binnen
+   max-width:719px — precies onder de expand-split-layout (min-width:720px),
+   zodat die twee elkaar nooit raken. De dubbele klasse in de selector wint
+   qua specificiteit van de --pos-left/--pos-center varianten hierboven.
+   Bijbehorende gestures: assets/cart-popup-mobile.js. */
+
+.mk-cart-popup__grabber { display: none; } /* buiten sheet-modus nooit zichtbaar */
+
+@media screen and (max-width: 719px) {
+
+    .mk-cart-popup.mk-cart-popup--app {
+
+        .mk-cart-popup__drawer {
+            top          : auto;
+            left         : 0;
+            right        : 0;
+            bottom       : 0;
+            width        : 100%;
+            max-width    : none;
+            height       : 92vh;  /* fallback voor oude browsers */
+            height       : 92dvh; /* dynamische viewport: geen gat bij iOS URL-balk-collapse */
+            max-height   : none;  /* reset van de --pos-center variant */
+            border-radius: 16px 16px 0 0;
+            box-shadow   : 0 -8px 32px rgba(0, 0, 0, .18);
+            transform    : translateY(100%); /* vervangt translateX/scale van alle positie-varianten */
+            opacity      : 1; /* sheet schuift alleen, geen fade */
+            will-change  : transform;
+        }
+        &.is-open .mk-cart-popup__drawer {
+            transform: translateY(0);
+        }
+
+        /* Sleep-handgreep — touch-action:none zodat de browser pans hier
+           nooit zelf claimt en de drag-JS altijd de touchmoves krijgt. */
+        .mk-cart-popup__grabber {
+            display        : flex;
+            justify-content: center;
+            align-items    : center;
+            flex-shrink    : 0;
+            padding        : 10px 0 4px;
+            touch-action   : none;
+
+            &::before {
+                content      : "";
+                width        : 36px;
+                height       : 4px;
+                border-radius: 2px;
+                background   : var(--mkcp-light2);
+            }
+        }
+
+        /* Header is ook sleepzone (bevat niets scrollbaars; taps blijven werken). */
+        .mk-cart-popup__header { touch-action: none; }
+
+        /* Volledig-scherm-knop is zinloos in sheet-modus. */
+        .mk-cart-popup__expand { display: none; }
+
+        /* Safe-area (home-indicator/notch) — env() is 0 zonder
+           viewport-fit=cover in het thema, dan is dit een no-op. */
+        .mk-cart-popup__footer {
+            padding-bottom: calc(var(--mkcp-space-inner) + env(safe-area-inset-bottom, 0px));
+        }
+        .mk-cart-popup__ctas.is-pinned {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+        .mk-cart-popup__undo-toast {
+            padding-bottom: calc(0.75em + env(safe-area-inset-bottom, 0px));
+        }
+
+        /* ── Swipe-to-remove ──
+           .is-swiping + de delete-overlay worden door cart-popup-mobile.js
+           gezet; de overlay is een transient element dat vóór de rij wordt
+           ingevoegd (eronder in paint-volgorde door z-index op de rij).
+           --mkcp-swipe-p (0→1, gezet door JS op de lijst) drijft de hele
+           progressieve laag: overlay-fade, icoon-groei en kaart-dim. */
+        .mk-cart-popup__items { position: relative; }
+
+        .mk-cart-popup__item.is-swiping {
+            position  : relative;
+            z-index   : 1;
+            background: var(--mkcp-bg); /* rij is normaal transparant; dekt de rode laag af */
+            /* Progressieve dim: het item "voelt" dat het gaat verdwijnen */
+            opacity   : calc(1 - var(--mkcp-swipe-p, 0) * 0.2);
+            transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
+            /* JS zet transition:none tijdens de drag zelf */
+
+            .mk-cart-popup__item-image img {
+                transform : scale(calc(1 - var(--mkcp-swipe-p, 0) * 0.03));
+                transition: transform 220ms ease;
+            }
+        }
+
+        .mk-cart-popup__item.is-removing { pointer-events: none; }
+
+        /* Rechts-verankerde knop (géén volle "bleed"-laag meer over de hele
+           rij) — tijdens de swipe decoratief en groeiend met de sleepafstand
+           (breedte + top/height zet JS inline); na het loslaten (.is-open)
+           de echte bevestig-knop: "weet je het zeker"-stap voordat er echt
+           verwijderd wordt. Doordat de knop een eigen, beperkte breedte
+           heeft i.p.v. de volle rijbreedte, is er vanzelf lucht t.o.v. de
+           prijs/titel en géén rood meer zichtbaar aan de linkerkant van de
+           rij. Fade en icoon-groei lopen 1:1 met de veegafstand
+           (--mkcp-swipe-p); de drempel (.is-armed) verzadigt de kleur en
+           bounct het icoon. */
+        .mk-cart-popup__swipe-delete {
+            position       : absolute;
+            right          : 8px; /* BTN_GAP in JS — lucht t.o.v. de container-rand */
+            overflow       : hidden; /* inhoud niet laten meegroeien vóór de knop breed genoeg is */
+            z-index        : 0;
+            display        : flex;
+            align-items    : center;
+            justify-content: center;
+            gap            : 6px;
+            padding        : 0 12px;
+            background     : var(--mkcp-danger);
+            border         : 0;
+            border-radius  : 10px;
+            color          : #fff;
+            font-family    : inherit;
+            font-size      : 13px;
+            font-weight    : 600;
+            white-space    : nowrap;
+            cursor         : pointer;
+            pointer-events : none; /* tijdens de swipe niet aanklikbaar */
+            opacity        : calc(var(--mkcp-swipe-p, 0) * 0.85);
+            transition     : opacity 220ms ease;
+            /* Geen width-transition hier: tijdens de drag zet JS de breedte
+               1:1 per frame (zie insertOverlay/rowFrame, transition:none) —
+               een always-on transition zou de knop achter de vinger aan
+               laten lopen. Bij open/collapse zet JS zelf een tijdelijke
+               width-transition voor de vloeiende snap. */
+
+            svg {
+                width      : 20px;
+                height     : 20px;
+                flex-shrink: 0;
+                transform  : scale(calc(0.6 + var(--mkcp-swipe-p, 0) * 0.4));
+                transition : transform 150ms ease;
+            }
+
+            /* Drempelmoment: kleur op vol volume + één spring-bounce */
+            &.is-armed {
+                opacity   : 1;
+                transition: opacity 120ms ease-out;
+                svg { animation: mkcp-swipe-arm 250ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+            }
+
+            /* Bevestig-staat: volle knop, statisch icoon, wél aanklikbaar */
+            &.is-open {
+                opacity       : 1;
+                pointer-events: auto;
+                svg { transform: scale(1); animation: none; }
+            }
+        }
+
+        @keyframes mkcp-swipe-arm {
+            50% { transform: scale(1.3); }
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mk-cart-popup--app .mk-cart-popup__drawer,
+    .mk-cart-popup__item.is-swiping,
+    .mk-cart-popup__item.is-swiping .mk-cart-popup__item-image img,
+    .mk-cart-popup__swipe-delete,
+    .mk-cart-popup__swipe-delete svg { transition: none; }
+
+    /* Geen spring-bounce; de kleurverzadiging (informatie) blijft */
+    .mk-cart-popup__swipe-delete.is-armed svg { animation: none; }
+    /* De undo-timerbalk blijft bewegen: dat is voortgangsinformatie
+       (hoeveel tijd nog om ongedaan te maken), geen decoratie. */
+}
+
+
+/* ── Peek-tab: winkelwagen openen door omhoog te vegen (mobiele app-ervaring) ──
+   Server-gerenderd als losse, altijd-aanwezige knop in wp_footer — bewust
+   GEEN onderdeel van .mk-cart-popup zelf (zie de toelichting bij de
+   PHP-hook in mk-cart-popup.php). Tikken opent de drawer via de bestaande
+   .mkcp-open-klasse (cart-popup.js); omhoog vegen via de gesture-state-
+   machine in cart-popup-mobile.js (zone 'peek'). Verborgen zolang de drawer
+   open staat (body.mk-cart-open) of buiten de telefoon-breakpoint. */
+#mkcp-peek {
+    display: none; /* alleen aan binnen de app-breakpoint hieronder */
+}
+
+@media screen and (max-width: 719px) {
+    #mkcp-peek {
+        position      : fixed;
+        left          : 50%;
+        bottom        : calc(16px + env(safe-area-inset-bottom, 0px));
+        transform     : translateX(-50%);
+        z-index       : calc(var(--mkcp-z) - 1); /* onder de drawer zelf, boven de pagina */
+        display       : flex;
+        flex-direction: column;
+        align-items   : center;
+        gap           : 2px;
+        padding       : 6px 22px 12px;
+        border        : none;
+        border-radius : 999px;
+        background    : var(--mkcp-accent);
+        color         : #fff;
+        box-shadow    : 0 8px 24px rgba(0, 0, 0, .22);
+        cursor        : pointer;
+        font-family   : inherit;
+        -webkit-tap-highlight-color: transparent;
+        touch-action  : none; /* omhoog vegen mag nooit de pagina zelf scrollen */
+        transition    : transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+
+        &[hidden] { display: none; }
+        &:active  { transform: translateX(-50%) scale(0.96); }
+    }
+
+    body.mk-cart-open #mkcp-peek { display: none; }
+
+    .mkcp-peek__handle {
+        width        : 30px;
+        height       : 4px;
+        border-radius: 2px;
+        background   : rgba(255, 255, 255, .45);
+    }
+
+    .mkcp-peek__row {
+        display    : flex;
+        align-items: center;
+        gap        : 8px;
+    }
+
+    .mkcp-peek__icon {
+        position: relative;
+        display : flex;
+        svg { width: 20px; height: 20px; }
+    }
+
+    .mkcp-peek__count {
+        position     : absolute;
+        top          : -8px;
+        right        : -10px;
+        min-width    : 16px;
+        height       : 16px;
+        padding      : 0 4px;
+        border-radius: 999px;
+        background   : #fff;
+        color        : var(--mkcp-accent);
+        font-size    : 10px;
+        font-weight  : 700;
+        line-height  : 16px;
+        text-align   : center;
+    }
+
+    .mkcp-peek__label {
+        font-size  : 13px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #mkcp-peek { transition: none; }
+}

@@ -1,0 +1,20 @@
+{
+    "name": "mk-cart-popup",
+    "version": "1.14.28",
+    "private": true,
+    "description": "Build tooling for the mk-cart-popup WordPress plugin.",
+    "scripts": {
+        "build": "sass src/scss:assets --style=compressed --no-source-map && vite build",
+        "build:css": "sass src/scss:assets --style=compressed --no-source-map",
+        "build:js": "vite build",
+        "dev": "concurrently -n css,js -c blue,green \"npm:dev:css\" \"npm:dev:js\"",
+        "dev:css": "sass src/scss:assets --watch --style=expanded",
+        "dev:js": "vite build --watch"
+    },
+    "devDependencies": {
+        "concurrently": "^9.0.0",
+        "sass": "^1.101.0",
+        "terser": "^5.0.0",
+        "vite": "^6.0.0"
+    }
+}

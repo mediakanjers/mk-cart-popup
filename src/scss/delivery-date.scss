@@ -1,0 +1,798 @@
+/* ── MK Cart Popup — Bezorgdatum kiezer ──────────────────────────────────────── */
+
+.mkcp-dd-wrap,
+.mkcp-dd-wrap *,
+.mkcp-dd-wrap *::before,
+.mkcp-dd-wrap *::after {
+    box-sizing: border-box;
+}
+
+.mkcp-dd-wrap {
+    margin: 0 0 20px;
+    font-family: inherit;
+    position: relative;
+    /* Border/padding/box-shadow verhuisd naar .mkcp-co-section__body
+       (checkout.scss) — anders krijg je in de 3-blokken layout een dubbele
+       kaart: één rond de hele leveringssectie, één rond de datumkiezer
+       erbinnen. Buiten die layout (geen .mkcp-co-section__body-ouder) blijft
+       de widget nu ongestyled qua rand/padding; dat scenario heeft momenteel
+       geen los card-uiterlijk nodig. */
+    /* Hoge eigen z-index i.p.v. alleen op de kalender: als een thema of
+       WooCommerce ergens boven deze wrap een eigen stacking-context opent
+       (bv. door position + z-index op #payment of .payment_box), dan telt
+       de hoge z-index van de kalender alléén nog lokaal mee, en kan latere
+       DOM-content (betaalmethodes, bestelknop, privacytekst) er alsnog
+       overheen getekend worden zodra de kalender openklapt. Door de wrap
+       zelf ook een hoge z-index te geven wint de hele widget die vergelijking
+       een niveau hoger. */
+    z-index: 100;
+    --mkcp-dd-accent: var(--mkcp-accent, #2563eb);
+    --mkcp-dd-accent-14: color-mix(in srgb, var(--mkcp-dd-accent) 14%, transparent);
+    --mkcp-dd-accent-10: color-mix(in srgb, var(--mkcp-dd-accent) 10%, transparent);
+    --mkcp-dd-accent-22: color-mix(in srgb, var(--mkcp-dd-accent) 22%, transparent);
+    --mkcp-dd-accent-tint: color-mix(in srgb, var(--mkcp-dd-accent) 6%, #fff);
+    --mkcp-dd-accent-tint2: color-mix(in srgb, var(--mkcp-dd-accent) 12%, #fff);
+    --mkcp-dd-accent-dark: color-mix(in srgb, var(--mkcp-dd-accent) 80%, #000);
+    --mkcp-dd-accent-light: color-mix(in srgb, var(--mkcp-dd-accent) 85%, #fff);
+    --mkcp-dd-accent-border: color-mix(in srgb, var(--mkcp-dd-accent) 40%, #fff);
+}
+
+// Zelfde uiterlijk als .mkcp-pc-status--error / .checkout-inline-error-message
+// (checkout.scss) — één stijl voor "fout bij dit veld", ongeacht welk systeem
+// 'm toont. Gedeeld door delivery-date.php en pickup.php (identieke
+// #mkcp-dd-error-container in beide templates).
+.mkcp-dd-error {
+    // [hidden] heeft normaal voorrang via de user-agent stylesheet, maar díe
+    // regel is een attribuutselector (lage specificiteit) — onze eigen
+    // klasse-selector met display:flex zou 'm anders verslaan zodra beide
+    // tegelijk op het element staan (JS toggelt alleen het hidden-attribuut,
+    // niet deze klasse). Expliciet herhalen om zeker te zijn.
+    &[hidden] { display: none; }
+
+    display       : flex;
+    align-items   : center;
+    gap           : 8px;
+    margin        : 0 0 14px;
+    padding       : 10px 14px;
+    border-radius : 8px;
+    font-size     : 13px;
+    font-weight   : 500;
+    line-height   : 1.4;
+    background    : #fff5f5;
+    color         : #b91c1c;
+    border        : 1px solid #fca5a5;
+
+    &::before {
+        content           : '';
+        flex-shrink       : 0;
+        width             : 16px;
+        height            : 16px;
+        background-image  : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b91c1c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='15' y1='9' x2='9' y2='15'/%3E%3Cline x1='9' y1='9' x2='15' y2='15'/%3E%3C/svg%3E");
+        background-repeat : no-repeat;
+        background-size   : contain;
+    }
+}
+
+/* Eén regel voor alle interactieve elementen in de widget — box-shadow volgt
+   automatisch de eigen border-radius (cirkel, pil, afgeronde rechthoek),
+   dus geen losse regel per knoptype nodig. Voorheen leunde alles op de
+   (op cirkels rare) browser-default outline. */
+.mkcp-dd-wrap button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--mkcp-dd-accent-22);
+}
+
+.mkcp-dd-header {
+    margin-bottom: 8px;
+}
+
+.mkcp-dd-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+    display: inline-block;
+}
+
+.mkcp-dd-label .required {
+    color: #e2001a;
+    margin-left: 2px;
+    text-decoration: none;
+}
+
+/* ── Microcopy (cutoff-tijd in mensentaal) ───────────────────────────────────── */
+
+.mkcp-dd-microcopy {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mkcp-dd-accent-dark);
+    background: var(--mkcp-dd-accent-tint);
+    border: 1px solid var(--mkcp-dd-accent-border);
+    border-radius: 7px;
+    padding: 6px 10px;
+    display: inline-block;
+}
+.mkcp-dd-microcopy:empty { display: none; }
+.mkcp-dd-microcopy-time {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.mkcp-dd-disclaimer {
+    margin: -4px 0 10px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: #5b6472; // WCAG AA — was #9ca3af (2,54:1, faalde)
+}
+
+/* ── Bevestiging voor chip 5/6 & kalender-selecties ──────────────────────────── */
+/* De 4 grote kaarten tonen hun eigen "geselecteerd"-status; dit vult de kloof
+   voor datums die niet als kaart zichtbaar zijn. */
+
+.mkcp-dd-confirm {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -2px 0 12px;
+    padding: 9px 12px;
+    background: var(--mkcp-dd-accent-tint2);
+    border: 1px solid var(--mkcp-dd-accent);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mkcp-dd-accent-dark);
+    animation: mkcp-dd-confirm-in .18s ease;
+}
+.mkcp-dd-confirm[hidden] { display: none; }
+.mkcp-dd-confirm-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--mkcp-dd-accent);
+}
+.mkcp-dd-confirm-icon svg { width: 100%; height: 100%; stroke: currentColor; }
+
+@keyframes mkcp-dd-confirm-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Lege staat ───────────────────────────────────────────────────────────────── */
+
+.mkcp-dd-empty {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px dashed #d1d5db;
+    border-radius: 10px;
+    background: #f9fafb;
+    color: #4b5563; // WCAG AA — was #6b7280 (faalde op #f5f5f5-kaartachtergrond)
+    font-size: 13px;
+    line-height: 1.5;
+}
+.mkcp-dd-empty svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Kleine chips rij ─────────────────────────────────────────────────────────── */
+
+.mkcp-dd-chips-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    margin-bottom: 10px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.mkcp-dd-chips-row::-webkit-scrollbar { display: none; }
+
+.mkcp-dd-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 3px 7px;
+    border: 1.5px solid #e0e4ef;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .14s, background .14s, color .14s;
+    flex-shrink: 0;
+    font-family: inherit;
+    color: #374151;
+    line-height: 1;
+}
+
+.mkcp-dd-chip:hover {
+    border-color: var(--mkcp-dd-accent);
+    background: var(--mkcp-dd-accent-tint);
+    color: var(--mkcp-dd-accent);
+}
+
+.mkcp-dd-chip.is-selected {
+    border-color: var(--mkcp-dd-accent);
+    background: var(--mkcp-dd-accent);
+    color: #fff;
+}
+
+.mkcp-dd-chip-day {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    opacity: .7;
+    color: inherit;
+    line-height: 1;
+}
+.mkcp-dd-chip.is-selected .mkcp-dd-chip-day { opacity: .9; }
+
+.mkcp-dd-chip-num {
+    font-size: 13px;
+    font-weight: 700;
+    color: inherit;
+    line-height: 1.3;
+}
+
+/* Kalender chip */
+.mkcp-dd-chip--cal {
+    color: #4b5563; // WCAG AA — was #6b7280 (faalde op #f5f5f5-kaartachtergrond)
+    background: #f9fafb;
+}
+.mkcp-dd-chip--cal svg { width: 15px; height: 15px; stroke: currentColor; }
+.mkcp-dd-chip--cal:hover { color: var(--mkcp-dd-accent); background: var(--mkcp-dd-accent-tint); border-color: var(--mkcp-dd-accent); }
+.mkcp-dd-chip--cal.is-open { border-color: var(--mkcp-dd-accent); color: var(--mkcp-dd-accent); background: var(--mkcp-dd-accent-tint); }
+/* Actief: de huidige selectie komt van een datum die alleen via de kalender
+   bereikbaar is (dus niet ook als chip zichtbaar) */
+.mkcp-dd-chip--cal.is-selected {
+    border-color: var(--mkcp-dd-accent);
+    color: #fff;
+    background: var(--mkcp-dd-accent);
+}
+
+/* ── Kaarten track (crosssell-stijl) ─────────────────────────────────────────── */
+
+.mkcp-dd-track {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.mkcp-dd-cards-viewport {
+    position: relative;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.mkcp-dd-cards-viewport::-webkit-scrollbar { display: none; }
+
+.mkcp-dd-cards-list {
+    display: flex;
+    gap: 8px;
+    padding: 10px 0 6px;
+    transition: opacity .15s ease;
+}
+/* Even gedimd tijdens de checkout-AJAX-refresh (bv. wisselen verzendmethode,
+   of de automatische update_checkout die WooCommerce al vlak na het laden
+   van de pagina zelf triggert) — zonder eigen spinner lijkt de widget dan
+   even "uit" te staan, terwijl de rest van de checkout (checkout.scss,
+   blockUI-overlays) daar wél duidelijke laadfeedback voor heeft. Zelfde
+   spinner-stijl, hier lokaal herhaald (eigen keyframes) omdat dit bestand
+   los van checkout.scss kan laden. */
+.mkcp-dd-cards-list.is-loading {
+    opacity: .45;
+    pointer-events: none;
+}
+.mkcp-dd-cards-viewport:has(.mkcp-dd-cards-list.is-loading)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+    border: 3px solid var(--mkcp-dd-accent-22);
+    border-top-color: var(--mkcp-dd-accent);
+    border-radius: 50%;
+    animation: mkcp-dd-spin .7s linear infinite;
+}
+@keyframes mkcp-dd-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Kaart */
+.mkcp-dd-card {
+    flex-shrink: 0;
+    /* breedte wordt door JS gezet op basis van viewport (2.5 items) */
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 14px 14px 12px;
+    border: 1.5px solid #e4e7f0;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .07), 0 1px 2px rgba(0, 0, 0, .04);
+    cursor: pointer;
+    transition: border-color .14s, background .14s, box-shadow .14s, transform .12s;
+    scroll-snap-align: start;
+    font-family: inherit;
+    color: #374151;
+    text-align: left;
+    position: relative;
+}
+
+.mkcp-dd-card:hover {
+    border-color: var(--mkcp-dd-accent);
+    background: var(--mkcp-dd-accent-tint);
+    box-shadow: 0 6px 20px var(--mkcp-dd-accent-14);
+    transform: translateY(-2px);
+}
+
+.mkcp-dd-card:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px var(--mkcp-dd-accent-10);
+}
+
+.mkcp-dd-card.is-selected {
+    border-color: var(--mkcp-dd-accent);
+    background: linear-gradient(145deg, var(--mkcp-dd-accent-tint) 0%, var(--mkcp-dd-accent-tint2) 100%);
+    box-shadow: 0 0px 0px var(--mkcp-dd-accent-22);
+    transform: translateY(-1px);
+}
+
+.mkcp-dd-card-dow {
+    font-size: 11px;
+    font-weight: 600;
+    color: #5b6472; // WCAG AA — was #9ca3af (2,54:1, faalde)
+    letter-spacing: .3px;
+    line-height: 1;
+    text-transform: capitalize;
+}
+.mkcp-dd-card.is-selected .mkcp-dd-card-dow { color: var(--mkcp-dd-accent-light); }
+
+.mkcp-dd-card-num {
+    font-size: 32px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1;
+    letter-spacing: -1.5px;
+}
+.mkcp-dd-card.is-selected .mkcp-dd-card-num { color: var(--mkcp-dd-accent-dark); }
+
+.mkcp-dd-card-mon {
+    font-size: 12px;
+    font-weight: 500;
+    color: #4b5563; // WCAG AA — was #6b7280 (faalde op #f5f5f5-kaartachtergrond)
+    line-height: 1;
+}
+.mkcp-dd-card.is-selected .mkcp-dd-card-mon { color: var(--mkcp-dd-accent); }
+
+/* Vinkje (top-right, alleen zichtbaar bij selected) */
+.mkcp-dd-card-check {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #2e7d32;
+    color: #fff;
+    opacity: 0;
+    transition: opacity .15s ease, transform .15s ease;
+}
+.mkcp-dd-card-check svg {
+    width: 13px;
+    height: 13px;
+    stroke: white;
+}
+.mkcp-dd-card.is-selected .mkcp-dd-card-check { opacity: 1; }
+
+/* Badge op de eerstvolgende (snelste) datum — als een vlaggetje boven de kaartrand */
+.mkcp-dd-card-badge {
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #fff;
+    background: var(--mkcp-dd-accent);
+    border-radius: 20px;
+    padding: 2px 8px;
+    line-height: 1.5;
+    box-shadow: 0 2px 6px var(--mkcp-dd-accent-22);
+}
+
+/* ── Nav pijl knoppen ─────────────────────────────────────────────────────────── */
+
+.mkcp-dd-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 26px!important;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1.5px solid #e0e4ef;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+    color: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0px 0px 7px 0px;
+    font-size: 24px!important;
+    line-height: 0em!important;
+    font-family: inherit;
+    transition: background .14s, border-color .14s, color .14s, opacity .14s;
+}
+.mkcp-dd-nav--prev { left: -13px; }
+.mkcp-dd-nav--next { right: -13px; }
+.mkcp-dd-nav:hover { background: var(--mkcp-dd-accent-tint); border-color: var(--mkcp-dd-accent); color: var(--mkcp-dd-accent); }
+.mkcp-dd-nav:disabled { opacity: .22; cursor: default; pointer-events: none; }
+
+/* ── Kalender popup (ongewijzigd) ─────────────────────────────────────────────── */
+
+/* Positie (top/bottom) wordt door JS gezet (positionCalendar()) zodat de
+   kalender altijd op dezelfde hoogte als mkcp-dd-cards-viewport opent, en
+   automatisch naar boven klapt als er onderin het scherm geen ruimte meer
+   is. top:100% hieronder is alleen een fallback voor het geval JS dat nog
+   niet heeft kunnen zetten. */
+.mkcp-dd-calendar {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    width: auto;
+    z-index: 999999;
+    background: #fff;
+    border: 1px solid #eceef2;
+    border-radius: 18px;
+    box-shadow: 0 16px 40px rgba(17, 24, 39, .12), 0 3px 10px rgba(17, 24, 39, .05);
+    padding: 20px 22px 22px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px) scale(.99);
+    transform-origin: top center;
+    transition: opacity .18s ease, transform .18s ease;
+    /* Veiligheidsgrens — ruim genoeg om een volle maand (6 rijen × 84px
+       dagcellen + nav/legenda) zonder scrollen te tonen op een normaal
+       scherm; grijpt alleen in op een echt korte viewport (bv. mobiel in
+       liggende stand) i.p.v. de kalender bij elke render te laten scrollen. */
+    max-height: min(90vh, 760px);
+    overflow-y: auto;
+}
+.mkcp-dd-calendar.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+/* Naar boven geklapt: schuift van onderaf in i.p.v. van bovenaf */
+.mkcp-dd-calendar--flip-up {
+    transform: translateY(6px) scale(.99);
+    transform-origin: bottom center;
+}
+.mkcp-dd-calendar--flip-up.is-open {
+    transform: translateY(0) scale(1);
+}
+
+.mkcp-dd-cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.mkcp-dd-cal-prev,
+.mkcp-dd-cal-next {
+    background: #f7f8fa;
+    border: 1px solid #eceef2;
+    font-size: 20px;
+    line-height: 1;
+    color: #374151;
+    cursor: pointer;
+    width: 34px!important;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background .12s, color .12s, border-color .12s;
+    font-family: inherit;
+    padding: 0;
+    flex-shrink: 0;
+}
+.mkcp-dd-cal-prev:hover, .mkcp-dd-cal-next:hover {
+    background: var(--mkcp-dd-accent-tint);
+    border-color: var(--mkcp-dd-accent-border);
+    color: var(--mkcp-dd-accent);
+}
+.mkcp-dd-cal-prev:disabled, .mkcp-dd-cal-next:disabled { opacity: .3; cursor: default; pointer-events: none; }
+
+.mkcp-dd-cal-month-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    text-align: center;
+    text-transform: capitalize;
+    letter-spacing: -.1px;
+    flex: 1;
+}
+
+.mkcp-dd-cal-dow-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f1f4;
+}
+.mkcp-dd-cal-dow-row span {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #5b6472; // WCAG AA — was #9ca3af (2,54:1, faalde)
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 4px 0;
+}
+
+.mkcp-dd-cal-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 15px;
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity .16s ease, transform .16s ease;
+}
+/* Maand-overgangsanimatie: kort fade/slide bij elke (her)render */
+.mkcp-dd-cal-days.is-animating {
+    opacity: 0;
+    transform: translateX(6px);
+    transition: none;
+}
+
+.mkcp-dd-cal-day {
+    position: relative;
+    aspect-ratio: 1;
+    width: 100%!important;
+    max-width: 40px;
+    max-height: 40px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 50%;
+    cursor: default;
+    border: 1.5px solid transparent;
+    background: none;
+    color: #d5d7dc;
+    font-family: inherit;
+    padding: 0;
+    transition: background .12s, color .12s, border-color .12s, transform .12s, box-shadow .12s;
+}
+
+/* Beschikbaar = direct herkenbaar als "klikbaar chipje", niet alleen op hover */
+.mkcp-dd-cal-day--available {
+    color: var(--mkcp-dd-accent-dark, #111827);
+    background: var(--mkcp-dd-accent-tint);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px!important;
+}
+.mkcp-dd-cal-day--available:hover {
+    background: var(--mkcp-dd-accent-tint2);
+    border-color: var(--mkcp-dd-accent-border);
+    transform: scale(1.08);
+}
+.mkcp-dd-cal-day--available:active { transform: scale(.96); }
+
+/* Geselecteerd — springt er duidelijk uit */
+.mkcp-dd-cal-day--selected {
+    background: var(--mkcp-dd-accent) !important;
+    border-color: var(--mkcp-dd-accent) !important;
+    color: #fff !important;
+    font-weight: 700;
+    box-shadow: 0 4px 14px var(--mkcp-dd-accent-22);
+    transform: scale(1.04);
+}
+.mkcp-dd-cal-day--selected:hover { transform: scale(1.08); }
+
+/* Vandaag: duidelijke ring + stipje, ook zichtbaar wanneer niet beschikbaar */
+.mkcp-dd-cal-day--today {
+    border-color: #d1d5db;
+    color: #4b5563; // WCAG AA — was #6b7280 (faalde op #f5f5f5-kaartachtergrond)
+    font-weight: 700;
+}
+.mkcp-dd-cal-day--today.mkcp-dd-cal-day--available {
+    border-color: var(--mkcp-dd-accent);
+}
+.mkcp-dd-cal-day--today::after {
+    content: "";
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--mkcp-dd-accent);
+}
+.mkcp-dd-cal-day--selected::after { background: #fff; }
+
+/* ── Legenda onder de kalender ────────────────────────────────────────────────── */
+
+.mkcp-dd-cal-legend {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f1f4;
+}
+.mkcp-dd-cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #5b6472; // WCAG AA — was #9ca3af (2,54:1, faalde)
+}
+.mkcp-dd-cal-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.mkcp-dd-cal-legend-dot--today {
+    background: #fff;
+    border: 1.5px solid var(--mkcp-dd-accent);
+}
+.mkcp-dd-cal-legend-dot--selected {
+    background: var(--mkcp-dd-accent);
+}
+
+/* ── Mini-samenvatting onderaan de bezorgdatum-kiezer ──────────────────────────── */
+/* Rendert als kind van #mkcp-dd-wrap (zie mkcp_dd_render_field()/
+   mkcp_pickup_render_field() in includes/delivery-date.php resp. pickup.php)
+   — niet meer los via een apart hook, want #mkcp-dd-wrap wordt bij elke
+   checkout-AJAX-refresh weggegooid en opnieuw opgebouwd; een los gerenderde
+   summary die daarna via JS als kind wordt ingevoegd overleeft die refresh
+   niet. Erft de accent-variabelen daarom gewoon van .mkcp-dd-wrap. */
+
+.mkcp-dd-summary {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    background: var(--mkcp-dd-accent-tint);
+    border: 1px solid var(--mkcp-dd-accent);
+    border-left-width: 3px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #374151;
+}
+.mkcp-dd-summary[hidden] { display: none; }
+.mkcp-dd-summary strong { color: var(--mkcp-dd-accent-dark); }
+.mkcp-dd-summary-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--mkcp-dd-accent);
+}
+.mkcp-dd-summary-icon svg { width: 100%; height: 100%; stroke: currentColor; }
+.mkcp-dd-summary-edit {
+    margin-left: auto;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mkcp-dd-accent);
+    text-decoration: underline;
+    cursor: pointer;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+.mkcp-dd-summary-edit:focus-visible {
+    outline: 2px solid var(--mkcp-dd-accent);
+    outline-offset: 2px;
+}
+
+/* ── Afhalen: locatie-info + tijdsloten ──────────────────────────────────────── */
+
+.mkcp-pu-location {
+    background: var(--mkcp-dd-accent-tint);
+    border: 1px solid var(--mkcp-dd-accent-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+.mkcp-pu-location strong { display: block; color: #1f2937; margin-bottom: 2px; }
+.mkcp-pu-location p { margin: 0; color: #4b5563; }
+
+.mkcp-pu-slot-select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d0d0d0;
+    font-size: 14px;
+    background: #fff;
+}
+
+.mkcp-pu-slots {
+    margin: 4px 0 12px;
+}
+.mkcp-pu-slots-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+// .mkcp-pu-slots-row {
+//     display: grid;
+//     grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+//     gap: 6px;
+//     max-height: 164px;
+//     overflow-y: auto;
+//     overflow-x: hidden;
+//     padding: 2px 6px 2px 1px;
+//     margin: -2px -6px -2px -1px;
+//     scrollbar-width: thin;
+//     scrollbar-color: #d1d5db transparent;
+
+//     &::-webkit-scrollbar { width: 6px; }
+//     &::-webkit-scrollbar-track { background: transparent; }
+//     &::-webkit-scrollbar-thumb {
+//         background: #d1d5db;
+//         border-radius: 999px;
+//     }
+// }
+.mkcp-pu-slots-empty {
+    margin: 0;
+    font-size: 12px;
+    color: #4b5563; // WCAG AA — was #6b7280 (faalde op #f5f5f5-kaartachtergrond)
+    font-style: italic;
+}
+.mkcp-pu-slot {
+    border: 1.5px solid #e0e4ef;
+    border-radius: 7px;
+    background: #fff;
+    color: #374151;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 8px;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .14s, background .14s, color .14s;
+}
+.mkcp-pu-slot:hover {
+    border-color: var(--mkcp-dd-accent);
+    background: var(--mkcp-dd-accent-tint);
+    color: var(--mkcp-dd-accent);
+}
+.mkcp-pu-slot.is-selected {
+    border-color: var(--mkcp-dd-accent);
+    background: var(--mkcp-dd-accent);
+    color: #fff;
+}

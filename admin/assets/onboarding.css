@@ -1,0 +1,359 @@
+/* MK Cart Popup — Onboarding-tour (Driver.js popover restyled)
+ *
+ * Driver.js komt met een eigen, neutrale popover-stijl (driver.css, geladen
+ * vóór dit bestand) — dit overschrijft die met dezelfde glassmorphism-taal
+ * als de rest van de admin-UI (zie :root-tokens in settings.css): blur,
+ * --mkcp-ui-radius, --mkcp-ui-shadow-lg, accentkleur --mkcp-ui-accent.
+ * Alleen .mkcp-onboarding-popover (via popoverClass in onboarding.js) wordt
+ * geraakt, zodat een eventuele andere Driver.js-tour in de toekomst zijn
+ * eigen stijl kan krijgen zonder deze regels te hoeven overschrijven.
+ */
+
+.mkcp-onboarding-popover.driver-popover {
+    background     : var(--mkcp-ui-surface2);
+    -webkit-backdrop-filter: var(--mkcp-ui-glass-blur);
+    backdrop-filter: var(--mkcp-ui-glass-blur);
+    border         : 1px solid var(--mkcp-ui-border2);
+    border-radius  : var(--mkcp-ui-radius);
+    box-shadow     : var(--mkcp-ui-shadow-lg);
+    color          : var(--mkcp-ui-text);
+    padding        : 18px 20px;
+    max-width      : 340px;
+    font-family    : inherit;
+}
+
+.mkcp-onboarding-popover .driver-popover-title {
+    color       : var(--mkcp-ui-text);
+    font-size   : 15px;
+    font-weight : 650;
+    margin-bottom: 6px;
+}
+
+.mkcp-onboarding-popover .driver-popover-description {
+    color      : var(--mkcp-ui-text2);
+    font-size  : 13.5px;
+    line-height: 1.55;
+}
+
+.mkcp-onboarding-popover .driver-popover-progress-text {
+    color    : var(--mkcp-ui-text3);
+    font-size: 11.5px;
+}
+
+.mkcp-onboarding-popover .driver-popover-footer {
+    margin-top: 16px;
+}
+
+.mkcp-onboarding-popover .driver-popover-navigation-btns button {
+    background   : var(--mkcp-ui-surface3);
+    color        : var(--mkcp-ui-text);
+    border       : 1px solid var(--mkcp-ui-border2);
+    border-radius: var(--mkcp-ui-radius-sm);
+    padding      : 6px 14px;
+    font-size    : 12.5px;
+    font-weight  : 600;
+    text-shadow  : none;
+    transition   : var(--mkcp-ui-transition);
+}
+
+/* :not() sluit de primaire "Volgende"-knop hier bewust uit — die knop had
+   zonder deze uitsluiting bij :hover zijn paarse achtergrond verloren (deze
+   regel heeft van zichzelf een hogere specificiteit dan de eigen next-btn-
+   regel hieronder, door het extra element-deel "button"), terwijl de witte
+   tekstkleur wél bleef staan: wit-op-wit, onleesbaar. */
+.mkcp-onboarding-popover .driver-popover-navigation-btns button:not(.driver-popover-next-btn):hover {
+    background: var(--mkcp-ui-hover-nav);
+    color     : var(--mkcp-ui-text);
+}
+
+.mkcp-onboarding-popover .driver-popover-next-btn {
+    background  : var(--mkcp-ui-accent);
+    color       : #fff;
+    border-color: var(--mkcp-ui-accent);
+}
+
+.mkcp-onboarding-popover .driver-popover-next-btn:hover {
+    background  : var(--mkcp-ui-accent);
+    color       : #fff;
+    border-color: var(--mkcp-ui-accent);
+    filter      : brightness(1.1);
+}
+
+.mkcp-onboarding-popover .driver-popover-close-btn {
+    color    : var(--mkcp-ui-text3);
+    font-size: 20px;
+}
+
+.mkcp-onboarding-popover .driver-popover-close-btn:hover {
+    color: var(--mkcp-ui-text);
+}
+
+.mkcp-onboarding-popover .driver-popover-arrow-side-left.driver-popover-arrow  { border-left-color: var(--mkcp-ui-surface2); }
+.mkcp-onboarding-popover .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: var(--mkcp-ui-surface2); }
+.mkcp-onboarding-popover .driver-popover-arrow-side-top.driver-popover-arrow   { border-top-color: var(--mkcp-ui-surface2); }
+.mkcp-onboarding-popover .driver-popover-arrow-side-bottom.driver-popover-arrow{ border-bottom-color: var(--mkcp-ui-surface2); }
+
+/* Highlight-ring om het actieve element, in de accentkleur i.p.v. Driver.js'
+   standaard witte rand. :not(#driver-dummy-element) is nodig voor stappen
+   zonder een echt element (bv. de intro-keuzestap) — Driver.js zet dan een
+   onzichtbaar 0×0-"dummy"-element neer en geeft dát dezelfde
+   driver-active-element-klasse; zonder deze uitsluiting werd dat onzichtbare
+   puntje ineens een klein rond gloeiend stipje midden op de pagina. */
+.driver-active-element:not(#driver-dummy-element) {
+    box-shadow: 0 0 0 3px var(--mkcp-ui-accent-glow) !important;
+    border-radius: var(--mkcp-ui-radius-sm);
+}
+
+/* Driver.js zet zelf (driver.css) overflow:hidden!important op de DIRECTE
+   ouder van elk gehighlight element — bedoeld om dubbele scrollbars achter
+   de overlay te voorkomen. Op de meeste stappen is die ouder een klein,
+   onschuldig <div>, maar bij de laatste stap (opslaan-knop) is dat toevallig
+   een layout-kritisch element van deze pagina (.mkcp-save-bar, genest in het
+   grid van #mkcp-admin-wrap) — het forceren van overflow:hidden daar liet
+   het hele grid even herberekenen, waardoor de eigen sidebar zichtbaar achter
+   WordPress' admin-menu schoof. We hebben die scroll-vergrendeling niet nodig
+   (de overlay zelf blokkeert al alle interactie elders), dus simpelweg
+   uitzetten voor de hele tour — de selector hieronder is 1-op-1 overgenomen
+   uit driver.css, om 'm daar met !important te overschrijven. */
+:not(body):has( > .driver-active-element) {
+    overflow: visible !important;
+}
+
+.driver-overlay {
+    background: rgba(0, 0, 0, .55);
+}
+
+/* Stap zonder element (de intro-keuzestap) hangt aan een onzichtbaar 0×0-
+   "dummy"-element ergens in de document-flow — Driver.js' eigen "over"-
+   positionering daarvan is niet altijd betrouwbaar gecentreerd. Forceer hier
+   zelf het midden van het scherm, ongeacht waar dat dummy-element toevallig
+   in de DOM terechtkomt. */
+body:has(#driver-dummy-element) .mkcp-onboarding-popover.driver-popover {
+    position : fixed !important;
+    top      : 50% !important;
+    left     : 50% !important;
+    right    : auto !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+
+/* ── B1: voortgangs-dots ─────────────────────────────────────────────────── */
+
+.mkcp-onboarding-dots {
+    display : flex;
+    gap     : 5px;
+    margin  : 14px 0 2px;
+}
+
+.mkcp-onboarding-dot {
+    width        : 6px;
+    height       : 6px;
+    border-radius: 50%;
+    background   : var(--mkcp-ui-border2);
+    transition   : var(--mkcp-ui-transition);
+}
+
+.mkcp-onboarding-dot.is-done {
+    background: var(--mkcp-ui-accent);
+}
+
+
+/* ── A1: intro-keuzescherm (Snelstart vs. Volledige rondleiding) ──────────── */
+
+.mkcp-onboarding-path-choice {
+    display       : flex;
+    flex-direction: column;
+    gap           : 8px;
+    width         : 100%;
+}
+
+.mkcp-onboarding-path-btn {
+    display        : flex;
+    flex-direction : column;
+    align-items    : flex-start;
+    gap            : 2px;
+    width          : 100%;
+    text-align     : left;
+    background     : var(--mkcp-ui-surface3);
+    border         : 1px solid var(--mkcp-ui-border2);
+    border-radius  : var(--mkcp-ui-radius-sm);
+    padding        : 10px 14px;
+    cursor         : pointer;
+    transition     : var(--mkcp-ui-transition);
+}
+
+.mkcp-onboarding-path-btn:hover {
+    background: var(--mkcp-ui-hover-nav);
+}
+
+.mkcp-onboarding-path-btn strong {
+    color    : var(--mkcp-ui-text);
+    font-size: 13.5px;
+}
+
+.mkcp-onboarding-path-btn span {
+    color    : var(--mkcp-ui-text3);
+    font-size: 11.5px;
+}
+
+.mkcp-onboarding-path-btn--primary {
+    background  : var(--mkcp-ui-accent-soft);
+    border-color: var(--mkcp-ui-accent);
+}
+
+.mkcp-onboarding-path-btn--primary strong {
+    color: var(--mkcp-ui-accent);
+}
+
+
+/* ── A2: uitgeschakelde "Volgende"-knop tot het licentieveld is ingevuld ──── */
+
+.mkcp-onboarding-popover .driver-popover-next-btn.mkcp-onboarding-btn-disabled {
+    opacity      : .45;
+    cursor       : not-allowed;
+    filter       : none;
+    pointer-events: none;
+}
+
+/* Pulserende highlight-ring — NIET het veld zelf laten bewegen/schalen (dat
+   oogde raar voor een tekstveld), alleen de gloed die Driver.js er toch al
+   omheen zet groeit zachtjes. */
+.mkcp-onboarding-gate-pulse {
+    animation: mkcp-onboarding-gate-pulse 1.6s ease-in-out infinite !important;
+}
+
+@keyframes mkcp-onboarding-gate-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--mkcp-ui-accent-glow); }
+    50%      { box-shadow: 0 0 0 7px var(--mkcp-ui-accent-glow); }
+}
+
+/* Rustige, kleine hint-tekst boven het veld — statisch, geen eigen animatie
+   (die van het veld/de ring is al genoeg beweging). Fixed-position, JS houdt
+   de plek bij (zie placeGateHint() in onboarding.js). */
+.mkcp-onboarding-gate-arrow {
+    position     : fixed;
+    transform    : translateX(-50%);
+    z-index      : 1000000001; /* boven Driver.js' eigen popover/overlay-lagen */
+    pointer-events: none;
+}
+
+.mkcp-onboarding-gate-arrow span {
+    display      : inline-block;
+    background   : var(--mkcp-ui-accent-soft);
+    color        : var(--mkcp-ui-accent);
+    font-size    : 10.5px;
+    font-weight  : 600;
+    padding      : 3px 9px;
+    border-radius: 999px;
+}
+
+/* Succes-/foutmelding van de echte licentie-validatie (server-round-trip) —
+   verschijnt vlak onder de stap-omschrijving in de popover zelf. */
+.mkcp-onboarding-license-msg {
+    margin       : 10px 0 0;
+    padding      : 7px 10px;
+    border-radius: var(--mkcp-ui-radius-sm);
+    font-size    : 12.5px;
+    font-weight  : 600;
+    line-height  : 1.4;
+}
+
+.mkcp-onboarding-license-msg.is-success {
+    background: var(--mkcp-ui-green-soft);
+    color     : var(--mkcp-ui-green);
+}
+
+.mkcp-onboarding-license-msg.is-error {
+    background: var(--mkcp-ui-red-soft);
+    color     : var(--mkcp-ui-red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-onboarding-gate-pulse {
+        animation: none;
+    }
+}
+
+
+/* ── D1: checklist + afsluit-CTA op de laatste stap ───────────────────────── */
+
+.mkcp-onboarding-checklist {
+    list-style : none;
+    margin     : 10px 0 0;
+    padding    : 0;
+    display    : flex;
+    flex-direction: column;
+    gap        : 6px;
+}
+
+.mkcp-onboarding-checklist li {
+    background   : var(--mkcp-ui-amber-soft);
+    color        : var(--mkcp-ui-text);
+    border-radius: var(--mkcp-ui-radius-sm);
+    padding      : 7px 10px;
+    font-size    : 12.5px;
+    line-height  : 1.4;
+}
+
+.mkcp-onboarding-cta {
+    display      : block;
+    width        : 100%;
+    margin       : 12px 0 0;
+    background   : var(--mkcp-ui-accent);
+    color        : #fff;
+    border       : none;
+    border-radius: var(--mkcp-ui-radius-sm);
+    padding      : 8px 14px;
+    font-size    : 12.5px;
+    font-weight  : 600;
+    cursor       : pointer;
+    transition   : var(--mkcp-ui-transition);
+}
+
+.mkcp-onboarding-cta:hover {
+    filter: brightness(1.1);
+}
+
+
+/* ── B2: micro-animatie bij de Content Builder-stap ───────────────────────── */
+
+.mkcp-onboarding-builder-anim {
+    position     : relative;
+    height       : 34px;
+    margin-top   : 12px;
+    background   : var(--mkcp-ui-surface3);
+    border-radius: var(--mkcp-ui-radius-sm);
+    overflow     : hidden;
+}
+
+.mkcp-onboarding-builder-anim-block {
+    position     : absolute;
+    top          : 8px;
+    left         : 10px;
+    width        : 20px;
+    height       : 18px;
+    border-radius: 4px;
+    background   : var(--mkcp-ui-accent);
+    animation    : mkcp-onboarding-drag 2.2s ease-in-out infinite;
+}
+
+.mkcp-onboarding-builder-anim-zone {
+    position     : absolute;
+    top          : 6px;
+    right        : 10px;
+    width        : 60px;
+    height       : 22px;
+    border       : 1.5px dashed var(--mkcp-ui-border2);
+    border-radius: 5px;
+}
+
+@keyframes mkcp-onboarding-drag {
+    0%, 15%   { left: 10px; top: 8px; opacity: 1; }
+    55%       { left: calc(100% - 42px); top: 8px; opacity: 1; }
+    65%, 80%  { left: calc(100% - 42px); top: 8px; opacity: 1; transform: scale(1.08); }
+    90%, 100% { left: 10px; top: 8px; opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-onboarding-builder-anim-block { animation: none; }
+}
