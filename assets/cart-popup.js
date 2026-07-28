@@ -391,7 +391,24 @@
         // op <body> staat en dus wél de vervanging overleeft).
         wasExpandedBeforeRefresh = $( POPUP ).hasClass( 'is-expanded' );
 
+        // De verse drawer-HTML komt niet onder zijn eigen '#mk-cart-popup'-
+        // sleutel binnen, maar onder de neutrale '#mkcp-popup-refresh' (zie
+        // de PHP-kant, mk-cart-popup.php) — WooCommerce's eigen add-to-cart.js
+        // verwerkt namelijk ELKE fragment-sleutel blind (block()/fadeTo(400ms)/
+        // replaceWith() voor alle keys, niet alleen zijn eigen mini-cart-
+        // widgets) en botst dan met onze eigen vervanging hieronder, met als
+        // gevolg dat #mk-cart-popup soms na een add-to-cart vanaf een
+        // archiefpagina helemaal uit de DOM verdween. '#mkcp-popup-refresh'
+        // bestaat nergens als los element, dus WooCommerce's eigen script
+        // doet daar een onschuldige no-op mee — alleen wíj vervangen hiermee
+        // de echte, levende drawer, precies één keer.
+        var freshPopupHtml = fragments[ '#mkcp-popup-refresh' ];
+        if ( freshPopupHtml ) {
+            $( POPUP ).replaceWith( freshPopupHtml );
+        }
+
         $.each( fragments, function ( selector, html ) {
+            if ( selector === '#mkcp-popup-refresh' ) return;
             $( selector ).replaceWith( html );
         } );
 

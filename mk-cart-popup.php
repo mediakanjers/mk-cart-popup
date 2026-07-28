@@ -340,13 +340,26 @@ add_action( 'wp_footer', function() {
 
 
 // ── WooCommerce fragment: auto-refresh popup on every cart change ──────────────
-
+//
+// Bewust NIET onder de sleutel '#mk-cart-popup' (de echte, live drawer) —
+// WooCommerce's eigen add-to-cart.js verwerkt élke fragment-sleutel blind
+// (AddToCartHandler.prototype.updateFragments: block()/fadeTo(400ms)/
+// replaceWith() voor ALLE keys, niet alleen de eigen mini-cart-widgets).
+// Onze eigen wp_enqueue_script-dependency op 'wc-add-to-cart' zorgt dat dát
+// script eerder bindt aan de 'added_to_cart'-event dan cart-popup.js, dus
+// WooCommerce's eigen (a)synchrone block/replace-cyclus botst met onze
+// eigen applyFragments() — met als gevolg dat #mk-cart-popup soms na een
+// add-to-cart-vanaf-een-archiefpagina helemaal uit de DOM verdwijnt (en de
+// scroll-lock die openPopup() erna nog wél zet, blijft dan voor altijd
+// hangen). Een neutrale, nooit als los element bestaande sleutel voorkomt
+// dat WooCommerce's eigen script de live drawer ooit aanraakt — alleen
+// cart-popup.js zelf leest 'm uit (zie applyFragments() in cart-popup.js).
 add_filter( 'woocommerce_add_to_cart_fragments', function( $fragments ) {
     if ( ! mkcp_woocommerce_active() || ! mkcp_is_enabled() || is_cart() || mkcp_is_distraction_free_checkout() ) return $fragments;
     if ( ! mkcp_license_has( 'basic' ) ) return $fragments;
     ob_start();
     include mkcp_get_template_path();
-    $fragments['#mk-cart-popup'] = ob_get_clean();
+    $fragments['#mkcp-popup-refresh'] = ob_get_clean();
     return $fragments;
 } );
 
