@@ -16,6 +16,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.30',
+            'date'    => '2026-07-28',
+            'items'   => [
+                'Fix: bestellingen met "Afhalen" konden onterecht geblokkeerd worden door een verouderde thema-validatie die niet meer werd opgeruimd tijdens het daadwerkelijke afrekenen (alleen bij een normale paginalaad, niet bij het afronden van de bestelling zelf).',
+                'Fix: de winkelwagen-drawer kon volledig verdwijnen (met een onscrollbare pagina tot gevolg) na het toevoegen van een product via een "Toevoegen aan winkelwagen"-knop op een overzichtspagina — botste met WooCommerce\'s eigen ververs-mechanisme.',
+                'Verbetering: de akkoord-checkbox bij de algemene voorwaarden op checkout is nu netjes opgemaakt (was eerder onopgemaakt en kon de "Plaats bestelling"-knop overlappen).',
+                'Verbetering: ingesloten tekst van de voorwaarden-/privacybeleidpagina op checkout blijft nu altijd leesbaar, ook als die pagina met een eigen page-builder is opgebouwd.',
+            ],
+        ],
+        [
             'version' => '1.14.29',
             'date'    => '2026-07-28',
             'items'   => [
