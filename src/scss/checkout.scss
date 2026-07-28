@@ -1458,6 +1458,20 @@ body.mkcp-distraction-free-checkout #payment {
     // checkbox (zie #ship-to-different-address hierboven): custom vierkant
     // vinkje via ::before, native checkbox verborgen.
     .woocommerce-form__label-for-checkbox.checkbox {
+        // WooCommerce geeft deze <label> een ouder-<p> met class "form-row"
+        // (dezelfde class als billing/shipping-velden) — de floating-label-
+        // regels hierboven (.form-row label) maken elk label daarbinnen
+        // position:absolute + pointer-events:none + white-space:nowrap,
+        // bedoeld voor tekstvelden. Zonder deze reset viel dit label buiten
+        // de normale flow (overlapte de plaats-bestelling-knop) én was
+        // onklikbaar.
+        position       : static;
+        pointer-events  : auto;
+        white-space    : normal;
+        overflow       : visible;
+        max-width      : none;
+        z-index        : auto;
+
         display        : flex;
         align-items    : flex-start;
         gap            : 10px;
