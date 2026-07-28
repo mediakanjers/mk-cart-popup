@@ -16,6 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.29',
+            'date'    => '2026-07-28',
+            'items'   => [
+                'Fix: "Plugin inschakelen" was geen echte hoofdschakelaar — de /cart-omleiding en verschillende premium checkout-features (bezorgdatum, afhalen, verzendkeuze, BTW-switch e.d.) bleven actief als de plugin was uitgeschakeld.',
+                'Fix: enkele content-builder-zones op de checkout controleerden de licentie niet, waardoor ze mogelijk ook op basic-licenties zichtbaar konden zijn.',
+                'Nieuw: pre-release (bèta) kanaal — licenties kunnen nu individueel toegang krijgen tot bèta-versies via het licentiedashboard.',
+            ],
+        ],
+        [
             'version' => '1.14.28',
             'date'    => '2026-07-27',
             'items'   => [
