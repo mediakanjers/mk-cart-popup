@@ -50,7 +50,10 @@ $has_checkout_js     = file_exists( $theme_dir . '/checkout.js' );
 // dus in feite met zichzelf, wat hier altijd "up-to-date" liet zien ongeacht
 // wat er echt op GitHub staat.
 $update_json = MKCP_PATH . 'mk-cart-popup-update.json';
-$live_update = function_exists( 'mkcp_fetch_update_data' ) ? mkcp_fetch_update_data() : null;
+// force=true: dit Updates-tabblad wordt zelden bekeken (geen hot path) en
+// moet altijd de actuele stand tonen, i.p.v. de 6-uurs cache die de
+// achtergrond-updatecheck elders wél terecht gebruikt.
+$live_update = function_exists( 'mkcp_fetch_update_data' ) ? mkcp_fetch_update_data( true ) : null;
 if ( $live_update && ! empty( $live_update->version ) ) {
     $latest_ver = $live_update->version;
 } else {
