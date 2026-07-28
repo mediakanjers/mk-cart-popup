@@ -41,10 +41,25 @@ $has_checkout_hooks  = file_exists( $theme_dir . '/checkout-hooks.php' );
 $has_checkout_css    = file_exists( $theme_dir . '/checkout.css' );
 $has_script          = file_exists( $theme_dir . '/script.js' );
 $has_checkout_js     = file_exists( $theme_dir . '/checkout.js' );
+// $update_json/$update_data blijven puur voor de "bestaat het manifest lokaal
+// in de plugin-map"-diagnose hieronder — voor de daadwerkelijke "laatste
+// versie" leunen we op mkcp_fetch_update_data() (updater/updater.php), die
+// het live manifest van GitHub haalt (6u gecached). Het lokale bestand hier
+// is namelijk de kopie die MEE IN de zip zat op het moment dat déze versie
+// gebouwd werd — dat cijfer verandert nooit meer vanzelf en vergelijkt zichzelf
+// dus in feite met zichzelf, wat hier altijd "up-to-date" liet zien ongeacht
+// wat er echt op GitHub staat.
 $update_json = MKCP_PATH . 'mk-cart-popup-update.json';
-$update_data = file_exists( $update_json ) ? json_decode( file_get_contents( $update_json ), true ) : [];
-$latest_ver  = $update_data['version'] ?? $version;
-$has_update  = version_compare( $latest_ver, $version, '>' );
+$live_update = function_exists( 'mkcp_fetch_update_data' ) ? mkcp_fetch_update_data() : null;
+if ( $live_update && ! empty( $live_update->version ) ) {
+    $latest_ver = $live_update->version;
+} else {
+    // Geen verbinding met GitHub mogelijk — terugvallen op het lokale bestand
+    // zodat dit paneel iets zinnigs blijft tonen i.p.v. te breken.
+    $update_data = file_exists( $update_json ) ? json_decode( file_get_contents( $update_json ), true ) : [];
+    $latest_ver  = $update_data['version'] ?? $version;
+}
+$has_update = version_compare( $latest_ver, $version, '>' );
 
 $nav_items = [
     'dashboard' => [ 'label' => 'Dashboard',        'icon' => 'grid' ],
