@@ -1,6 +1,6 @@
 {
     "name": "mk-cart-popup",
-    "version": "1.14.28",
+    "version": "1.14.29",
     "private": true,
     "description": "Build tooling for the mk-cart-popup WordPress plugin.",
     "scripts": {
