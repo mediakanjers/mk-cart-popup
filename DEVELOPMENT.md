@@ -289,6 +289,16 @@ De plugin heeft een ingebouwde auto-updater die `mk-cart-popup-update.json` van 
 
 5. **GitHub Action doet de rest automatisch** — de Action bouwt de plugin-zip, voegt hem toe aan de Release en werkt `mk-cart-popup-update.json` op `main` bij. Klanten ontvangen de update bij de volgende WordPress-updatecheck (max. 6 uur).
 
+### Pre-releases (bèta-kanaal)
+
+Sommige licenties hebben pre-release-toegang (vinkje "Pre-release-toegang" bij de sleutel in het license-dashboard). Alleen die sites checken ook het bèta-manifest en krijgen bèta-versies aangeboden — alle andere klanten zien nooit iets van een pre-release.
+
+1. Versienummer met een pre-release-suffix, bijv. `1.15.0-beta.1` (in `mk-cart-popup.php`, zowel de header als `MKCP_VER`).
+2. Tag ook zo noemen: `v1.15.0-beta.1`.
+3. Bij het aanmaken van de GitHub Release: vink **"Set as a pre-release"** aan i.p.v. op "Publish release" als stabiele release te klikken.
+4. De Action herkent dit (`github.event.release.prerelease`) en schrijft naar `mk-cart-popup-update-beta.json` in plaats van het stabiele `mk-cart-popup-update.json` — de stabiele klantenkring merkt hier dus niets van.
+5. Een volgende stabiele release (zonder het vinkje) werkt gewoon zoals hierboven — die overschrijft nooit het bèta-manifest.
+
 ### Hoe werkt de updater?
 
 `updater/updater.php` haalt `mk-cart-popup-update.json` op van:
@@ -296,6 +306,8 @@ De plugin heeft een ingebouwde auto-updater die `mk-cart-popup-update.json` van 
 https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/main/mk-cart-popup-update.json
 ```
 Als de versie in het JSON-bestand hoger is dan de geïnstalleerde versie, toont WordPress de bekende "Update beschikbaar"-melding in het pluginscherm.
+
+Heeft de licentie pre-release-toegang (`mkcp_license_get_data()['prerelease']`), dan checkt `updater.php` daarnaast ook `mk-cart-popup-update-beta.json` en gebruikt de hoogste van de twee versies (`version_compare`). Zonder pre-release-toegang wordt dat tweede bestand nooit opgevraagd.
 
 ---
 

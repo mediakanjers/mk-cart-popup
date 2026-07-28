@@ -1021,6 +1021,7 @@ npm run build</code>
                                 <tr><td><code>Domein</code></td><td style="color:var(--mkcp-ui-text3)"><code>domein.nl</code> of <code>*</code></td><td style="color:var(--mkcp-ui-text2)">Zonder <code>https://</code> of <code>www.</code> — of <code>*</code> voor elk domein</td></tr>
                                 <tr><td><code>Vervaldatum</code></td><td style="color:var(--mkcp-ui-text3)"><code>YYYY-MM-DD</code> of leeg</td><td style="color:var(--mkcp-ui-text2)">Leeg = nooit verlopen</td></tr>
                                 <tr><td><code>Notitie</code></td><td style="color:var(--mkcp-ui-text3)">vrije tekst</td><td style="color:var(--mkcp-ui-text2)">Klantnaam of omschrijving — alleen intern zichtbaar</td></tr>
+                                <tr><td><code>Pre-release-toegang</code></td><td style="color:var(--mkcp-ui-text3)">aan/uit</td><td style="color:var(--mkcp-ui-text2)">Mag bèta-versies installeren via de auto-updater (zie hieronder)</td></tr>
                             </tbody>
                         </table>
                         <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 16px">
@@ -1039,6 +1040,11 @@ npm run build</code>
                         <div class="mkcp-docs-callout mkcp-docs-callout--tip">
                             Wordt een sleutel gebruikt op een ander domein dan waarvoor 'm is uitgegeven, dan weigert de server het verzoek én markeert de sleutel als <strong>verdacht</strong> in het Licentiebeheer-dashboard (rode badge + teller). Dat is het signaal dat een sleutel mogelijk gelekt/gedeeld is — de aanpak is dan: intrekken en een nieuwe sleutel uitgeven, niet een geheim opnieuw uitwisselen.
                         </div>
+
+                        <p style="font-size:12px; color:var(--mkcp-ui-text3); margin:16px 0 6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Pre-releases (bèta-kanaal)</p>
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 10px">
+                            Alleen sleutels met <code>Pre-release-toegang</code> aan checken ook <code>mk-cart-popup-update-beta.json</code> naast het stabiele manifest, en krijgen de hoogste van de twee versies aangeboden. Alle andere klanten zien nooit iets van een pre-release. Zie <strong>DEVELOPMENT.md → Pre-releases</strong> voor hoe je er eentje uitbrengt.
+                        </p>
 
                     </div>
                 </div>

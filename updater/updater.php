@@ -25,11 +25,8 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // The transient is deleted when the user clicks "Check again" in Dashboard → Updates,
 // so manual checks always get a fresh result.
 
-function mkcp_fetch_update_data() {
-    $cached = get_transient( 'mkcp_update_data' );
-    if ( $cached !== false ) return $cached;
-
-    $remote = wp_remote_get( MKCP_UPDATER_URL, [
+function mkcp_fetch_manifest( string $url ) {
+    $remote = wp_remote_get( $url, [
         'timeout' => 15,
         'headers' => [ 'Accept' => 'application/json' ],
     ] );
@@ -41,8 +38,36 @@ function mkcp_fetch_update_data() {
     $data = json_decode( wp_remote_retrieve_body( $remote ) );
     if ( ! $data || empty( $data->version ) ) return null;
 
-    set_transient( 'mkcp_update_data', $data, 6 * HOUR_IN_SECONDS );
     return $data;
+}
+
+/**
+ * Haalt het stabiele manifest op, en — als deze licentie pre-release-toegang
+ * heeft (zie license.php) — ook het beta-manifest. Geeft de hoogste van de
+ * twee versies terug. Zolang er nog nooit een pre-release is gepubliceerd
+ * bestaat mk-cart-popup-update-beta.json simpelweg niet (404) en valt dit
+ * gewoon terug op het stabiele manifest.
+ */
+function mkcp_fetch_update_data() {
+    $cached = get_transient( 'mkcp_update_data' );
+    if ( $cached !== false ) return $cached;
+
+    $best = mkcp_fetch_manifest( MKCP_UPDATER_URL );
+
+    $wants_beta = function_exists( 'mkcp_license_get_data' )
+        && ! empty( mkcp_license_get_data()['prerelease'] );
+
+    if ( $wants_beta ) {
+        $beta = mkcp_fetch_manifest( MKCP_UPDATER_BETA_URL );
+        if ( $beta && ( ! $best || version_compare( $beta->version, $best->version, '>' ) ) ) {
+            $best = $beta;
+        }
+    }
+
+    if ( ! $best ) return null;
+
+    set_transient( 'mkcp_update_data', $best, 6 * HOUR_IN_SECONDS );
+    return $best;
 }
 
 // Clear the transient whenever WordPress forces a fresh update check.

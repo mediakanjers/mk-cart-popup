@@ -23,6 +23,10 @@ define( 'MKCP_VER',  '1.14.28' );
 // Change this when you move the repo to a different organisation or name.
 define( 'MKCP_UPDATER_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/main/mk-cart-popup-update.json' );
 
+// Zelfde, maar voor het pre-release-kanaal. Wordt alleen geraadpleegd voor
+// sites waarvan de licentie 'prerelease' toegang heeft (zie license.php).
+define( 'MKCP_UPDATER_BETA_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/main/mk-cart-popup-update-beta.json' );
+
 // ── HPOS-compatibiliteit declareren ─────────────────────────────────────────
 //
 // De plugin was al functioneel HPOS-correct (overal $order->update_meta_data()

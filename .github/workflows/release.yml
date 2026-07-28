@@ -49,16 +49,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ── 4. Update-manifest bijwerken met nieuwe versie + download-URL ───────
+      #
+      # Een pre-release (GitHub-vinkje "Set as a pre-release") schrijft naar
+      # het aparte bèta-manifest, NOOIT naar het stabiele — zo kan publiceren
+      # van een bèta nooit per ongeluk de stabiele klantenkring updaten.
       - name: Update manifest
+        env:
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           python3 - <<'EOF'
-          import json
-
-          with open('mk-cart-popup-update.json', 'r') as f:
-              data = json.load(f)
+          import json, os
 
           tag     = '${{ github.ref_name }}'
           version = tag.lstrip('v')
+          is_beta = os.environ['IS_PRERELEASE'] == 'true'
+
+          target = 'mk-cart-popup-update-beta.json' if is_beta else 'mk-cart-popup-update.json'
+
+          # Eerste ooit gepubliceerde pre-release: er is nog geen beta-manifest —
+          # gebruik het stabiele manifest als template zodat naam/vereisten/etc.
+          # meteen kloppen.
+          source = target if os.path.exists( target ) else 'mk-cart-popup-update.json'
+          with open( source, 'r' ) as f:
+              data = json.load( f )
 
           data['version']      = version
           data['download_url'] = (
@@ -66,16 +79,25 @@ jobs:
               f'/releases/download/{tag}/mk-cart-popup.zip'
           )
 
-          with open('mk-cart-popup-update.json', 'w') as f:
-              json.dump(data, f, indent=4, ensure_ascii=False)
-              f.write('\n')
+          with open( target, 'w' ) as f:
+              json.dump( data, f, indent=4, ensure_ascii=False )
+              f.write( '\n' )
+
+          print( f'Bijgewerkt: {target}' )
           EOF
 
       # ── 5. Bijgewerkt manifest committen naar main ──────────────────────────
       - name: Commit manifest
+        env:
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add mk-cart-popup-update.json
-          git commit -m "chore: bump manifest to ${{ github.ref_name }}"
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            TARGET=mk-cart-popup-update-beta.json
+          else
+            TARGET=mk-cart-popup-update.json
+          fi
+          git add "$TARGET"
+          git commit -m "chore: bump $TARGET to ${{ github.ref_name }}"
           git push origin HEAD:main

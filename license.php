@@ -84,7 +84,7 @@ function mkcp_license_build_request_args( string $key, string $domain ): array {
  * Returns license data. Hits the remote at most once per MKCP_LICENSE_CACHE_TTL.
  *
  * @param  bool  $force  Skip transient cache and re-validate immediately.
- * @return array{valid:bool, tier:string, message:string, expires:string}
+ * @return array{valid:bool, tier:string, message:string, expires:string, prerelease?:bool}
  */
 function mkcp_license_get_data( bool $force = false ): array {
     // Dev bypass: skip all remote validation.
@@ -148,10 +148,11 @@ function mkcp_license_get_data( bool $force = false ): array {
     $valid = ! empty( $body['valid'] ) && $tier !== 'none';
 
     $data = [
-        'valid'   => $valid,
-        'tier'    => $tier,
-        'message' => sanitize_text_field( $body['message'] ?? ( $valid ? 'Actief' : 'Ongeldige sleutel.' ) ),
-        'expires' => sanitize_text_field( $body['expires'] ?? '' ),
+        'valid'      => $valid,
+        'tier'       => $tier,
+        'message'    => sanitize_text_field( $body['message'] ?? ( $valid ? 'Actief' : 'Ongeldige sleutel.' ) ),
+        'expires'    => sanitize_text_field( $body['expires'] ?? '' ),
+        'prerelease' => $valid && ! empty( $body['prerelease'] ),
     ];
 
     if ( $valid ) {
