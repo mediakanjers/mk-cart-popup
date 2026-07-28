@@ -26,18 +26,30 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // so manual checks always get a fresh result.
 
 function mkcp_fetch_manifest( string $url ) {
+    $debug  = defined( 'WP_DEBUG' ) && WP_DEBUG;
     $remote = wp_remote_get( $url, [
         'timeout' => 15,
         'headers' => [ 'Accept' => 'application/json' ],
     ] );
 
-    if ( is_wp_error( $remote ) || wp_remote_retrieve_response_code( $remote ) !== 200 ) {
+    if ( is_wp_error( $remote ) ) {
+        if ( $debug ) error_log( 'MKCP updater: wp_remote_get faalde voor ' . $url . ' — ' . $remote->get_error_message() );
+        return null;
+    }
+
+    $code = wp_remote_retrieve_response_code( $remote );
+    if ( $code !== 200 ) {
+        if ( $debug ) error_log( 'MKCP updater: ' . $url . ' gaf HTTP ' . $code . ' terug (verwacht 200).' );
         return null;
     }
 
     $data = json_decode( wp_remote_retrieve_body( $remote ) );
-    if ( ! $data || empty( $data->version ) ) return null;
+    if ( ! $data || empty( $data->version ) ) {
+        if ( $debug ) error_log( 'MKCP updater: ' . $url . ' gaf geen geldige JSON/versie terug. Body: ' . substr( wp_remote_retrieve_body( $remote ), 0, 300 ) );
+        return null;
+    }
 
+    if ( $debug ) error_log( 'MKCP updater: ' . $url . ' → versie ' . $data->version . ' opgehaald.' );
     return $data;
 }
 
@@ -81,15 +93,28 @@ add_action( 'delete_site_transient_update_plugins', function() {
 add_filter( 'pre_set_site_transient_update_plugins', 'mkcp_check_for_update' );
 
 function mkcp_check_for_update( $transient ) {
-    if ( empty( $transient->checked ) ) return $transient;
+    $debug = defined( 'WP_DEBUG' ) && WP_DEBUG;
+
+    if ( empty( $transient->checked ) ) {
+        if ( $debug ) error_log( 'MKCP updater: $transient->checked is leeg, update-check overgeslagen.' );
+        return $transient;
+    }
 
     $plugin_file = plugin_basename( MKCP_PATH . 'mk-cart-popup.php' );
     $current_ver = $transient->checked[ $plugin_file ] ?? null;
 
-    if ( ! $current_ver ) return $transient;
+    if ( ! $current_ver ) {
+        if ( $debug ) error_log( 'MKCP updater: geen geïnstalleerde versie gevonden voor ' . $plugin_file . ' in $transient->checked.' );
+        return $transient;
+    }
 
     $data = mkcp_fetch_update_data();
-    if ( ! $data || empty( $data->download_url ) ) return $transient;
+    if ( ! $data || empty( $data->download_url ) ) {
+        if ( $debug ) error_log( 'MKCP updater: geen (bruikbaar) manifest opgehaald — geen update-check mogelijk.' );
+        return $transient;
+    }
+
+    if ( $debug ) error_log( "MKCP updater: geïnstalleerd={$current_ver}, manifest={$data->version}, update nodig=" . ( version_compare( $data->version, $current_ver, '>' ) ? 'ja' : 'nee' ) );
 
     if ( version_compare( $data->version, $current_ver, '>' ) ) {
         $transient->response[ $plugin_file ] = (object) [
