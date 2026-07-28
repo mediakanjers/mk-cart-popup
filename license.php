@@ -90,7 +90,7 @@ function mkcp_license_get_data( bool $force = false ): array {
     // Dev bypass: skip all remote validation.
     $dev_tier = (string) MKCP_LICENSE_DEV_TIER;
     if ( $dev_tier !== '' && in_array( $dev_tier, [ 'basic', 'premium' ], true ) ) {
-        return [ 'valid' => true, 'tier' => $dev_tier, 'message' => 'Dev-bypass actief (MKCP_LICENSE_DEV_TIER).', 'expires' => '', 'dev' => true ];
+        return [ 'valid' => true, 'tier' => $dev_tier, 'message' => 'Dev-bypass actief (MKCP_LICENSE_DEV_TIER).', 'expires' => '', 'dev' => true, 'prerelease' => true ];
     }
 
     $key = trim( (string) get_option( 'mkcp_license_key', '' ) );
