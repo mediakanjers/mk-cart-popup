@@ -55,6 +55,13 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 }
 ?>
 <div class="woocommerce-shipping-totals shipping" data-title="<?php echo esc_attr( $package_name ); ?>">
+		<?php // Zichtbare kop bij meerdere pakketten (bv. een deel bezorgen, een
+		      // deel alleen af te halen) — anders is met meerdere kaartgroepen op
+		      // de pagina niet te zien welke bij welk pakket hoort. Bij één
+		      // pakket (verreweg het normale geval) blijft dit weg, zoals voorheen. ?>
+		<?php if ( $show_package_details && $package_name !== '' ) : ?>
+		<p class="mkcp-sc-package-name"><?php echo esc_html( $package_name ); ?></p>
+		<?php endif; ?>
 		<?php if ( ! empty( $available_methods ) && is_array( $available_methods ) && $show_cards ) :
 
 			$titles = [ 'delivery' => __( 'Laten bezorgen', 'mk-cart-popup' ), 'pickup' => __( 'Zelf afhalen', 'mk-cart-popup' ) ];

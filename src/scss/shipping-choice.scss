@@ -1,5 +1,23 @@
 /* ── MK Cart Popup — Ophalen/Bezorgen keuzekaarten ───────────────────────────── */
 
+/* Kop boven een kaartgroep — alleen zichtbaar zodra de winkelwagen in
+   meerdere verzendpakketten is gesplitst (bv. een niet-verzendbaar product
+   naast gewone producten), zodat duidelijk is welke kaartgroep bij welk
+   pakket hoort. */
+.mkcp-sc-package-name {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mkcp-text-light, #6b7280);
+}
+
+/* Ruimte tussen meerdere pakket-kaartgroepen (elke groep is een eigen
+   .woocommerce-shipping-totals, één keer per pakket gerenderd) — zonder
+   effect zodra er (verreweg het normale geval) maar één pakket is. */
+.woocommerce-shipping-totals + .woocommerce-shipping-totals {
+    margin-top: 14px;
+}
+
 .mkcp-ship-choice,
 .mkcp-ship-choice *,
 .mkcp-ship-choice *::before,

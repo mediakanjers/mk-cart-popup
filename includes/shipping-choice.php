@@ -71,56 +71,54 @@ function mkcp_shipping_choice_hide_paid_delivery( array $rates ): array {
 
 
 /**
- * Gathers the arguments required by the cart-shipping-choice.php template.
- * This mimics the arguments passed by WooCommerce when it renders the
- * original cart/cart-shipping.php template.
+ * Vriendelijkere pakketnaam dan WooCommerce's kale "Verzending 2" zodra een
+ * winkelwagen in meerdere pakketten is gesplitst (bv. één "alleen-afhalen"-
+ * product naast gewoon te bezorgen producten). Bevat een pakket precies één
+ * product, dan gebruiken we die productnaam — dat is de meest voorkomende
+ * situatie bij een split (één specifiek product met een eigen verzendklasse)
+ * en meteen duidelijk voor de klant. Bij meerdere verschillende producten in
+ * hetzelfde pakket blijft WooCommerce's eigen "Verzending N" staan — een
+ * opsomming van alle productnamen zou hier al snel te lang worden.
  */
-function mkcp_get_shipping_choice_template_args(): array {
-    if ( ! function_exists('WC') || ! WC()->shipping || ! WC()->cart || ! WC()->session ) {
-        return [];
-    }
+add_filter( 'woocommerce_shipping_package_name', function( $name, $package_id, $package ) {
+    if ( ! mkcp_shipping_choice_is_active() ) return $name;
 
-    $packages = WC()->shipping->get_packages();
-    if ( empty( $packages ) ) {
-        return [
-            'package'                  => null,
-            'available_methods'        => [],
-            'show_package_details'     => false,
-            'show_shipping_calculator' => false,
-            'package_details'          => '',
-            'package_name'             => '',
-            'index'                    => 0,
-            'chosen_method'            => null,
-            'formatted_destination'    => null,
-            'has_calculated_shipping'  => false,
-        ];
-    }
+    $contents = $package['contents'] ?? [];
+    if ( count( $contents ) !== 1 ) return $name;
 
-    // This plugin seems to only support the first package for shipping choice.
-    $package_index = 0;
-    if ( ! isset( $packages[ $package_index ] ) ) {
-        $package_index = key( $packages );
-        $package = reset( $packages );
-    } else {
-        $package = $packages[ $package_index ];
-    }
+    $item = reset( $contents );
+    $product = $item['data'] ?? null;
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) return $name;
 
-    // Sessie eerst, $_POST alleen als vangnet — zelfde volgorde en reden als
-    // mkcp_dd_current_rate_id() (delivery-date.php). WC_AJAX::update_order_review()
-    // draait WC()->cart->calculate_shipping() vóórdat deze fragments-filter
-    // vuurt, en die core-aanroep corrigeert de sessie zelf al naar een geldige
-    // rate zodra de eerder gekozen rate niet meer bestaat voor het nieuwe
-    // pakket (bv. na een postcode-wijziging naar een andere zone — zie
-    // wc_get_chosen_shipping_method_for_package() in WooCommerce core).
-    // $_POST bevat op dat moment nog de oude, inmiddels ongeldige keuze (de
-    // browser stuurt altijd de vóór-AJAX aangevinkte radio mee, ook als de
-    // klant 'm niet aanraakte) — zou dat voorrang krijgen, dan kan deze kaart
-    // een andere methode tonen dan de bezorgdatum-/afhaal-kalender op basis
-    // van dezelfde respons. $_POST dient alleen als vangnet voor het
+    return $product->get_name();
+}, 10, 3 );
+
+
+/**
+ * Gathers the arguments required by the cart-shipping-choice.php template
+ * voor ÉÉN specifiek verzendpakket. Mimicked WooCommerce's eigen
+ * wc_cart_totals_shipping_html() (wc-cart-functions.php) — die loopt zelf
+ * ook gewoon over alle pakketten en roept per pakket cart/cart-shipping.php
+ * aan met zijn eigen $index/$package; dit doet hetzelfde voor onze
+ * gestylede kaarten-variant.
+ *
+ * @param array $package       Eén pakket uit WC()->shipping->get_packages().
+ * @param int   $package_index De index van dat pakket (voor shipping_method[index]-veldnamen).
+ * @param int   $total_packages Totaal aantal pakketten (voor show_package_details).
+ */
+function mkcp_get_shipping_choice_template_args_for_package( array $package, int $package_index, int $total_packages ): array {
+    // Sessie eerst, $_POST alleen als vangnet, PER PAKKET — zelfde reden als
+    // voorheen (zie git-historie): WC_AJAX::update_order_review() draait
+    // WC()->cart->calculate_shipping() vóórdat deze fragments-filter vuurt,
+    // en die core-aanroep corrigeert de sessie zelf al naar een geldige rate
+    // zodra de eerder gekozen rate niet meer bestaat voor dit pakket (bv. na
+    // een postcode-wijziging). $_POST bevat op dat moment nog de oude,
+    // inmiddels ongeldige keuze — dient hier alleen als vangnet voor het
     // zeldzame geval dat de sessie niet beschikbaar is.
-    $chosen_method = function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null;
+    $chosen_shipping_methods = (array) WC()->session->get( 'chosen_shipping_methods', [] );
+    $chosen_method = $chosen_shipping_methods[ $package_index ] ?? null;
 
-    if ( null === $chosen_method ) {
+    if ( empty( $chosen_method ) ) {
         $chosen_method = isset( $_POST['shipping_method'][ $package_index ] )
             ? wc_clean( wp_unslash( $_POST['shipping_method'][ $package_index ] ) )
             : '';
@@ -151,7 +149,6 @@ function mkcp_get_shipping_choice_template_args(): array {
 
         if ( $default_method ) {
             $chosen_method = $default_method->id;
-            $chosen_shipping_methods = (array) WC()->session->get( 'chosen_shipping_methods', [] );
             $chosen_shipping_methods[ $package_index ] = $chosen_method;
             WC()->session->set( 'chosen_shipping_methods', $chosen_shipping_methods );
         }
@@ -160,7 +157,7 @@ function mkcp_get_shipping_choice_template_args(): array {
     return array(
         'package'                  => $package,
         'available_methods'        => $package['rates'] ?? [],
-        'show_package_details'     => count( $packages ) > 1,
+        'show_package_details'     => $total_packages > 1,
         'show_shipping_calculator' => is_cart(),
         'package_details'          => implode( ', ', wp_list_pluck( $package['contents'] ?? [], 'quantity' ) ) . ' ' . _n( 'item', 'items', count( $package['contents'] ?? [] ), 'woocommerce' ),
         'package_name'             => $package['package_name'] ?? '',
@@ -172,11 +169,33 @@ function mkcp_get_shipping_choice_template_args(): array {
 }
 
 /**
+ * Rendert de keuzekaarten voor ÉÉN pakket (gebruikt door zowel de normale
+ * render als de AJAX-fragment-registratie hieronder). Vervangt de oude
+ * mkcp_get_shipping_choice_template_args() die altijd pakket 0 aannam.
+ *
+ * @param int|null $only_package_index Als gezet: render alleen dit pakket
+ *                                      (voor eventueel toekomstig los gebruik).
+ */
+function mkcp_render_all_shipping_choice_cards( ?int $only_package_index = null ): void {
+    if ( ! function_exists('WC') || ! WC()->shipping || ! WC()->cart || ! WC()->session ) return;
+
+    $packages = WC()->shipping->get_packages();
+    if ( empty( $packages ) ) return;
+
+    $total = count( $packages );
+    foreach ( $packages as $package_index => $package ) {
+        if ( null !== $only_package_index && $package_index !== $only_package_index ) continue;
+        $args = mkcp_get_shipping_choice_template_args_for_package( $package, (int) $package_index, $total );
+        wc_get_template( 'cart-shipping-choice.php', $args, '', MKCP_PATH . 'templates/' );
+    }
+}
+
+/**
  * Rendert de keuzekaarten. Deze functie wordt door een van de hooks hieronder aangeroepen.
  */
 function mkcp_render_shipping_choice_cards() {
 	if ( ! mkcp_shipping_choice_is_active() ) return;
-    wc_get_template( 'cart-shipping-choice.php', mkcp_get_shipping_choice_template_args(), '', MKCP_PATH . 'templates/' );
+    mkcp_render_all_shipping_choice_cards();
 }
 
 // ── Render keuzekaarten (conditioneel) ───────────────────────────────────────
@@ -308,7 +327,7 @@ function mkcp_shipping_choice_register_ajax_fragment() {
 
         ob_start();
         if ( file_exists( MKCP_PATH . 'templates/cart-shipping-choice.php' ) ) {
-            wc_get_template( 'cart-shipping-choice.php', mkcp_get_shipping_choice_template_args(), '', MKCP_PATH . 'templates/' );
+            mkcp_render_all_shipping_choice_cards();
         }
         $html = ob_get_clean();
 
