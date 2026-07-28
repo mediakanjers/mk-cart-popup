@@ -1,13 +1,13 @@
 {
-    "name"         : "MK Cart Popup",
-    "slug"         : "mk-cart-popup",
-    "version"      : "1.14.28",
-    "author"       : "Mediakanjers",
-    "requires"     : "6.0",
-    "requires_php" : "8.1",
-    "tested"       : "6.9",
-    "download_url" : "https://github.com/mediakanjers/mk-cart-popup/releases/download/v1.14.28/mk-cart-popup.zip",
-    "details_url"  : "https://github.com/mediakanjers/mk-cart-popup/releases",
-    "description"  : "Slide-in cart drawer for WooCommerce. Intercepts add-to-cart on every page, handles qty/remove via AJAX, and redirects /cart to a configurable URL.",
-    "changelog"    : "<h4>1.14.28</h4><ul><li>Fix: add-to-cart bij variabele producten kon soms de dubbele hoeveelheid toevoegen (een verborgen thema-veld triggerde tegelijk WooCommerce's klassieke én AJAX-afhandeling)</li><li>Fix: add-to-cart-knop reageerde soms helemaal niet (thema's met een eigen, verborgen 'required'-veld naast de variatie-select blokkeerden de submit stilzwijgend)</li><li>Fix: product_id/variation_id-afhandeling aangepast voor recentere WooCommerce-versies (10.x) bij variabele producten</li><li>Fix: winkelwagen-drawer bleef soms dicht na een add-to-cart als WooCommerce zelf ook nog een fragment-ververs deed</li><li>Fix: achtergrondpagina bleef scrollbaar terwijl de winkelwagen-drawer open stond (bij thema's die overflow op &lt;html&gt; i.p.v. &lt;body&gt; zetten)</li><li>Fix: bezorgdatum gekozen via de kalender (buiten de eerste 4 kaarten) liet een gat vallen i.p.v. de tussenliggende datums te tonen</li><li>Fix: mobiele scroll naar de laatst gekozen datumkaart eindigde soms net verkeerd uitgelijnd (nu via scrollIntoView i.p.v. handmatige scrollberekening)</li><li>Fix: tijdvak-dropdown (afhalen/bezorgen) deed niets bij een keuze — ontbrekende change-listener na eerdere omzetting van knoppen naar dropdown</li><li>Verbetering: bezorgdatum-samenvatting op checkout blijft nu ook staan na een externe (WooCommerce-eigen) paginaverversing</li><li>Verbetering: bezorgdatum/afhaalinfo op de PDF-factuur en pakbon staat nu direct onder 'Betaalmethode' i.p.v. onderaan, en het bezorgdatum-label is vetgedrukt</li><li>Verbetering: sectietitels in de 3-blokken checkout-lay-out vallen nu binnen de kaartrand</li><li>Verbetering: mobiele bestelbalk verschijnt niet meer op de bedankt-pagina</li></ul><h4>1.2.1</h4><ul><li>Admin UI verbeteringen</li><li>Scroll-indicator in zijbalk navigatie</li></ul><h4>1.0.0</h4><ul><li>Initial release</li></ul>"
+    "name": "MK Cart Popup",
+    "slug": "mk-cart-popup",
+    "version": "1.14.28",
+    "author": "Mediakanjers",
+    "requires": "6.0",
+    "requires_php": "8.1",
+    "tested": "6.9",
+    "download_url": "https://github.com/mediakanjers/mk-cart-popup/releases/download/v1.14.28/mk-cart-popup.zip",
+    "details_url": "https://github.com/mediakanjers/mk-cart-popup/releases",
+    "description": "Slide-in cart drawer for WooCommerce. Intercepts add-to-cart on every page, handles qty/remove via AJAX, and redirects /cart to a configurable URL.",
+    "changelog": "<h4>1.14.28</h4><ul><li>Fix: add-to-cart bij variabele producten kon soms de dubbele hoeveelheid toevoegen (een verborgen thema-veld triggerde tegelijk WooCommerce's klassieke én AJAX-afhandeling)</li><li>Fix: add-to-cart-knop reageerde soms helemaal niet (thema's met een eigen, verborgen 'required'-veld naast de variatie-select blokkeerden de submit stilzwijgend)</li><li>Fix: product_id/variation_id-afhandeling aangepast voor recentere WooCommerce-versies (10.x) bij variabele producten</li><li>Fix: winkelwagen-drawer bleef soms dicht na een add-to-cart als WooCommerce zelf ook nog een fragment-ververs deed</li><li>Fix: achtergrondpagina bleef scrollbaar terwijl de winkelwagen-drawer open stond (bij thema's die overflow op &lt;html&gt; i.p.v. &lt;body&gt; zetten)</li><li>Fix: bezorgdatum gekozen via de kalender (buiten de eerste 4 kaarten) liet een gat vallen i.p.v. de tussenliggende datums te tonen</li><li>Fix: mobiele scroll naar de laatst gekozen datumkaart eindigde soms net verkeerd uitgelijnd (nu via scrollIntoView i.p.v. handmatige scrollberekening)</li><li>Fix: tijdvak-dropdown (afhalen/bezorgen) deed niets bij een keuze — ontbrekende change-listener na eerdere omzetting van knoppen naar dropdown</li><li>Verbetering: bezorgdatum-samenvatting op checkout blijft nu ook staan na een externe (WooCommerce-eigen) paginaverversing</li><li>Verbetering: bezorgdatum/afhaalinfo op de PDF-factuur en pakbon staat nu direct onder 'Betaalmethode' i.p.v. onderaan, en het bezorgdatum-label is vetgedrukt</li><li>Verbetering: sectietitels in de 3-blokken checkout-lay-out vallen nu binnen de kaartrand</li><li>Verbetering: mobiele bestelbalk verschijnt niet meer op de bedankt-pagina</li></ul><h4>1.2.1</h4><ul><li>Admin UI verbeteringen</li><li>Scroll-indicator in zijbalk navigatie</li></ul><h4>1.0.0</h4><ul><li>Initial release</li></ul>"
 }
