@@ -1051,6 +1051,90 @@
     }
 }
 
+// "Alleen afhalen"-badge onder de productnaam (premium, alleen zichtbaar
+// zodra mkcp_cart_item_is_pickup_only() true is — zie shipping-choice.php).
+// Zelfde info-icoon + hover/focus-tooltip als de checkout-kaarten
+// (mkcp-sc-info/mkcp-sc-tooltip in shipping-choice.scss) — hier los
+// gedupliceerd omdat shipping-choice.css alleen op de checkoutpagina wordt
+// geladen, terwijl de winkelwagen-popup op elke pagina kan verschijnen.
+.mk-cart-popup__pickup-only {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    margin-top: 2px;
+    padding: 3px 8px 3px 6px;
+    border-radius: 999px;
+    background: #fff3d6;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #9a6b00;
+}
+
+.mk-cart-popup__pickup-only-text {
+    line-height: 1.3;
+    text-decoration: none;
+}
+
+.mkcp-sc-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    color: #9a6b00;
+    cursor: help;
+
+    svg { width: 14px; height: 14px; }
+
+    &:hover, &:focus-visible {
+        color: var(--mkcp-accent, #2563eb);
+
+        .mkcp-sc-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -4px);
+        }
+    }
+}
+
+.mkcp-sc-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: max-content;
+    max-width: 200px;
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+    z-index: 10;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #1f2937;
+    }
+}
+
 .mk-cart-popup__item-name {
     display             : -webkit-box;
     -webkit-line-clamp  : 2;

@@ -5,10 +5,123 @@
    naast gewone producten), zodat duidelijk is welke kaartgroep bij welk
    pakket hoort. */
 .mkcp-sc-package-name {
-    margin: 0 0 6px;
-    font-size: 12px;
+    display: inline-flex;
+    // flex-start i.p.v. center — met een uitgeklapte (mogelijk meerregelige)
+    // artikelenlijst moet het icoontje bovenaan/links blijven staan i.p.v.
+    // verticaal gecentreerd t.o.v. de hele, dan hogere, tekstblok.
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0 0 8px;
+    padding: 5px 10px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    font-size: 12.5px;
     font-weight: 600;
-    color: var(--mkcp-text-light, #6b7280);
+    color: #4b5563;
+
+    svg {
+        flex: 0 0 auto;
+        width: 13px;
+        height: 13px;
+        margin-top: 1px;
+        color: #9ca3af;
+    }
+}
+
+// Enige echte flex-item náást het icoontje op de rij — bevat short/full
+// samen, zodat wisselen tussen die twee nooit het icoontje zelf raakt (zie
+// docblock in templates/cart-shipping-choice.php).
+.mkcp-sc-package-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+// "en N meer" / "minder tonen" — klikbaar in/uitklappen van de volledige
+// artikelenlijst (zie mkcp-sc-package-details-short/-full hierboven).
+.mkcp-sc-package-more,
+.mkcp-sc-package-less {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: var(--mkcp-sc-accent, #2563eb);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.mkcp-sc-package-details-full {
+    display: block;
+
+    // De browser's eigen [hidden]{display:none} (UA-stylesheet) heeft een
+    // lagere specificiteit dan onze class-selector hierboven — zonder deze
+    // regel wint "display:block" dus altijd, ook mét het hidden-attribuut,
+    // en blijven short én full tegelijk zichtbaar i.p.v. dat de toggle werkt.
+    &[hidden] {
+        display: none;
+    }
+}
+
+// Info-icoontje + hover/focus-tooltip die uitlegt waarom een pakket alleen
+// afhaalopties toont (geen bezorgmethode beschikbaar voor dat product).
+.mkcp-sc-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin-left: 2px;
+    border-radius: 999px;
+    color: #9ca3af;
+    cursor: help;
+
+    svg { width: 15px; height: 15px; }
+
+    &:hover, &:focus-visible {
+        color: var(--mkcp-sc-accent, #2563eb);
+
+        .mkcp-sc-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -4px);
+        }
+    }
+}
+
+.mkcp-sc-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: max-content;
+    max-width: 220px;
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+    z-index: 2;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #1f2937;
+    }
 }
 
 /* Ruimte tussen meerdere pakket-kaartgroepen (elke groep is een eigen
@@ -74,15 +187,15 @@ form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals::after {
 }
 
 .mkcp-sc-card-wrap {
-    flex: 1 1 200px;
+    // flex-basis:0 i.p.v. 200px — met een niet-nul basis rekent de browser
+    // eerst met elke kaart z'n eigen intrinsieke inhoudsbreedte (bv. "Laten
+    // bezorgen: Betaald versturen €7,95" is van nature breder dan "Zelf
+    // afhalen: Ophalen in Delden"), en verdeelt de resterende ruimte pas
+    // dáárna naar verhouding — met als resultaat twee zichtbaar ongelijk
+    // brede kaarten. Met basis 0 telt de inhoud niet mee als startpunt en
+    // groeien beide kaarten (flex-grow:1) altijd exact even breed.
+    flex: 1 1 0;
     min-width: 200px;
-
-    /* Maar 1 methode beschikbaar (geen tweede kaart om naast te zetten) —
-       niet over de volle breedte uitrekken. */
-    &:only-child {
-        flex-grow: 0;
-        max-width: 320px;
-    }
 }
 
 .mkcp-sc-card {

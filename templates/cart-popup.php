@@ -232,6 +232,17 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                             </a>
                         </div>
 
+                        <?php if ( function_exists( 'mkcp_shipping_choice_is_active' ) && mkcp_shipping_choice_is_active()
+                            && function_exists( 'mkcp_cart_item_is_pickup_only' ) && mkcp_cart_item_is_pickup_only( $cart_item_key ) ) : ?>
+                        <div class="mk-cart-popup__pickup-only">
+                            <span class="mkcp-sc-info" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                <span class="mkcp-sc-tooltip"><?php esc_html_e( 'Dit product kan alleen worden opgehaald, niet verzonden.', 'mk-cart-popup' ); ?></span>
+                            </span>
+                            <span class="mk-cart-popup__pickup-only-text"><?php esc_html_e( 'Alleen afhalen', 'mk-cart-popup' ); ?></span>
+                        </div>
+                        <?php endif; ?>
+
                         <?php echo wc_get_formatted_cart_item_data( $cart_item ); ?>
 
                         <?php if ( $show_stock_badge ) : ?>

@@ -2154,32 +2154,41 @@ add_action( 'wp', function() {
                 //    sectie (mkcp_checkout_delivery_section) — niets te doen.
                 //    Na een AJAX-refresh levert het verborgen anker
                 //    (#shipping-choice-ajax-anchor) via WooCommerce's fragment-
-                //    replaceWith een VERSE kopie af, ergens builen de
+                //    replaceWith een VERSE kopie af, ergens buiten de
                 //    leveringssectie (replaceWith vervangt het ankerelement
                 //    zelf — dat heeft geen eigen id meer om op te zoeken — en
                 //    de kaarten-<div> is bovendien ongeldige HTML direct
                 //    binnen de <table>, dus de browser tilt 'm er bij het
-                //    parsen uit; zonder opruiming stapelen kopieën van eerdere
-                //    ververscycli zich daardoor op). Zoek daarom op klasse i.p.v.
-                //    op het anker-id: alles wat nog NIET in de leveringssectie
-                //    staat is de vers ingevoegde (of een gemiste eerdere) kopie
-                //    — de laatste daarvan is de meest recente, de rest
-                //    (inclusief een eventuele oude kopie die al in de
-                //    leveringssectie stond) gaat weg.
+                //    parsen uit). Zoek daarom op klasse i.p.v. op het anker-id.
+                //
+                //    Bij meerdere verzendpakketten (bv. een deel alleen af te
+                //    halen naast een deel te bezorgen) rendert
+                //    mkcp_render_all_shipping_choice_cards() per AJAX-cyclus
+                //    EEN kaartgroep-<div> per pakket — dus "alles wat nog niet
+                //    in de leveringssectie staat" kan er meerdere zijn, niet
+                //    maar één. Vroeger hield deze code alleen de láátste over
+                //    en verwijderde de rest, waardoor bij 2+ pakketten steeds
+                //    één kaartgroep spoorloos verdween (of allebei dezelfde,
+                //    laatst-gerenderde inhoud leken te tonen). Nu: alle verse
+                //    kopieën behouden, in dezelfde volgorde als gerenderd, en
+                //    ALLE oude kopieën (kan er ook meer dan één zijn) opruimen.
                 var shipOutside = Array.prototype.filter.call(
                     document.querySelectorAll('.woocommerce-shipping-totals.shipping'),
                     function (el) { return !el.closest('.mkcp-co-section--delivery'); }
                 );
                 if (shipOutside.length) {
-                    var freshShip = shipOutside[shipOutside.length - 1];
-                    shipOutside.forEach(function (el) { if (el !== freshShip) el.remove(); });
-                    var oldShip = secDel.querySelector('.woocommerce-shipping-totals.shipping');
-                    if (oldShip) oldShip.remove();
+                    Array.prototype.forEach.call(
+                        secDel.querySelectorAll('.woocommerce-shipping-totals.shipping'),
+                        function (el) { el.remove(); }
+                    );
                     // Ná de sectietitel invoegen (die staat nu, samen met de rest,
                     // ín .mkcp-co-section__body) — niet als allereerste kind, anders
                     // schuift de verzendkeuze-kaart vóór "Verzending en levering".
                     var secDelTitle = secDel.querySelector('.mkcp-co-section__title');
-                    secDel.insertBefore(freshShip, secDelTitle ? secDelTitle.nextSibling : secDel.firstChild);
+                    var shipAnchor = secDelTitle ? secDelTitle.nextSibling : secDel.firstChild;
+                    shipOutside.forEach(function (el) {
+                        secDel.insertBefore(el, shipAnchor);
+                    });
                 }
 
                 // 1. Datumpicker: nog in #payment > .place-order → eerst naar leveringssectie.

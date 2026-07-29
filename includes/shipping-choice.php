@@ -26,6 +26,73 @@ function mkcp_shipping_choice_is_active(): bool {
 
 
 /**
+ * Welke cart-item-keys zitten in een pakket dat ALLEEN afhaalmethodes heeft
+ * (geen enkele bezorgmethode beschikbaar)? Gebruikt door zowel de checkout-
+ * kaarten hierboven als de winkelwagen-popup (cart-popup.php), zodat ook daar
+ * al vóór het afrekenen duidelijk is welke producten niet verzonden kunnen
+ * worden — i.p.v. dat de klant dat pas op de checkout ontdekt.
+ *
+ * De daadwerkelijke pakket-splitsing (bv. op basis van een verzendklasse)
+ * gebeurt niet in deze plugin maar in de losse "WooCommerce Advanced Shipping
+ * Packages"-plugin (site-specifieke regels, ingesteld in díe plugin's eigen
+ * admin) — vandaar dat dit generiek naar de daadwerkelijke pakket-tarieven
+ * kijkt (net als mkcp_get_shipping_choice_template_args_for_package()), i.p.v.
+ * te leunen op een hardgecodeerde verzendklasse-naam die alleen voor deze site
+ * zou kloppen.
+ *
+ * Forceert bewust maar één keer per request een verzendkosten-berekening
+ * (static cache) — dezelfde berekening die WooCommerce toch al doet zodra de
+ * klant de winkelwagen- of checkoutpagina bezoekt, hier alleen ook al op
+ * andere pagina's (waar de popup ook getoond wordt) zodat de badge direct
+ * klopt i.p.v. pas na een bezoek aan de checkout.
+ *
+ * @return array<string,true> cart_item_key => true
+ */
+function mkcp_cart_pickup_only_item_keys(): array {
+    static $map = null;
+    if ( $map !== null ) return $map;
+    $map = [];
+
+    if ( ! function_exists( 'WC' ) || ! WC()->cart || ! WC()->shipping ) return $map;
+    if ( ! WC()->cart->needs_shipping() ) return $map;
+
+    WC()->cart->calculate_shipping();
+
+    foreach ( WC()->shipping->get_packages() as $package ) {
+        $rates = $package['rates'] ?? [];
+        if ( empty( $rates ) ) continue;
+
+        $has_delivery = false;
+        $has_pickup   = false;
+        foreach ( $rates as $rate ) {
+            if ( strpos( (string) $rate->id, 'local_pickup:' ) === 0 ) {
+                $has_pickup = true;
+            } else {
+                $has_delivery = true;
+            }
+        }
+
+        if ( $has_pickup && ! $has_delivery ) {
+            foreach ( $package['contents'] ?? [] as $key => $item ) {
+                $map[ $key ] = true;
+            }
+        }
+    }
+
+    return $map;
+}
+
+
+/**
+ * Is dit specifieke cart-item alleen af te halen (geen bezorgoptie
+ * beschikbaar voor het pakket waar het in valt)?
+ */
+function mkcp_cart_item_is_pickup_only( string $cart_item_key ): bool {
+    return ! empty( mkcp_cart_pickup_only_item_keys()[ $cart_item_key ] );
+}
+
+
+/**
  * Verbergt betaalde bezorgmethodes (cost > 0) uit $rates zodra er BINNEN de
  * bezorg-groep (dus niet ophalen — dat is een aparte keuze, geen "alternatief"
  * voor bezorgen) ook een gratis methode (cost <= 0) beschikbaar is. Zonder dit
@@ -95,6 +162,65 @@ add_filter( 'woocommerce_shipping_package_name', function( $name, $package_id, $
 
 
 /**
+ * Leesbare opsomming van de producten in een pakket (bv. "Kenteken ABC-123,
+ * T-shirt rood (2x)") in plaats van WooCommerce's kale "1 item" / "2 items" —
+ * zodat bij meerdere pakketten meteen duidelijk is wélke artikelen bij welke
+ * kaartgroep (bezorgen/afhalen) horen, zonder daarvoor apart te hoeven klikken.
+ *
+ * Geeft zowel een verkorte ("short", ingekort op aantal + per-naam-lengte —
+ * wat standaard getoond wordt) als de volledige ("full") opsomming terug, zodat
+ * de template een "en N meer" kan tonen die uitklapt naar de volledige lijst
+ * i.p.v. het teveel-aantal stilzwijgend te verbergen.
+ *
+ * @return array{short: string, short_base: string, remaining: int, full: string, has_more: bool}
+ */
+function mkcp_shipping_choice_package_contents_label( array $package, int $max_names = 2, int $max_name_length = 28 ): array {
+    $empty = [ 'short' => '', 'short_base' => '', 'remaining' => 0, 'full' => '', 'has_more' => false ];
+    $contents = $package['contents'] ?? [];
+    if ( empty( $contents ) ) return $empty;
+
+    $names = [];
+    foreach ( $contents as $item ) {
+        $product = $item['data'] ?? null;
+        if ( ! $product || ! is_a( $product, 'WC_Product' ) ) continue;
+
+        $qty  = (int) ( $item['quantity'] ?? 1 );
+        $name = $product->get_name();
+        // Ook lange, individuele productnamen afkappen — anders kan zelfs met
+        // maar 1-2 producten de opsomming nog een onleesbare lange lap tekst
+        // worden (bv. lange technische productnamen zoals bevestigingsmateriaal).
+        if ( mb_strlen( $name ) > $max_name_length ) {
+            $name = mb_substr( $name, 0, $max_name_length - 1 ) . '…';
+        }
+        $names[] = $qty > 1 ? sprintf( '%s (%dx)', $name, $qty ) : $name;
+    }
+
+    $full  = implode( ', ', $names );
+    $total = count( $names );
+
+    // Bij veel verschillende producten in één pakket wordt een volledige
+    // opsomming al snel een onleesbare lange lap tekst die binnen de kleine
+    // "chip" onhandig gaat wraprapen — daarom afkappen op $max_names en de
+    // rest samenvatten (klikbaar, zie template) i.p.v. altijd alles voluit
+    // te tonen.
+    $has_more = $total > $max_names;
+    $rest     = $has_more ? $total - $max_names : 0;
+    $short_base = $has_more ? implode( ', ', array_slice( $names, 0, $max_names ) ) : $full;
+    $short      = $has_more
+        /* translators: %d: aantal overige producten */
+        ? $short_base . ', ' . sprintf( _n( 'en %d meer', 'en %d meer', $rest, 'mk-cart-popup' ), $rest )
+        : $full;
+
+    return [
+        'short'      => $short,
+        'short_base' => $short_base,
+        'remaining'  => $rest,
+        'full'       => $full,
+        'has_more'   => $has_more,
+    ];
+}
+
+/**
  * Gathers the arguments required by the cart-shipping-choice.php template
  * voor ÉÉN specifiek verzendpakket. Mimicked WooCommerce's eigen
  * wc_cart_totals_shipping_html() (wc-cart-functions.php) — die loopt zelf
@@ -154,12 +280,17 @@ function mkcp_get_shipping_choice_template_args_for_package( array $package, int
         }
     }
 
+    $contents_label = mkcp_shipping_choice_package_contents_label( $package );
+
     return array(
         'package'                  => $package,
         'available_methods'        => $package['rates'] ?? [],
         'show_package_details'     => $total_packages > 1,
         'show_shipping_calculator' => is_cart(),
-        'package_details'          => implode( ', ', wp_list_pluck( $package['contents'] ?? [], 'quantity' ) ) . ' ' . _n( 'item', 'items', count( $package['contents'] ?? [] ), 'woocommerce' ),
+        'package_details'          => $contents_label['short_base'],
+        'package_details_full'     => $contents_label['full'],
+        'package_details_has_more' => $contents_label['has_more'],
+        'package_details_remaining' => $contents_label['remaining'],
         'package_name'             => $package['package_name'] ?? '',
         'index'                    => $package_index,
         'chosen_method'            => $chosen_method,
