@@ -1129,6 +1129,29 @@ select.mkcp-input option {
     animation: mkcp-preset-applied 500ms ease-out;
 }
 
+/* Onderscheidt de dynamisch gegenereerde kaart ("Genereer stijl uit deze
+   kleuren") van de vaste presets — dunne accentrand + hoekbadge, zodat
+   meteen duidelijk is dat dit een eigen, van je site afgeleide stijl is. */
+.mkcp-style-preset--generated {
+    position   : relative;
+    border-color: var(--mkcp-ui-accent);
+}
+.mkcp-style-preset--generated::after {
+    content        : '';
+    position       : absolute;
+    top            : -5px;
+    right          : -5px;
+    width          : 10px;
+    height         : 10px;
+    border-radius  : 50%;
+    background     : var(--mkcp-ui-accent);
+    border         : 2px solid var(--mkcp-ui-surface2);
+}
+
+.mkcp-btn.is-applying {
+    animation: mkcp-preset-applied 500ms ease-out;
+}
+
 /* Mini-render van de echte drawer (kopbalk + item-regels + knop) i.p.v.
    abstracte kleurstipjes — laat in één oogopslag zien hoe de preset er echt
    uitziet, niet alleen welke kleuren erbij horen. */
@@ -1249,6 +1272,33 @@ select.mkcp-input option {
 .mkcp-detected-swatch--flat .mkcp-detected-swatch-color { width: 24px; height: 24px; }
 .mkcp-detected-swatch--flat.is-copied { border-color: var(--mkcp-ui-green); }
 .mkcp-detected-swatch--flat.is-copied .mkcp-detected-swatch-info small { color: var(--mkcp-ui-green); }
+
+.mkcp-detected-loading {
+    display      : flex;
+    align-items  : center;
+    gap          : 8px;
+    margin       : 0 0 12px;
+    font-size    : 12.5px;
+    color        : var(--mkcp-ui-text3);
+}
+
+/* Losse kopieer-knop bovenop een tier-1-swatch (naast "Toepassen" op de
+   swatch zelf) — span met role="button" i.p.v. een geneste <button>. */
+.mkcp-detected-swatch-copy {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 24px;
+    height         : 24px;
+    margin-left    : 4px;
+    border-radius  : 6px;
+    color          : var(--mkcp-ui-text3);
+    flex-shrink    : 0;
+    transition     : color var(--mkcp-ui-transition), background var(--mkcp-ui-transition);
+}
+.mkcp-detected-swatch-copy svg { width: 13px; height: 13px; }
+.mkcp-detected-swatch-copy:hover { color: var(--mkcp-ui-text); background: var(--mkcp-ui-surface3, rgba(0,0,0,.05)); }
+.mkcp-detected-swatch-copy.is-copied { color: var(--mkcp-ui-green); }
 
 /* ─── Testmail (verlaten winkelwagen / winkelmand delen) ────────────────────── */
 
@@ -2069,6 +2119,12 @@ select.mkcp-input option {
 }
 
 .mkcp-btn--primary.is-loading svg.mkcp-spin {
+    animation: mkcpSpin .65s linear infinite;
+}
+
+/* Generieke variant zodat ook niet-primary knoppen (bv. "Opnieuw scannen",
+   een ghost-knop) dezelfde spinner-animatie kunnen gebruiken. */
+.mkcp-btn.is-loading svg.mkcp-spin {
     animation: mkcpSpin .65s linear infinite;
 }
 
