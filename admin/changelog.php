@@ -16,6 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.1',
+            'date'    => '2026-08-03',
+            'items'   => [
+                'Fix: de totalen-tabel op checkout toonde bij een gemengd winkelwagentje (bezorgen + afhalen tegelijk) maar één verzendkosten-rij, met het totaalbedrag van beide pakketten samen achter het verkeerde label. Toont nu per rol een eigen rij ("Afhalen: Gratis" + "Verzendkosten: €4,95" naast elkaar).',
+                'Verbetering: de "X van Y pakketten compleet"-voortgangsmelding bij gemengde verzendpakketten is verwijderd.',
+                'Verbetering (admin, Styling-tab): laadindicator tijdens het scannen naar kleuren van je website, een kopieerknop per gedetecteerde kleur, en een knop om automatisch een kant-en-klare stijl te genereren op basis van die kleuren.',
+            ],
+        ],
+        [
             'version' => '1.14.30',
             'date'    => '2026-07-28',
             'items'   => [
