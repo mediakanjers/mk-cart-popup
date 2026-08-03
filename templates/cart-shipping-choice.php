@@ -33,6 +33,13 @@ if ( ! empty( $available_methods ) && is_array( $available_methods ) ) {
 }
 $show_cards = ! empty( $available_methods ) && is_array( $available_methods );
 
+// Pakket heeft alleen afhaalmethodes (geen enkele bezorgmethode beschikbaar)
+// — meestal doordat een product een "alleen-afhalen"-verzendklasse heeft.
+// Toont dan een info-icoontje met uitleg naast de artikelenlijst, zodat de
+// klant meteen begrijpt waarom hier geen bezorgoptie staat, i.p.v. zich af te
+// vragen of dat een fout is.
+$mkcp_sc_pickup_only = $show_cards && empty( $groups['delivery'] ) && ! empty( $groups['pickup'] );
+
 // Bij de allereerste paginalaad (vóór WooCommerce's eerste update_checkout-
 // cyclus) staat er nog niets in WC()->session->chosen_shipping_methods —
 // $chosen_method komt dan leeg binnen. Hetzelfde gat kan ontstaan als de
@@ -55,6 +62,50 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 }
 ?>
 <div class="woocommerce-shipping-totals shipping" data-title="<?php echo esc_attr( $package_name ); ?>">
+		<?php // Zichtbare artikelenlijst bóven de keuzekaarten bij meerdere
+		      // pakketten (bv. een deel bezorgen, een deel alleen af te halen)
+		      // — anders is met meerdere kaartgroepen op de pagina niet te zien
+		      // welke artikelen bij welke kaartgroep horen. Toont de echte
+		      // productnamen i.p.v. WooCommerce's kale "1 item". Bij één pakket
+		      // (verreweg het normale geval) blijft dit weg, zoals voorheen. ?>
+		<?php if ( $show_package_details && $package_details !== '' ) : ?>
+		<p class="mkcp-sc-package-name">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+			<?php // Één flex-item voor de hele tekst (short + full samen) — zo
+			      // deelt alleen déze wrapper de flex-rij met het icoontje, en
+			      // blijft het icoontje altijd links staan, ongeacht of de
+			      // ingeklapte of uitgeklapte tekst zichtbaar is. Zonder deze
+			      // wrapper waren short/full zélf losse flex-items, en duwde de
+			      // uitgeklapte (flex-basis:100%) versie het icoontje naar een
+			      // eigen regel erboven zodra short verborgen werd. ?>
+			<span class="mkcp-sc-package-text">
+				<span class="mkcp-sc-package-details-short">
+					<?php echo esc_html( $package_details ); ?>
+					<?php if ( ! empty( $package_details_has_more ) ) : ?>
+					<button type="button" class="mkcp-sc-package-more js-mkcp-sc-package-more">
+						<?php echo esc_html( sprintf(
+							/* translators: %d: aantal overige producten */
+							_n( 'en %d meer', 'en %d meer', $package_details_remaining, 'mk-cart-popup' ),
+							$package_details_remaining
+						) ); ?>
+					</button>
+					<?php endif; ?>
+				</span>
+				<?php if ( ! empty( $package_details_has_more ) ) : ?>
+				<span class="mkcp-sc-package-details-full" hidden>
+					<?php echo esc_html( $package_details_full ); ?>
+					<button type="button" class="mkcp-sc-package-less js-mkcp-sc-package-less"><?php esc_html_e( 'minder tonen', 'mk-cart-popup' ); ?></button>
+				</span>
+				<?php endif; ?>
+			</span>
+			<?php if ( $mkcp_sc_pickup_only ) : ?>
+			<span class="mkcp-sc-info" tabindex="0">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+				<span class="mkcp-sc-tooltip"><?php esc_html_e( 'Dit product kan alleen worden opgehaald, niet verzonden.', 'mk-cart-popup' ); ?></span>
+			</span>
+			<?php endif; ?>
+		</p>
+		<?php endif; ?>
 		<?php if ( ! empty( $available_methods ) && is_array( $available_methods ) && $show_cards ) :
 
 			$titles = [ 'delivery' => __( 'Laten bezorgen', 'mk-cart-popup' ), 'pickup' => __( 'Zelf afhalen', 'mk-cart-popup' ) ];
@@ -73,7 +124,7 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 					foreach ( $methods as $m ) { if ( $m->id === $chosen_method ) { $is_active = true; break; } }
 					$single = 1 === count( $methods );
 					?>
-					<div class="mkcp-sc-card-wrap">
+					<div class="mkcp-sc-card-wrap" data-role="<?php echo esc_attr( $type ); ?>">
 						<label class="mkcp-sc-card<?php echo $is_active ? ' is-active' : ''; ?>">
 							<?php if ( $single ) :
 								$m = $methods[0];
@@ -93,8 +144,26 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 									if ( $single ) {
 										echo wc_cart_totals_shipping_method_label( $methods[0] ); // phpcs:ignore WordPress.Security.EscapeOutput
 									} else {
-										/* translators: %d: aantal opties */
-										printf( esc_html__( '%d opties beschikbaar', 'mk-cart-popup' ), count( $methods ) );
+										// Goedkoopste optie alvast tonen i.p.v. alleen een aantal
+										// — geeft nuttige info zonder open te hoeven klappen.
+										$mkcp_sc_cheapest = null;
+										foreach ( $methods as $mkcp_sc_m ) {
+											$mkcp_sc_cost = (float) $mkcp_sc_m->get_cost();
+											if ( null === $mkcp_sc_cheapest || $mkcp_sc_cost < $mkcp_sc_cheapest ) {
+												$mkcp_sc_cheapest = $mkcp_sc_cost;
+											}
+										}
+										if ( $mkcp_sc_cheapest > 0 ) {
+											printf(
+												/* translators: 1: goedkoopste prijs, 2: aantal opties */
+												esc_html__( 'vanaf %1$s · %2$d opties', 'mk-cart-popup' ),
+												wp_strip_all_tags( wc_price( $mkcp_sc_cheapest ) ),
+												count( $methods )
+											);
+										} else {
+											/* translators: %d: aantal opties */
+											printf( esc_html__( 'Gratis mogelijk · %d opties', 'mk-cart-popup' ), count( $methods ) );
+										}
 									}
 									?>
 								</span>
@@ -129,6 +198,36 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 					</div>
 				<?php endforeach; ?>
 			</div>
+
+			<?php
+			// Fase 2: bezorgdatum-/afhaal-tijdvakkiezer direct onder DIT
+			// pakket se kaartgroep — gebaseerd op de daadwerkelijk gekozen
+			// methode voor dit specifieke pakket (niet meer op één globale
+			// "huidige methode over de hele winkelwagen heen"). Zo kan een
+			// gemengd winkelwagentje (dit pakket bezorgen, een ander pakket
+			// afhalen) beide kiezers tegelijk tonen.
+			// Er is echter maar 1 bezorg-widget en 1 afhaal-widget per order
+			// (afgesproken scope). $mkcp_render_role_widget komt uit
+			// mkcp_render_all_shipping_choice_cards() (shipping-choice.php)
+			// en staat alleen op true voor het LAATSTE pakket met deze rol —
+			// zo verschijnt de kiezer nooit tussen twee kaartgroepen van
+			// dezelfde rol in (bv. twee losse "Zelf afhalen"-pakketten), en
+			// ook nooit dubbel (met identieke, dus ongeldige, DOM-ids).
+			// Alleen op de checkout: de cart-pagina toont deze template ook
+			// (winkelwagen-overzicht), maar de datum-/tijdvakkiezers horen
+			// daar niet, net als voorheen.
+			if ( is_checkout() && ( $mkcp_render_role_widget ?? true ) ) {
+				$mkcp_sc_is_pickup_choice = strpos( (string) $chosen_method, 'local_pickup:' ) === 0;
+				if ( $mkcp_sc_is_pickup_choice ) {
+					$mkcp_sc_pu_loc = function_exists( 'mkcp_pickup_location_for_rate' ) ? mkcp_pickup_location_for_rate( $chosen_method ) : null;
+					if ( $mkcp_sc_pu_loc && function_exists( 'mkcp_pickup_render_field' ) ) {
+						mkcp_pickup_render_field( $mkcp_sc_pu_loc );
+					}
+				} elseif ( function_exists( 'mkcp_dd_render_delivery_field' ) ) {
+					mkcp_dd_render_delivery_field( $chosen_method );
+				}
+			}
+			?>
 
 		<?php elseif ( ! empty( $available_methods ) && is_array( $available_methods ) ) : ?>
 			<ul id="shipping_method" class="woocommerce-shipping-methods">
@@ -180,10 +279,6 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 			$calculator_text = esc_html__( 'Enter a different address', 'woocommerce' );
 		endif;
 		?>
-
-		<?php if ( $show_package_details ) : ?>
-			<p class="woocommerce-shipping-contents"><small><?php echo esc_html( $package_details ); ?></small></p>
-		<?php endif; ?>
 
 		<?php if ( $show_shipping_calculator ) : ?>
 			<?php woocommerce_shipping_calculator( $calculator_text ); ?>

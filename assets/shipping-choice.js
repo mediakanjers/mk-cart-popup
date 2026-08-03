@@ -80,4 +80,21 @@
     // Voer ook uit bij het laden van de pagina
     mkcp_update_active_card_state();
 
+    /* "en N meer" bij de artikelenlijst boven de kaarten (zie
+     * templates/cart-shipping-choice.php) — klap de volledige, ongekorte
+     * lijst in/uit binnen dezelfde .mkcp-sc-package-name-regel. Document-
+     * gedelegeerd omdat deze regel bij elke AJAX-refresh opnieuw gerenderd
+     * wordt (dezelfde reden als de andere handlers hierboven). */
+    $(document).on('click', '.js-mkcp-sc-package-more', function () {
+        var $wrap = $(this).closest('.mkcp-sc-package-name');
+        $wrap.find('.mkcp-sc-package-details-short').prop('hidden', true);
+        $wrap.find('.mkcp-sc-package-details-full').prop('hidden', false);
+    });
+
+    $(document).on('click', '.js-mkcp-sc-package-less', function () {
+        var $wrap = $(this).closest('.mkcp-sc-package-name');
+        $wrap.find('.mkcp-sc-package-details-full').prop('hidden', true);
+        $wrap.find('.mkcp-sc-package-details-short').prop('hidden', false);
+    });
+
 })(jQuery);

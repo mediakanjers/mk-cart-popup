@@ -49,6 +49,31 @@ function mkcp_dd_first_rate_id( array $methods ): ?string {
 }
 
 /**
+ * Fase 2: zoekt binnen $_POST['shipping_method'] (over ALLE verzendpakketten
+ * heen, niet alleen pakket 0) de eerste rate die bij de gevraagde rol hoort —
+ * 'delivery' (alles wat niet met "local_pickup:" begint) of 'pickup'. Rol-
+ * gebaseerd i.p.v. generiek per-pakket: een order heeft nooit meer dan één
+ * actieve bezorg-rate en één actieve afhaal-rate tegelijk (zie
+ * project-memory over de Fase 2-scope-beslissing), dus dit is voldoende om
+ * de validatie/opslag van bezorgdatum.php en pickup.php onafhankelijk van
+ * elkaar te laten werken, ongeacht welke pakket-index welke rol heeft.
+ *
+ * Vervangt de oude "$_POST['shipping_method'][0]"-aanname, die altijd
+ * package 0 als "de" gekozen methode behandelde.
+ */
+function mkcp_dd_role_rate_id_from_post( string $role ): ?string {
+    $posted = array_map( 'sanitize_text_field', wp_unslash( (array) ( $_POST['shipping_method'] ?? [] ) ) );
+
+    foreach ( $posted as $rate_id ) {
+        if ( ! is_string( $rate_id ) || $rate_id === '' ) continue;
+        $is_pickup = strpos( $rate_id, 'local_pickup:' ) === 0;
+        if ( ( 'pickup' === $role ) === $is_pickup ) return $rate_id;
+    }
+
+    return null;
+}
+
+/**
  * Alle verzendmethodes (over alle zones + "rest van de wereld") als
  * [ rate_id => leesbaar label ], voor gebruik in de admin-UI en om
  * $rate_id-input te valideren. rate_id = "{method_id}:{instance_id}",
@@ -310,11 +335,16 @@ function mkcp_dd_format_date( string $ymd ): string {
 
 // ── Assets op checkout pagina ──────────────────────────────────────────────────
 
+// Fase 2: geen wp_localize_script meer — met twee mogelijk-gelijktijdige
+// widgets (bezorgen + afhalen) zou dat een aparte "welke rol(len) zijn actief"-
+// administratie vereisen die al bestaat, namelijk: staat het bijbehorende
+// data-eilandje (#mkcp-dd-data resp. #mkcp-pu-data) in de DOM? assets/
+// delivery-date.js leest daarom zijn volledige config rechtstreeks uit dat
+// element (zie mkcp_dd_data_div_html()), zowel bij de eerste paginalaad als
+// na elke AJAX-refresh — dezelfde bron, geen aparte synchronisatie nodig.
 add_action( 'wp_enqueue_scripts', function() {
     if ( ! is_checkout() ) return;
-
-    $pickup_loc = function_exists( 'mkcp_pickup_active_location' ) ? mkcp_pickup_active_location() : null;
-    if ( ! $pickup_loc && ! mkcp_dd_enabled() ) return;
+    if ( ! mkcp_dd_enabled() && ! ( function_exists( 'mkcp_pickup_feature_enabled' ) && mkcp_pickup_feature_enabled() ) ) return;
 
     wp_enqueue_style(
         'mkcp-delivery-date',
@@ -330,87 +360,56 @@ add_action( 'wp_enqueue_scripts', function() {
         MKCP_VER,
         true
     );
-
-    // Afhalen (indien de op dit moment gekozen verzendmethode een
-    // afhaallocatie is) sluit de bezorgdatum-kiezer uit — zie de guard
-    // bovenaan mkcp_dd_render_field().
-    if ( $pickup_loc ) {
-        wp_localize_script( 'mkcp-delivery-date', 'mkcpDD', mkcp_pickup_localize_data( $pickup_loc ) );
-        return;
-    }
-
-    $cfg = mkcp_checkout_config();
-
-    $rate_id = mkcp_dd_current_rate_id();
-    $rule    = mkcp_dd_effective_rule( $rate_id, $cfg );
-    $tz      = new DateTimeZone( wp_timezone_string() );
-
-    wp_localize_script( 'mkcp-delivery-date', 'mkcpDD', [
-        'dates'         => mkcp_dd_available_dates( $rate_id ),
-        'required'      => ! empty( $cfg['delivery_date_required'] ) ? '1' : '0',
-        'label'         => sanitize_text_field( $cfg['delivery_date_label'] ?? 'Gewenste bezorgdatum' ),
-        // NB: uit $rule (niet $cfg) — bij een verzendmethode met een eigen
-        // cutoff-regel moet de getoonde tekst overeenkomen met de cutoff
-        // waarmee cutoffTs daadwerkelijk is berekend, anders telt de klok af
-        // naar de ene tijd terwijl de tekst een andere tijd noemt.
-        'cutoffTime'    => sanitize_text_field( $rule['cutoff_time'] ),
-        'cutoffTs'      => mkcp_dd_cutoff_timestamp( $rule['cutoff_time'], $tz ),
-        // Voor de "waarom niet beschikbaar"-tooltip in de kalender — geen
-        // geheime data, puur om client-side een reden te kunnen tonen i.p.v.
-        // alleen een grijze, onverklaarde dag.
-        'shippingDays'  => $rule['shipping_days'],
-        'blackoutDates' => $rule['blackout_dates'],
-        'pickup'        => false,
-        'slotsEnabled'  => $rule['slots_enabled'],
-        'slotMinutes'   => $rule['slot_minutes'],
-        'slotsByDow'    => mkcp_dd_slots_by_dow( $rule ),
-        'prepMinutes'   => $rule['prep_minutes'],
-        'address'       => '',
-        'methodLabel'   => '',
-    ] );
 } );
 
+// Leeg, JS-gevuld eindsamenvattingsblok direct boven de bestelknop —
+// bundelt de bezorg- én afhaal-samenvatting op één plek zodat je niet terug
+// hoeft te scrollen naar de losse pakket-widgets om je hele keuze te
+// checken. delivery-date.js vult/toont 'm alleen zodra er daadwerkelijk 2
+// widgets tegelijk actief zijn (bij 1 widget is de eigen samenvattingsregel
+// er vlak boven al genoeg, dat zou dubbelop zijn). Prioriteit 20: ná de
+// eventuele betaalmethode-content die op de standaardprioriteit hangt, dus
+// vlak boven de knop.
+add_action( 'woocommerce_review_order_before_submit', function() {
+    if ( ! is_checkout() ) return;
+    if ( ! mkcp_dd_enabled() && ! ( function_exists( 'mkcp_pickup_feature_enabled' ) && mkcp_pickup_feature_enabled() ) ) return;
+    echo '<div class="mkcp-dd-final-summary" id="mkcp-dd-final-summary" hidden></div>';
+}, 20 );
 
-// ── Herberekening na AJAX wisseling van verzendmethode ─────────────────────────
+
+// ── Databron voor de kiezer(s) ──────────────────────────────────────────────────
 //
-// WooCommerce ververst #order_review/#payment via de update_order_review
-// AJAX-call zodra de klant een andere verzendmethode kiest. Die call biedt
-// een fragments-filter waarmee extra DOM-stukjes kunnen worden meegestuurd;
-// we gebruiken 'm om de bijgewerkte datumlijst als data-attribuut mee te
-// sturen naar het al aanwezige #mkcp-dd-data element. assets/delivery-date.js
-// leest dit na het 'updated_checkout' event en herbouwt chips/kaarten/kalender.
+// Fase 2: geen aparte woocommerce_update_order_review_fragments-filter meer
+// die alleen het #mkcp-dd-data-eilandje ververst. Sinds de kiezer(s) per
+// pakket rechtstreeks binnen templates/cart-shipping-choice.php renderen
+// (mkcp_dd_render_delivery_field()/mkcp_pickup_render_field(), zie hieronder),
+// wordt de VOLLEDIGE widget (inclusief dit data-element) al bij elke AJAX-
+// refresh vers meegerenderd via de bestaande fragment-mechanismen van
+// shipping-choice.php (het normale #order_review-fragment, of het losse
+// #shipping-choice-ajax-anchor-fragment bij de 3-blokken layout) — een aparte
+// registratie hier zou een tweede, overlappend ververs-mechanisme zijn.
+// assets/delivery-date.js leest dit element puur uit als databron (geen apart
+// wp_localize_script-object meer nodig): elke instantie (bezorgen/afhalen)
+// zoekt zijn EIGEN, vaste dom_id op ('mkcp-dd-data' resp. 'mkcp-pu-data') en
+// bestaat pas als dat element ook echt in de DOM staat — zo weet de JS vanzelf
+// welke van de twee rollen op dit moment relevant zijn, zonder een aparte
+// aanwezigheids-vlag te hoeven bijhouden.
 
 /**
- * Bouwt het volledige #mkcp-dd-data-element (alle data-* attributen: dates,
- * cutoff, sloten, pickup-modus, afhaallocatie, label — niet alleen dates/
- * rate-id) voor een gegeven rate_id. Gedeeld door zowel de server-side
- * eerste-load-render (mkcp_dd_render_field()/mkcp_pickup_render_field(),
- * hieronder) als de AJAX-fragment-filter verderop in dit bestand.
- *
- * Dit bestond voorheen als TWEE losse code-paden: de eerste-load-render zette
- * alleen data-dates/data-rate-id neer, terwijl de AJAX-fragment de volledige
- * set bouwde. Zolang beide hetzelfde element-id (#mkcp-dd-data) gebruiken kan
- * dat geen kwaad zolang er maar altijd precies één zo'n element in de pagina
- * staat — maar de "Cart Checkout"-sectie-indeling (checkout-frontend.php,
- * mkco_reorganize()) verplaatst een eerder gerenderde kopie naar een andere
- * plek in de pagina, waardoor er na een AJAX-refresh eventjes TWEE elementen
- * met id="mkcp-dd-data" bestaan: de oude (verplaatst) en de nieuwe (nog vers
- * gerenderd binnen #payment). Het AJAX-fragment target dan via een kale
- * ID-selector (equivalent aan getElementById(), pakt altijd de EERSTE in
- * document-volgorde) — en dat was tot nu toe de oude, verplaatste kopie, die
- * daardoor de volledige data kreeg terwijl de nieuwe kopie alleen de kale
- * dates/rate-id had. Door beide code-paden nu exact dezelfde (volledige)
- * HTML te laten bouwen, maakt het niet meer uit welke van de twee kopieën
- * de AJAX-update "wint": ze zijn sowieso al identiek.
+ * Bouwt het volledige data-element (alle data-* attributen: dates, cutoff,
+ * sloten, pickup-modus, afhaallocatie, label — niet alleen dates/rate-id)
+ * voor een gegeven rate_id. $dom_id onderscheidt de twee rollen: 'mkcp-dd-data'
+ * (bezorgen, default) vanuit mkcp_dd_render_delivery_field(), 'mkcp-pu-data'
+ * (afhalen) vanuit mkcp_pickup_render_field() in includes/pickup.php.
  */
-function mkcp_dd_data_div_html( ?string $rate_id ): string {
+function mkcp_dd_data_div_html( ?string $rate_id, string $dom_id = 'mkcp-dd-data' ): string {
     $pickup_loc = function_exists( 'mkcp_pickup_location_for_rate' ) ? mkcp_pickup_location_for_rate( $rate_id ) : null;
 
     if ( $pickup_loc ) {
         $dates = mkcp_pickup_available_dates( $pickup_loc );
         $tz    = new DateTimeZone( wp_timezone_string() );
 
-        return '<div id="mkcp-dd-data" style="display:none" '
+        return '<div id="' . esc_attr( $dom_id ) . '" style="display:none" '
             . 'data-dates="' . esc_attr( wp_json_encode( $dates ) ) . '" '
             . 'data-rate-id="' . esc_attr( (string) $rate_id ) . '" '
             . 'data-shipping-days="' . esc_attr( wp_json_encode( array_values( array_filter( range( 0, 6 ), function( $d ) use ( $pickup_loc ) {
@@ -435,7 +434,7 @@ function mkcp_dd_data_div_html( ?string $rate_id ): string {
     $cfg   = mkcp_checkout_config();
     $tz    = new DateTimeZone( wp_timezone_string() );
 
-    return '<div id="mkcp-dd-data" style="display:none" '
+    return '<div id="' . esc_attr( $dom_id ) . '" style="display:none" '
         . 'data-dates="' . esc_attr( wp_json_encode( $dates ) ) . '" '
         . 'data-rate-id="' . esc_attr( (string) $rate_id ) . '" '
         . 'data-shipping-days="' . esc_attr( wp_json_encode( $rule['shipping_days'] ) ) . '" '
@@ -453,56 +452,24 @@ function mkcp_dd_data_div_html( ?string $rate_id ): string {
         . 'data-label="' . esc_attr( sanitize_text_field( $cfg['delivery_date_label'] ?? 'Gewenste bezorgdatum' ) ) . '"></div>';
 }
 
-add_filter( 'woocommerce_update_order_review_fragments', function( $fragments ) {
-    // LET OP: de sessie is hier leidend, NIET $_POST['shipping_method'] — dit
-    // filter draait ná WC()->cart->calculate_shipping() (zie
-    // WC_AJAX::update_order_review()), en die functie corrigeert de sessie
-    // zelf al naar een geldige standaardmethode zodra de eerder gekozen/
-    // geposte rate_id niet meer bestaat voor het nieuwe pakket — bv. na een
-    // postcode-wijziging naar een andere zone (zie
-    // wc_get_chosen_shipping_method_for_package() in WooCommerce core).
-    // $_POST bevat dan nog de oude, inmiddels ongeldige keuze: zou dit
-    // voorrang krijgen, dan toont de datum/tijdslot-data de verkeerde modus
-    // (bv. nog afhaal-tijdsloten terwijl de kaarten allang "bezorgen" tonen).
-    // $_POST dient alleen als vangnet voor het zeldzame geval dat de sessie
-    // niet beschikbaar is.
-    $rate_id = mkcp_dd_current_rate_id();
-    if ( $rate_id === null ) {
-        $posted  = array_map( 'sanitize_text_field', wp_unslash( (array) ( $_POST['shipping_method'] ?? [] ) ) );
-        $rate_id = mkcp_dd_first_rate_id( $posted );
-    }
-
-    $is_pickup = function_exists( 'mkcp_pickup_location_for_rate' ) && mkcp_pickup_location_for_rate( $rate_id );
-    if ( ! $is_pickup && ! mkcp_dd_enabled() ) return $fragments;
-
-    $fragments['#mkcp-dd-data'] = mkcp_dd_data_div_html( $rate_id );
-
-    return $fragments;
-} );
-
-
 // ── Checkout veld renderen ─────────────────────────────────────────────────────
-
-add_action( 'woocommerce_review_order_before_submit', 'mkcp_dd_render_field', 5 );
-
-function mkcp_dd_render_field() {
-    // Afhalen (indien de gekozen verzendmethode een afhaallocatie is) sluit
-    // de bezorgdatum-kiezer uit — zie includes/pickup.php.
-    if ( function_exists( 'mkcp_pickup_active_location' ) ) {
-        $pickup_loc = mkcp_pickup_active_location();
-        if ( $pickup_loc ) {
-            mkcp_pickup_render_field( $pickup_loc );
-            return;
-        }
-    }
-
+//
+// Fase 2: geen eigen hook meer op woocommerce_review_order_before_submit — dat
+// vuurde precies één keer per checkout-render, ongeacht hoeveel verzendpakketten
+// er zijn. De kiezer wordt nu per pakket aangeroepen vanuit
+// templates/cart-shipping-choice.php, direct onder de kaartgroep van dát
+// pakket (net als mkcp_pickup_render_field() hieronder) — zo kan een gemengd
+// winkelwagentje (een pakket in bezorgmodus, een ander in afhaalmodus) beide
+// tegelijk tonen i.p.v. altijd maar één widget voor de hele checkout.
+//
+// @param ?string $rate_id De (bezorg-)rate van het pakket waarvoor gerenderd wordt.
+function mkcp_dd_render_delivery_field( ?string $rate_id ) {
     if ( ! mkcp_dd_enabled() ) return;
 
     $cfg        = mkcp_checkout_config();
     $label      = esc_html( $cfg['delivery_date_label'] ?? 'Gewenste bezorgdatum' );
     $disclaimer = $cfg['delivery_date_disclaimer'] ?? 'Dit is een inschatting — in uitzonderlijke gevallen (bv. drukte bij de vervoerder) kan de bezorging uitlopen.';
     $required   = ! empty( $cfg['delivery_date_required'] );
-    $rate_id    = mkcp_dd_current_rate_id();
     $dates      = mkcp_dd_available_dates( $rate_id );
     $rule       = mkcp_dd_effective_rule( $rate_id, $cfg );
 
@@ -530,6 +497,15 @@ function mkcp_dd_render_field() {
                 <?php if ( $required ) : ?><abbr class="required" title="verplicht veld">*</abbr><?php endif; ?>
             </span>
         </div>
+
+        <?php // Alles wat na een geldige keuze niet meer nodig is om te tónen
+              // klapt hierbinnen samen dicht (zie delivery-date.js: collapseIfComplete()/
+              // expand()) — alleen de header en de .mkcp-dd-summary hieronder blijven
+              // dan zichtbaar. Voorkomt dat de checkout torenhoog wordt zodra zowel
+              // een bezorg- als een afhaalwidget tegelijk (allebei al ingevuld)
+              // op de pagina staan. ?>
+        <div class="mkcp-dd-body" id="mkcp-dd-body">
+        <div class="mkcp-dd-body-inner">
 
         <?php /* aria-hidden: dit is een tikkende seconde-teller — een aria-live regio zou
                  elke seconde opnieuw voorgelezen worden, wat storend is voor screenreaders. */ ?>
@@ -587,12 +563,16 @@ function mkcp_dd_render_field() {
             <span class="mkcp-pu-slots-label">Kies een tijdstip</span>
             <div class="mkcp-pu-slots-row" id="mkcp-dd-slots-row"></div>
         </div>
-        <?php /* Generieke veldnaam, gedeeld met de afhaal-tijdsloten (zie
-                 includes/pickup.php) — de twee modi sluiten elkaar uit. */ ?>
-        <input type="hidden" name="mkcp_time_slot" id="mkcp_time_slot" value="">
+        <?php /* class="mkcp-dd-*-field" (gedeeld met pickup.php) is wat
+                 delivery-date.js gebruikt om dit veld te vinden — niet de naam/id.
+                 Zie het commentaar bij pickup.php's versie van dit veld voor de
+                 volledige toelichting (AJAX ververst nooit dit input-veld zelf,
+                 alleen #mkcp-dd-data, dus JS moet naam/id zelf bijwerken bij een
+                 modus-wissel). */ ?>
+        <input type="hidden" name="mkcp_time_slot" id="mkcp_time_slot" class="mkcp-dd-slot-field" value="">
         <?php endif; ?>
 
-        <input type="hidden" name="mkcp_delivery_date" id="mkcp_delivery_date" value="">
+        <input type="hidden" name="mkcp_delivery_date" id="mkcp_delivery_date" class="mkcp-dd-date-field" value="">
 
         <?php // Volledige attributenset (niet alleen dates/rate-id) — zie
               // mkcp_dd_data_div_html() voor waarom dit moet matchen met wat
@@ -625,6 +605,9 @@ function mkcp_dd_render_field() {
             </div>
         </div>
 
+        </div><?php // /.mkcp-dd-body-inner ?>
+        </div><?php // /.mkcp-dd-body ?>
+
         <?php // Rendert hier als kind van de wrap (i.p.v. los op
               // woocommerce_review_order_before_payment) zodat 'm meeleeft met
               // dezelfde ververscyclus als de rest van de wrap — zie de
@@ -641,9 +624,9 @@ function mkcp_dd_render_field() {
  * capaciteitslimiet heeft alles weggefilterd. Voorheen verdween het veld
  * hier stilzwijgend; nu krijgt de klant altijd een duidelijke melding.
  */
-function mkcp_dd_render_empty_state( string $label, bool $required ) {
+function mkcp_dd_render_empty_state( string $label, bool $required, string $wrap_id = 'mkcp-dd-wrap' ) {
     ?>
-    <div class="mkcp-dd-wrap mkcp-dd-wrap--empty" id="mkcp-dd-wrap">
+    <div class="mkcp-dd-wrap mkcp-dd-wrap--empty" id="<?php echo esc_attr( $wrap_id ); ?>">
         <div class="mkcp-dd-header">
             <span class="mkcp-dd-label">
                 <?php echo $label; ?>
@@ -669,20 +652,24 @@ function mkcp_dd_render_empty_state( string $label, bool $required ) {
 // ── Mini-samenvatting bij de bezorgdatum-kiezer ─────────────────────────────────
 //
 // Bevestigt de gekozen bezorgdatum nogmaals, direct onder de kalender in
-// dezelfde wrap (zie mkcp_dd_render_field()/mkcp_pickup_render_field()) — niet
-// meer los gerenderd op woocommerce_review_order_before_payment, want die hook
-// ververst niet mee bij een checkout-AJAX-refresh terwijl #mkcp-dd-wrap dat
-// wél doet (via woocommerce_review_order_before_submit); als kind van een
-// node die soms wordt weggegooid en herbouwd, moet de summary in diezelfde
-// render meekomen. JS vult 'm en houdt 'm in sync.
+// dezelfde wrap (zie mkcp_dd_render_delivery_field()/mkcp_pickup_render_field()
+// in includes/pickup.php) — rendert als kind van de wrap zodat 'm meeleeft
+// met dezelfde ververscyclus (de hele wrap wordt bij elke AJAX-refresh vers
+// meegerenderd, zie de docblock bovenaan dit bestand). JS vult 'm en houdt
+// 'm in sync.
 
 
 // ── Validatie ──────────────────────────────────────────────────────────────────
 
 add_action( 'woocommerce_checkout_process', function() {
-    if ( function_exists( 'mkcp_pickup_active_location' ) && function_exists( 'mkcp_pickup_rate_id_from_post' )
-        && mkcp_pickup_active_location( mkcp_pickup_rate_id_from_post() ) ) return;
     if ( ! mkcp_dd_enabled() ) return;
+
+    // Fase 2: scant ALLE geposte verzendpakketten op de bezorg-rol i.p.v. de
+    // oude "pickup actief? dan skippen, anders pakket 0"-aanname — zo werkt
+    // dit onafhankelijk van pickup.php's eigen validatie (zie daar), ook als
+    // deze order BEIDE rollen tegelijk heeft (een gemengd winkelwagentje).
+    $rate_id = mkcp_dd_role_rate_id_from_post( 'delivery' );
+    if ( ! $rate_id ) return; // geen bezorg-pakket in deze order — niets te valideren
 
     $cfg      = mkcp_checkout_config();
     $required = ! empty( $cfg['delivery_date_required'] );
@@ -703,11 +690,6 @@ add_action( 'woocommerce_checkout_process', function() {
             wc_add_notice( __( 'Ongeldige bezorgdatum geselecteerd.', 'mk-cart-popup' ), 'error' );
             return;
         }
-
-        $posted  = (array) ( $_POST['shipping_method'] ?? [] );
-        $rate_id = ( isset( $posted[0] ) && is_string( $posted[0] ) )
-            ? sanitize_text_field( wp_unslash( $posted[0] ) )
-            : mkcp_dd_current_rate_id();
 
         $available = mkcp_dd_available_dates( $rate_id );
         if ( ! in_array( $date, $available, true ) ) {
@@ -744,9 +726,10 @@ add_action( 'woocommerce_checkout_process', function() {
 // ── Opslaan in order meta ──────────────────────────────────────────────────────
 
 add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {
-    if ( function_exists( 'mkcp_pickup_active_location' ) && function_exists( 'mkcp_pickup_rate_id_from_post' )
-        && mkcp_pickup_active_location( mkcp_pickup_rate_id_from_post() ) ) return;
     if ( ! mkcp_dd_enabled() ) return;
+
+    $rate_id = mkcp_dd_role_rate_id_from_post( 'delivery' );
+    if ( ! $rate_id ) return;
 
     $date = sanitize_text_field( wp_unslash( $_POST['mkcp_delivery_date'] ?? '' ) );
     if ( empty( $date ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) return;
@@ -756,10 +739,6 @@ add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {
 
     $order->update_meta_data( '_mkcp_delivery_date', $date );
 
-    $posted  = (array) ( $_POST['shipping_method'] ?? [] );
-    $rate_id = ( isset( $posted[0] ) && is_string( $posted[0] ) )
-        ? sanitize_text_field( wp_unslash( $posted[0] ) )
-        : mkcp_dd_current_rate_id();
     $rule = mkcp_dd_effective_rule( $rate_id, mkcp_checkout_config() );
 
     $slot = '';

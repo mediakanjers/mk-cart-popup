@@ -1578,21 +1578,19 @@ body.mkcp-distraction-free-checkout {
         opacity         : 1 !important;
         backdrop-filter : blur(1.5px);
 
-        /* Eigen spinner i.p.v. WooCommerce's kleine loader.svg */
+        /* Zelfde shimmer-sheen als de "Verzending en levering"-sectie
+           (shipping-choice.scss/delivery-date.scss) i.p.v. de eerdere
+           ronddraaiende spinner — één en dezelfde laadstijl door de hele
+           checkout heen. De tekst (::after) blijft staan: die zegt iets
+           specifieks over WAT er ververst, een shimmer alleen zou dat
+           verliezen. */
         &::before {
-            content       : "";
-            position      : absolute;
-            top           : 50%;
-            left          : 50%;
-            width         : 30px;
-            height        : 30px;
-            margin        : -26px 0 0 -15px;
-            border        : 3px solid rgba(46, 125, 50, .18);
-            border-top-color : var(--mkcp-accent, $accent);
-            border-radius : 50%;
-            background    : none !important;
-            animation     : mkcp-spin .7s linear infinite;
-            font-size     : 0; /* neutraliseert WC's font-size:2em spinner-box */
+            content          : "";
+            position         : absolute;
+            inset            : 0;
+            background       : linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .65) 50%, transparent 70%);
+            background-size  : 250% 100%;
+            animation        : mkcp-shimmer 1.3s ease-in-out infinite;
         }
 
         &::after {
@@ -1601,7 +1599,7 @@ body.mkcp-distraction-free-checkout {
             top         : 50%;
             left        : 0;
             right       : 0;
-            margin-top  : 14px;
+            transform   : translateY(-50%);
             text-align  : center;
             font-size   : 13px;
             font-weight : 500;
@@ -1636,12 +1634,13 @@ body.mkcp-distraction-free-checkout {
         &::after { display : none; }
     }
 
-    /* Hele formulier geblokkeerd = bestelling wordt geplaatst */
+    /* Hele formulier geblokkeerd = bestelling wordt geplaatst. ::before
+       (de shimmer-sheen) hoeft hier geen aparte override meer te krijgen —
+       inset:0 dekt het volledige, eventueel lange formulier sowieso af,
+       ongeacht hoe groot dat is. Alleen de tekst blijft in beeld (position:
+       fixed) i.p.v. verticaal gecentreerd t.o.v. het hele (lange) formulier,
+       wat 'm zonder scrollen buiten beeld kon plaatsen. */
     form.woocommerce-checkout > .blockUI.blockOverlay {
-        &::before {
-            position : fixed;
-            margin   : -26px 0 0 -15px;
-        }
         &::after {
             content  : "Bestelling verwerken…";
             position : fixed;

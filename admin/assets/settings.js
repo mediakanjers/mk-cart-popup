@@ -1043,7 +1043,6 @@
         // af — hergebruikt zo alle logica hierboven (live preview, contrastcheck)
         // zonder die te dupliceren. Na toepassen is een preset niet meer dan een
         // startpunt: de normale style_*-velden, verder los aan te passen.
-        var presetButtons   = document.querySelectorAll('.js-mkcp-style-preset');
         var PRESET_FIELD_MAP = {
             accent : 'mkcp_style_accent',
             bg     : 'mkcp_style_bg',
@@ -1060,8 +1059,12 @@
             el.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
+        // Fris opgevraagd i.p.v. een eenmalige snapshot bij het laden van de
+        // pagina — "Genereer stijl uit deze kleuren" hieronder voegt later
+        // dynamisch een extra preset-kaart toe, die dan ook meegenomen moet
+        // worden bij het markeren van de actieve preset.
         function markActivePreset() {
-            presetButtons.forEach(function(btn) {
+            document.querySelectorAll('.js-mkcp-style-preset').forEach(function(btn) {
                 var matches = Object.keys(PRESET_FIELD_MAP).every(function(key) {
                     var el = document.getElementById(PRESET_FIELD_MAP[key]);
                     return el && el.value.toLowerCase() === (btn.dataset[key] || '').toLowerCase();
@@ -1071,27 +1074,38 @@
             });
         }
 
-        presetButtons.forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                Object.keys(PRESET_FIELD_MAP).forEach(function(key) {
-                    setFieldValue(PRESET_FIELD_MAP[key], btn.dataset[key]);
-                });
-                if (btnStyleInput && btn.dataset.btnStyle) {
-                    btnStyleInput.value = btn.dataset.btnStyle;
-                    btnStyleInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                markActivePreset();
+        function applyPresetButton(btn) {
+            Object.keys(PRESET_FIELD_MAP).forEach(function(key) {
+                setFieldValue(PRESET_FIELD_MAP[key], btn.dataset[key]);
+            });
+            if (btnStyleInput && btn.dataset.btnStyle) {
+                btnStyleInput.value = btn.dataset.btnStyle;
+                btnStyleInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            markActivePreset();
 
-                // Korte bevestigingspuls zodat een klik voelt alsof er iets
-                // gebeurt, i.p.v. een instant, onopgemerkte kleursprong.
-                btn.classList.remove('is-applying');
-                void btn.offsetWidth; // forceer reflow zodat de animatie opnieuw start bij snel herhaald klikken
-                btn.classList.add('is-applying');
+            // Korte bevestigingspuls zodat een klik voelt alsof er iets
+            // gebeurt, i.p.v. een instant, onopgemerkte kleursprong.
+            btn.classList.remove('is-applying');
+            void btn.offsetWidth; // forceer reflow zodat de animatie opnieuw start bij snel herhaald klikken
+            btn.classList.add('is-applying');
+        }
+
+        // Gedelegeerd (i.p.v. per-knop listeners) zodat een later dynamisch
+        // toegevoegde preset-kaart (zie "Genereer stijl uit deze kleuren"
+        // hieronder) zonder aparte wiring gewoon klikbaar is.
+        var presetList = document.querySelector('.mkcp-style-preset-list');
+        if (presetList) {
+            presetList.addEventListener('click', function(e) {
+                var btn = e.target.closest('.js-mkcp-style-preset');
+                if (btn) applyPresetButton(btn);
             });
-            btn.addEventListener('animationend', function() {
-                btn.classList.remove('is-applying');
+            presetList.addEventListener('animationend', function(e) {
+                if (e.target.classList && e.target.classList.contains('js-mkcp-style-preset')) {
+                    e.target.classList.remove('is-applying');
+                }
             });
-        });
+        }
 
         // ── Gedetecteerde kleuren van de website ────────────────────────────
         //
@@ -1107,6 +1121,29 @@
                 btn.classList.add('is-applying');
             });
             btn.addEventListener('animationend', function() { btn.classList.remove('is-applying'); });
+        });
+
+        // Losse kopieer-knop bovenop elke tier-1-swatch — naast "Toepassen"
+        // (klik op de swatch zelf) kan de hexcode ook los gekopieerd worden,
+        // bv. om 'm ergens anders te plakken zonder 'm meteen als stijlveld
+        // toe te passen. stopPropagation: zit ALS kind in de "Toepassen"-knop
+        // (geen geneste <button>'s toegestaan, vandaar een span met role="button"),
+        // dus zonder stopPropagation zou een klik hier ook de apply-click van
+        // de omvattende knop triggeren.
+        document.querySelectorAll('.js-mkcp-detected-copy-inline').forEach(function(el) {
+            function doCopy(e) {
+                e.stopPropagation();
+                if (!navigator.clipboard) return;
+                var hex = el.dataset.color;
+                navigator.clipboard.writeText(hex).then(function() {
+                    el.classList.add('is-copied');
+                    setTimeout(function() { el.classList.remove('is-copied'); }, 1200);
+                });
+            }
+            el.addEventListener('click', doCopy);
+            el.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doCopy(e); }
+            });
         });
 
         // Tier 2 (client-side fallback voor klassieke thema's zónder
@@ -1165,9 +1202,40 @@
             card.style.display = '';
             var rescan = document.getElementById('mkcp-detected-rescan');
             if (rescan) rescan.style.display = '';
+            refreshGenerateStyleVisibility();
+        }
+
+        // Admin-feedback: "opeens staan de resultaten er" — de live scan (tier 2)
+        // kan tot 15s duren zonder dat er iets in beeld verandert. Toont daarom
+        // een zoek-indicator zowel bij de allereerste scanronde als bij een
+        // handmatige "Opnieuw scannen"-klik, en zet de rescan-knop in dezelfde
+        // spinner-staat als de andere async-knoppen in dit bestand (Opslaan,
+        // Verifiëren, Versturen).
+        function setDetectedLoading(card, loading) {
+            var loadingEl = document.getElementById('mkcp-detected-loading');
+            var rescan    = document.getElementById('mkcp-detected-rescan');
+            if (loading) {
+                card.style.display = '';
+                if (loadingEl) loadingEl.style.display = 'flex';
+                if (rescan) {
+                    if (!rescan.dataset.origHtml) rescan.dataset.origHtml = rescan.innerHTML;
+                    rescan.disabled = true;
+                    rescan.classList.add('is-loading');
+                    rescan.innerHTML = '<svg class="mkcp-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg> Zoeken…';
+                }
+            } else {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (rescan) {
+                    rescan.disabled = false;
+                    rescan.classList.remove('is-loading');
+                    if (rescan.dataset.origHtml) rescan.innerHTML = rescan.dataset.origHtml;
+                }
+            }
         }
 
         function runLiveScan(card, flatWrap, onDone) {
+            setDetectedLoading(card, true);
+
             var iframe = document.createElement('iframe');
             iframe.style.cssText = 'position:absolute;top:0;left:0;width:300px;height:300px;visibility:hidden;pointer-events:none;';
             iframe.src = mkcpAdmin.homeUrl;
@@ -1178,7 +1246,16 @@
                 done = true;
                 if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
                 writeCache(colors);
-                if (colors.length) showColors(card, flatWrap, colors);
+                setDetectedLoading(card, false);
+                if (colors.length) {
+                    showColors(card, flatWrap, colors);
+                } else {
+                    // Niets gevonden én geen tier-1-kleuren: kaart weer verbergen
+                    // (was alleen zichtbaar gemaakt om de zoek-indicator te tonen).
+                    var categorized = document.getElementById('mkcp-detected-swatches-categorized');
+                    if (!categorized || !categorized.children.length) card.style.display = 'none';
+                    refreshGenerateStyleVisibility();
+                }
                 onDone();
             }
 
@@ -1284,6 +1361,12 @@
                 }
             }
 
+            // Ook al vóórdat de scan daadwerkelijk start (die wacht evt. nog op
+            // het 'load'-event) alvast de zoek-indicator tonen — anders blijft
+            // de kaart in de tussentijd stil, wat precies de "opeens staan de
+            // resultaten er"-klacht was.
+            setDetectedLoading(card, true);
+
             var runScan = function() { runLiveScan(card, flatWrap, function() {}); };
             if (document.readyState === 'complete') runScan();
             else window.addEventListener('load', runScan);
@@ -1293,6 +1376,158 @@
         if (rescanBtn) {
             rescanBtn.addEventListener('click', function() { startColorScan(true); });
         }
+
+        // ── Kant-en-klare stijl genereren uit gevonden kleuren ───────────────
+        //
+        // Admin-feedback: de vaste presets hierboven staan los van de eigen
+        // site — dit leidt in plaats daarvan een combinatie af uit PRECIES de
+        // kleuren die op déze site gevonden zijn (tier 1 gecategoriseerd en/of
+        // tier 2 losse scan-resultaten). Niet per se elke gevonden kleur
+        // gebruiken, wel een combinatie die goed samen oogt: hoofdkleur wordt
+        // de meest verzadigde bruikbare kleur, achtergrond/tekst worden zo
+        // nodig aangevuld met veilige defaults, en steeds gecheckt op
+        // voldoende contrast via dezelfde WCAG-formule als de contrastcheck
+        // hieronder bij de losse Kleuren-velden.
+        function hexSaturationLightness(hex) {
+            var r = parseInt(hex.slice(1, 3), 16) / 255;
+            var g = parseInt(hex.slice(3, 5), 16) / 255;
+            var b = parseInt(hex.slice(5, 7), 16) / 255;
+            var max = Math.max(r, g, b), min = Math.min(r, g, b);
+            var l = (max + min) / 2;
+            var s = max === min ? 0 : (l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min));
+            return { s: s, l: l };
+        }
+
+        function mixHex(hexA, hexB, amount) {
+            var a = hexToRgb(hexA), b = hexToRgb(hexB);
+            var mix = function(x, y) { return Math.round(x + (y - x) * amount); };
+            return '#' + [mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b)]
+                .map(function(v) { return v.toString(16).padStart(2, '0'); }).join('');
+        }
+
+        function pickBestTextColor(bg) {
+            return contrastRatio('#ffffff', bg) >= contrastRatio('#1a1a1a', bg) ? '#ffffff' : '#1a1a1a';
+        }
+
+        function collectDetectedColors() {
+            var out = [];
+            document.querySelectorAll(
+                '#mkcp-detected-swatches-categorized .mkcp-detected-swatch, #mkcp-detected-swatches-flat .mkcp-detected-swatch'
+            ).forEach(function(el) {
+                if (el.dataset.color) out.push(el.dataset.color);
+            });
+            return out;
+        }
+
+        function deriveStyleFromDetectedColors() {
+            var colors = collectDetectedColors();
+            if (!colors.length) return null;
+
+            var candidates = colors.map(function(hex) {
+                var hsl = hexSaturationLightness(hex);
+                return { hex: hex, s: hsl.s, l: hsl.l };
+            }).filter(function(c) { return c.l > 0.08 && c.l < 0.92; });
+            if (!candidates.length) {
+                candidates = colors.map(function(hex) { return { hex: hex, s: 0, l: 0.5 }; });
+            }
+            candidates.sort(function(a, b) { return b.s - a.s; });
+            var accent = candidates[0].hex;
+
+            // Achtergrond: default wit, tenzij een gevonden kleur duidelijk
+            // een lichte achtergrondkleur is (hoge lichtheid, lage verzadiging).
+            var bgCandidate = candidates.filter(function(c) { return c.l > 0.85 && c.hex !== accent; })[0];
+            var bg = bgCandidate ? bgCandidate.hex : '#ffffff';
+
+            // Tekst: default donkergrijs, tenzij een gevonden kleur duidelijk
+            // donker genoeg is én voldoende contrast geeft t.o.v. de achtergrond.
+            var textCandidate = candidates.filter(function(c) { return c.l < 0.25 && c.hex !== accent; })[0];
+            var text = (textCandidate && contrastRatio(textCandidate.hex, bg) >= 4.5) ? textCandidate.hex : '#1a1a1a';
+            if (contrastRatio(text, bg) < 4.5) text = pickBestTextColor(bg);
+
+            var border  = mixHex(bg, accent, 0.14);
+            var btnText = pickBestTextColor(accent);
+
+            return { accent: accent, bg: bg, text: text, btnText: btnText, border: border, danger: '#d32f2f' };
+        }
+
+        // Admin-feedback: eerst schreef dit meteen (onzichtbaar) de Kleuren-
+        // velden vol — een klik op "Genereer stijl" voelde daardoor niet aan
+        // als een echte verandering. Bouwt daarom i.p.v. dat een ECHTE preset-
+        // kaart (zelfde markup/gedrag als de vaste presets hierboven, zie
+        // buildGeneratedPresetCard()) en zet die vooraan bij "Kant-en-klare
+        // stijlen" neer — een klik daarop past 'm toe via dezelfde
+        // applyPresetButton() als een gewone preset, dus meteen zichtbaar én
+        // herkenbaar als "iets is er nu bijgekomen".
+        function buildGeneratedPresetCard(style) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'mkcp-style-preset-generated';
+            btn.className = 'mkcp-style-preset js-mkcp-style-preset mkcp-style-preset--generated';
+            btn.dataset.preset  = 'generated';
+            btn.dataset.accent  = style.accent;
+            btn.dataset.bg      = style.bg;
+            btn.dataset.text    = style.text;
+            btn.dataset.btnText = style.btnText;
+            btn.dataset.border  = style.border;
+            btn.dataset.danger  = style.danger;
+            btn.dataset.btnStyle = 'filled';
+
+            btn.innerHTML =
+                '<span class="mkcp-style-preset-thumb" style="background:' + style.bg + ';border-color:' + style.border + '">' +
+                    '<span class="mkcp-style-preset-thumb-bar" style="border-color:' + style.border + '">' +
+                        '<span style="background:' + style.text + '"></span>' +
+                    '</span>' +
+                    '<span class="mkcp-style-preset-thumb-lines">' +
+                        '<span style="background:' + style.text + '"></span>' +
+                        '<span style="background:' + style.text + '"></span>' +
+                    '</span>' +
+                    '<span class="mkcp-style-preset-thumb-btn" style="background:' + style.accent + ';border-color:' + style.accent + '">' +
+                        '<span style="background:' + style.btnText + '"></span>' +
+                    '</span>' +
+                '</span>' +
+                '<span class="mkcp-style-preset-label">Jouw kleuren</span>';
+
+            return btn;
+        }
+
+        function generateStyleFromDetectedColors() {
+            var style = deriveStyleFromDetectedColors();
+            if (!style) return;
+
+            var presetList = document.querySelector('.mkcp-style-preset-list');
+            if (!presetList) return;
+
+            var existing = document.getElementById('mkcp-style-preset-generated');
+            if (existing) existing.remove();
+
+            var card = buildGeneratedPresetCard(style);
+            presetList.insertBefore(card, presetList.firstChild);
+
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            applyPresetButton(card);
+        }
+
+        function refreshGenerateStyleVisibility() {
+            var btn  = document.getElementById('mkcp-detected-generate-style');
+            var hint = document.getElementById('mkcp-detected-generate-hint');
+            var show = collectDetectedColors().length > 0;
+            if (btn)  btn.style.display  = show ? '' : 'none';
+            if (hint) hint.style.display = show ? '' : 'none';
+        }
+
+        var generateStyleBtn = document.getElementById('mkcp-detected-generate-style');
+        if (generateStyleBtn) {
+            generateStyleBtn.addEventListener('click', function() {
+                generateStyleFromDetectedColors();
+                generateStyleBtn.classList.remove('is-applying');
+                void generateStyleBtn.offsetWidth;
+                generateStyleBtn.classList.add('is-applying');
+            });
+            generateStyleBtn.addEventListener('animationend', function() {
+                generateStyleBtn.classList.remove('is-applying');
+            });
+        }
+        refreshGenerateStyleVisibility();
 
         // Alleen starten zodra de Styling-tab ook echt de zichtbare tab is —
         // niet bij het laden van de instellingenpagina an sich, ongeacht

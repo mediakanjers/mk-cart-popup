@@ -215,9 +215,25 @@
 
 .mk-cart-popup__crosssell-fallback,
 .mk-cart-popup__progress-link,
-.mk-cart-popup__cross-usps,
 .mk-cart-popup__cross-usps-title,
 .mk-cart-popup__coupon-label {
+    display: none;
+}
+
+/* .mk-cart-popup__cross-usps draagt ALTIJD ook de klasse .mk-cart-popup__usps
+   (zie templates/cart-popup.php: class="mk-cart-popup__usps mk-cart-popup__cross-usps"
+   — het element hergebruikt bewust de footer-USP-basisstijl als startpunt).
+   Die twee klassen hebben dus gelijke specificiteit (1 klasse-selector elk):
+   een los ".mk-cart-popup__cross-usps { display:none }" hierboven verloor
+   die tie stilzwijgend van de latere ".mk-cart-popup__usps { display:flex }"
+   (USP-trust-strip, verderop in dit bestand) — het element bleef daardoor
+   altijd zichtbaar, met de footer-stijl, ONGEACHT of .is-expanded actief
+   was. Dat gaf een echte dubbele USP-rij (zie screenshot), niet alleen in
+   de uitklap-modus. Fix: scopen op de daadwerkelijke ouder
+   (.mk-cart-popup__col-cross), zodat de specificiteit hier altijd hoger is
+   dan de kale .mk-cart-popup__usps-regel, ongeacht de volgorde in het
+   bestand. */
+.mk-cart-popup__col-cross .mk-cart-popup__cross-usps {
     display: none;
 }
 
@@ -1048,6 +1064,90 @@
 
     &:hover::after {
         opacity: 1;
+    }
+}
+
+// "Alleen afhalen"-badge onder de productnaam (premium, alleen zichtbaar
+// zodra mkcp_cart_item_is_pickup_only() true is — zie shipping-choice.php).
+// Zelfde info-icoon + hover/focus-tooltip als de checkout-kaarten
+// (mkcp-sc-info/mkcp-sc-tooltip in shipping-choice.scss) — hier los
+// gedupliceerd omdat shipping-choice.css alleen op de checkoutpagina wordt
+// geladen, terwijl de winkelwagen-popup op elke pagina kan verschijnen.
+.mk-cart-popup__pickup-only {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    margin-top: 2px;
+    padding: 3px 8px 3px 6px;
+    border-radius: 999px;
+    background: #fff3d6;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #9a6b00;
+}
+
+.mk-cart-popup__pickup-only-text {
+    line-height: 1.3;
+    text-decoration: none;
+}
+
+.mkcp-sc-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    color: #9a6b00;
+    cursor: help;
+
+    svg { width: 14px; height: 14px; }
+
+    &:hover, &:focus-visible {
+        color: var(--mkcp-accent, #2563eb);
+
+        .mkcp-sc-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -4px);
+        }
+    }
+}
+
+.mkcp-sc-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: max-content;
+    max-width: 200px;
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+    z-index: 10;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #1f2937;
     }
 }
 

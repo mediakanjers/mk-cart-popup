@@ -2050,11 +2050,11 @@ add_action( 'wp', function() {
 
     if ( ! $has_visual ) return;
 
-    // Verplaats delivery date widget naar de delivery sectie.
-    if ( function_exists( 'mkcp_dd_render_field' ) ) {
-        remove_action( 'woocommerce_review_order_before_submit', 'mkcp_dd_render_field', 5 );
-        add_action( 'mkcp_checkout_delivery_section', 'mkcp_dd_render_field', 10 );
-    }
+    // Fase 2: geen verplaatsing meer nodig — de bezorgdatum-/afhaal-widget(s)
+    // renderen nu al direct in de juiste sectie, als onderdeel van de per-
+    // pakket verzendkeuze-kaarten zelf (templates/cart-shipping-choice.php),
+    // die zowel in de standaard- als in de 3-blokken-layout al op de juiste
+    // plek terechtkomen (zie shipping-choice.php se eigen hook-keuze).
 
     // "Verzending en levering" sectie — na #customer_details, als grid col-1 item.
     add_action( 'woocommerce_checkout_after_customer_details', function() {
@@ -2154,41 +2154,48 @@ add_action( 'wp', function() {
                 //    sectie (mkcp_checkout_delivery_section) — niets te doen.
                 //    Na een AJAX-refresh levert het verborgen anker
                 //    (#shipping-choice-ajax-anchor) via WooCommerce's fragment-
-                //    replaceWith een VERSE kopie af, ergens builen de
+                //    replaceWith een VERSE kopie af, ergens buiten de
                 //    leveringssectie (replaceWith vervangt het ankerelement
                 //    zelf — dat heeft geen eigen id meer om op te zoeken — en
                 //    de kaarten-<div> is bovendien ongeldige HTML direct
                 //    binnen de <table>, dus de browser tilt 'm er bij het
-                //    parsen uit; zonder opruiming stapelen kopieën van eerdere
-                //    ververscycli zich daardoor op). Zoek daarom op klasse i.p.v.
-                //    op het anker-id: alles wat nog NIET in de leveringssectie
-                //    staat is de vers ingevoegde (of een gemiste eerdere) kopie
-                //    — de laatste daarvan is de meest recente, de rest
-                //    (inclusief een eventuele oude kopie die al in de
-                //    leveringssectie stond) gaat weg.
+                //    parsen uit). Zoek daarom op klasse i.p.v. op het anker-id.
+                //
+                //    Bij meerdere verzendpakketten (bv. een deel alleen af te
+                //    halen naast een deel te bezorgen) rendert
+                //    mkcp_render_all_shipping_choice_cards() per AJAX-cyclus
+                //    EEN kaartgroep-<div> per pakket — dus "alles wat nog niet
+                //    in de leveringssectie staat" kan er meerdere zijn, niet
+                //    maar één. Vroeger hield deze code alleen de láátste over
+                //    en verwijderde de rest, waardoor bij 2+ pakketten steeds
+                //    één kaartgroep spoorloos verdween (of allebei dezelfde,
+                //    laatst-gerenderde inhoud leken te tonen). Nu: alle verse
+                //    kopieën behouden, in dezelfde volgorde als gerenderd, en
+                //    ALLE oude kopieën (kan er ook meer dan één zijn) opruimen.
                 var shipOutside = Array.prototype.filter.call(
                     document.querySelectorAll('.woocommerce-shipping-totals.shipping'),
                     function (el) { return !el.closest('.mkcp-co-section--delivery'); }
                 );
                 if (shipOutside.length) {
-                    var freshShip = shipOutside[shipOutside.length - 1];
-                    shipOutside.forEach(function (el) { if (el !== freshShip) el.remove(); });
-                    var oldShip = secDel.querySelector('.woocommerce-shipping-totals.shipping');
-                    if (oldShip) oldShip.remove();
+                    Array.prototype.forEach.call(
+                        secDel.querySelectorAll('.woocommerce-shipping-totals.shipping'),
+                        function (el) { el.remove(); }
+                    );
                     // Ná de sectietitel invoegen (die staat nu, samen met de rest,
                     // ín .mkcp-co-section__body) — niet als allereerste kind, anders
                     // schuift de verzendkeuze-kaart vóór "Verzending en levering".
                     var secDelTitle = secDel.querySelector('.mkcp-co-section__title');
-                    secDel.insertBefore(freshShip, secDelTitle ? secDelTitle.nextSibling : secDel.firstChild);
+                    var shipAnchor = secDelTitle ? secDelTitle.nextSibling : secDel.firstChild;
+                    shipOutside.forEach(function (el) {
+                        secDel.insertBefore(el, shipAnchor);
+                    });
                 }
 
-                // 1. Datumpicker: nog in #payment > .place-order → eerst naar leveringssectie.
-                var ddWrap = document.getElementById('mkcp-dd-wrap');
-                if (ddWrap && !ddWrap.closest('.mkcp-co-section--delivery')) {
-                    var ddOld = secDel.querySelector('#mkcp-dd-wrap');
-                    if (ddOld) ddOld.remove();
-                    secDel.appendChild(ddWrap);
-                }
+                // 1. (Fase 2, vervallen) De bezorgdatum-/afhaal-widget(s) renderen
+                //    sinds Fase 2 al direct ALS KIND van .woocommerce-shipping-
+                //    totals.shipping (zie templates/cart-shipping-choice.php) —
+                //    ze reizen dus automatisch mee met stap 0 hierboven en landen
+                //    nooit meer los in #payment. Geen aparte verplaatsing meer nodig.
 
                 // 2. Checkout-info (dynamic-checkout-messages) → leveringssectie, ná de
                 //    verzendmethode-keuze (stap 0) indien aanwezig, anders bovenaan.
@@ -2214,22 +2221,7 @@ add_action( 'wp', function() {
                     secPay.appendChild(pay);
                 }
 
-                // 4. Datumpicker die (na een AJAX-refresh, bv. wisselen bezorgen/
-                //    afhalen) opnieuw binnen #payment is meegerenderd, is altijd de
-                //    actuele versie — WooCommerce vervangt #payment daarbij wholesale
-                //    vanuit een verse server-render, dus wat híer in het betaalblok
-                //    zit is nooit een "meegesleepte" oude kopie maar juist de nieuwe.
-                //    Een eventueel al aanwezige kopie in de leveringssectie is op dat
-                //    moment per definitie de VERoUDERDE (stap 1 hierboven verplaatst
-                //    'm niet meer, want getElementById() vindt dan die oude kopie
-                //    eerst). Dus: oude kopie weg, verse kopie verplaatsen — niet
-                //    andersom, anders verdwijnt bv. de afhaallocatie na het wisselen.
-                var ddInPay = secPay.querySelector('#mkcp-dd-wrap');
-                if (ddInPay) {
-                    var ddInDel = secDel.querySelector('#mkcp-dd-wrap');
-                    if (ddInDel) ddInDel.remove();
-                    secDel.appendChild(ddInPay);
-                }
+                // 4. (Fase 2, vervallen) Zelfde reden als stap 1 hierboven.
 
                 // 5. Vangnet: verplaats wat na stap 1-3 nog overblijft (bv. content
                 //    van een toekomstige feature die hier nog niet met naam

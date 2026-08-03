@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer for WooCommerce. Intercepts add-to-cart on every page, handles qty/remove via AJAX, and redirects /cart to a configurable URL.
- * Version:      1.14.30
+ * Version:      1.14.31-beta.1
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.14.30' );
+define( 'MKCP_VER',  '1.14.31-beta.1' );
 
 // URL to the update manifest on GitHub (raw main branch).
 // Change this when you move the repo to a different organisation or name.

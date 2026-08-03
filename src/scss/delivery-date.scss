@@ -37,6 +37,29 @@
     --mkcp-dd-accent-border: color-mix(in srgb, var(--mkcp-dd-accent) 40%, #fff);
 }
 
+/* Eigen, VASTE accentkleur per rol — zelfde element (.mkcp-pu-wrap staat
+   altijd samen met .mkcp-dd-wrap in de class-list, zie
+   mkcp_pickup_render_field() in pickup.php), dus deze ene override per rol
+   volstaat: alle --mkcp-dd-accent-*-afgeleiden hierboven worden op DIT
+   element opnieuw berekend met de nieuwe waarde (in tegenstelling tot de
+   kaarten in shipping-choice.scss, waar de afgeleiden op een voorouder-
+   element staan en dus wél stuk voor stuk herhaald moesten worden).
+   Bezorgen krijgt hier bewust ook een eigen vaste waarde i.p.v. gewoon de
+   fallback (var(--mkcp-accent, #2563eb)) op .mkcp-dd-wrap hierboven te laten
+   staan — sommige sites hebben zelf al een --mkcp-accent ingesteld (bv. een
+   donkere merk-navy), wat de bezorgwidget dan een andere kleur gaf dan de
+   bewust gekozen teal van de afhaalwidget. .mkcp-dd-wrap:not(.mkcp-pu-wrap)
+   raakt nooit hetzelfde element als .mkcp-pu-wrap hieronder (per definitie
+   uitgesloten door :not()), dus er is geen specificiteitsstrijd tussen de
+   twee regels. */
+.mkcp-dd-wrap:not(.mkcp-pu-wrap) {
+    --mkcp-dd-accent: #2563eb;
+}
+
+.mkcp-pu-wrap {
+    --mkcp-dd-accent: #0d9488;
+}
+
 // Zelfde uiterlijk als .mkcp-pc-status--error / .checkout-inline-error-message
 // (checkout.scss) — één stijl voor "fout bij dit veld", ongeacht welk systeem
 // 'm toont. Gedeeld door delivery-date.php en pickup.php (identieke
@@ -84,6 +107,37 @@
 
 .mkcp-dd-header {
     margin-bottom: 8px;
+}
+
+/* ── Inklapstaat ──────────────────────────────────────────────────────────────── */
+/* .mkcp-dd-body bevat alles behalve de header en .mkcp-dd-summary (zie de
+   docblock bij .mkcp-dd-body in delivery-date.php) — delivery-date.js zet
+   de klasse is-collapsed op .mkcp-dd-wrap zodra er een geldige datum
+   (+tijdvak) gekozen is. Grid-rows-truc (i.p.v. gewoon [hidden]/display:none)
+   zodat het in-/uitklappen zacht animeert i.p.v. in één keer te verspringen
+   — .mkcp-dd-body-inner is de enige child van de grid-rij en levert de
+   overflow:hidden die nodig is om "0fr" daadwerkelijk dicht te laten vouwen. */
+.mkcp-dd-body {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows .25s ease;
+}
+.mkcp-dd-body-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+.mkcp-dd-wrap.is-collapsed {
+    margin-bottom: 10px;
+
+    .mkcp-dd-body {
+        grid-template-rows: 0fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-dd-body {
+        transition: none;
+    }
 }
 
 .mkcp-dd-label {
@@ -181,7 +235,9 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     padding-bottom: 2px;
-    margin-bottom: 10px;
+    // 8px i.p.v. het eerdere ad-hoc 10px — zelfde 8/16/24-ritme als
+    // shipping-choice.scss.
+    margin-bottom: 8px;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -274,32 +330,35 @@
     padding: 10px 0 6px;
     transition: opacity .15s ease;
 }
-/* Even gedimd tijdens de checkout-AJAX-refresh (bv. wisselen verzendmethode,
+/* Even "bezig" tijdens de checkout-AJAX-refresh (bv. wisselen verzendmethode,
    of de automatische update_checkout die WooCommerce al vlak na het laden
-   van de pagina zelf triggert) — zonder eigen spinner lijkt de widget dan
-   even "uit" te staan, terwijl de rest van de checkout (checkout.scss,
-   blockUI-overlays) daar wél duidelijke laadfeedback voor heeft. Zelfde
-   spinner-stijl, hier lokaal herhaald (eigen keyframes) omdat dit bestand
-   los van checkout.scss kan laden. */
+   van de pagina zelf triggert). Zelfde zachte shimmer-sheen als de
+   pakket-brede laadstatus in shipping-choice.scss (form.checkout.mkcp-sc-
+   is-loading) i.p.v. de eerdere dim+ronddraaiende-spinner-combinatie — nu
+   consistent door de hele "Verzending en levering"-sectie heen, ongeacht of
+   het de kaarten of de datumkiezer-cards zijn die even verversen. Eigen
+   keyframes/regels hier herhaald (i.p.v. hergebruikt) omdat dit bestand los
+   van shipping-choice.scss kan laden. */
 .mkcp-dd-cards-list.is-loading {
-    opacity: .45;
+    opacity: .7;
     pointer-events: none;
 }
 .mkcp-dd-cards-viewport:has(.mkcp-dd-cards-list.is-loading)::after {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 22px;
-    height: 22px;
-    margin: -11px 0 0 -11px;
-    border: 3px solid var(--mkcp-dd-accent-22);
-    border-top-color: var(--mkcp-dd-accent);
-    border-radius: 50%;
-    animation: mkcp-dd-spin .7s linear infinite;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+    background-size: 250% 100%;
+    animation: mkcp-dd-shimmer 1.3s ease-in-out infinite;
 }
-@keyframes mkcp-dd-spin {
-    to { transform: rotate(360deg); }
+@keyframes mkcp-dd-shimmer {
+    0%   { background-position: 150% 0; }
+    100% { background-position: -50% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-dd-cards-viewport:has(.mkcp-dd-cards-list.is-loading)::after {
+        animation: none;
+    }
 }
 
 /* Kaart */
@@ -371,7 +430,10 @@
 }
 .mkcp-dd-card.is-selected .mkcp-dd-card-mon { color: var(--mkcp-dd-accent); }
 
-/* Vinkje (top-right, alleen zichtbaar bij selected) */
+/* Vinkje (top-right, alleen zichtbaar bij selected) — volgt de rol-kleur
+   (var(--mkcp-dd-accent), net als de rest van de widget) i.p.v. het eerdere
+   hardcoded groen, dat altijd hetzelfde groen bleef ongeacht of het de
+   blauwe bezorg- of de teal afhaalwidget was. */
 .mkcp-dd-card-check {
     position: absolute;
     right: 10px;
@@ -383,7 +445,7 @@
     width: 22px;
     height: 22px;
     border-radius: 999px;
-    background: #2e7d32;
+    background: var(--mkcp-dd-accent);
     color: #fff;
     opacity: 0;
     transition: opacity .15s ease, transform .15s ease;
@@ -711,6 +773,45 @@
     outline: 2px solid var(--mkcp-dd-accent);
     outline-offset: 2px;
 }
+
+/* ── Eindsamenvatting vóór de bestelknop ──────────────────────────────────────── */
+/* #mkcp-dd-final-summary (includes/delivery-date.php) — alleen gevuld/
+   zichtbaar door delivery-date.js zodra er 2 widgets tegelijk actief zijn.
+   Los van .mkcp-dd-wrap (staat niet daarbinnen), dus met eigen accent-
+   variabelen i.p.v. de --mkcp-dd-accent-* die alleen op .mkcp-dd-wrap leven. */
+.mkcp-dd-final-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #e4e7f0;
+    border-radius: 10px;
+    background: #f7f8fa;
+    font-size: 12.5px;
+    color: #374151;
+}
+.mkcp-dd-final-summary[hidden] { display: none; }
+
+.mkcp-dd-final-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mkcp-dd-final-row strong { color: #111827; }
+
+.mkcp-dd-final-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    // Vast blauw, zelfde als de bezorg-rol elders (kaarten, widget) — niet
+    // var(--mkcp-accent, ...): dat zou hier alsnog de site's eigen
+    // brandkleur laten doorschemeren, precies het lek dat elders al is
+    // gefikst.
+    color: #2563eb;
+}
+.mkcp-dd-final-row--pickup .mkcp-dd-final-icon { color: #0d9488; }
+.mkcp-dd-final-icon svg { width: 100%; height: 100%; stroke: currentColor; }
 
 /* ── Afhalen: locatie-info + tijdsloten ──────────────────────────────────────── */
 

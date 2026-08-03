@@ -1,5 +1,153 @@
 /* ── MK Cart Popup — Ophalen/Bezorgen keuzekaarten ───────────────────────────── */
 
+/* Kop boven een kaartgroep — alleen zichtbaar zodra de winkelwagen in
+   meerdere verzendpakketten is gesplitst (bv. een niet-verzendbaar product
+   naast gewone producten), zodat duidelijk is welke kaartgroep bij welk
+   pakket hoort. */
+.mkcp-sc-package-name {
+    display: inline-flex;
+    // flex-start i.p.v. center — met een uitgeklapte (mogelijk meerregelige)
+    // artikelenlijst moet het icoontje bovenaan/links blijven staan i.p.v.
+    // verticaal gecentreerd t.o.v. de hele, dan hogere, tekstblok.
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0 0 8px;
+    // Bewust GEEN achtergrond/padding meer (was een grijze pil) — dat was
+    // zelf ook een "doosje" bovenop de kaarten en de datumkiezer eronder,
+    // wat bij meerdere pakketten al snel een doos-in-doos-in-doos-effect
+    // gaf. Platte tekst met hetzelfde icoontje communiceert evengoed welke
+    // producten bij dit pakket horen.
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #4b5563;
+
+    svg {
+        flex: 0 0 auto;
+        width: 13px;
+        height: 13px;
+        margin-top: 1px;
+        color: #9ca3af;
+    }
+}
+
+// Enige echte flex-item náást het icoontje op de rij — bevat short/full
+// samen, zodat wisselen tussen die twee nooit het icoontje zelf raakt (zie
+// docblock in templates/cart-shipping-choice.php).
+.mkcp-sc-package-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+// "en N meer" / "minder tonen" — klikbaar in/uitklappen van de volledige
+// artikelenlijst (zie mkcp-sc-package-details-short/-full hierboven).
+.mkcp-sc-package-more,
+.mkcp-sc-package-less {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: var(--mkcp-sc-accent, #2563eb);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.mkcp-sc-package-details-full {
+    display: block;
+
+    // De browser's eigen [hidden]{display:none} (UA-stylesheet) heeft een
+    // lagere specificiteit dan onze class-selector hierboven — zonder deze
+    // regel wint "display:block" dus altijd, ook mét het hidden-attribuut,
+    // en blijven short én full tegelijk zichtbaar i.p.v. dat de toggle werkt.
+    &[hidden] {
+        display: none;
+    }
+}
+
+// Info-icoontje + hover/focus-tooltip die uitlegt waarom een pakket alleen
+// afhaalopties toont (geen bezorgmethode beschikbaar voor dat product).
+.mkcp-sc-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin-left: 2px;
+    border-radius: 999px;
+    color: #9ca3af;
+    cursor: help;
+
+    svg { width: 15px; height: 15px; }
+
+    &:hover, &:focus-visible {
+        color: var(--mkcp-sc-accent, #2563eb);
+
+        .mkcp-sc-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -4px);
+        }
+    }
+}
+
+.mkcp-sc-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, 0);
+    width: max-content;
+    max-width: 220px;
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+    z-index: 2;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #1f2937;
+    }
+}
+
+/* Ruimte tussen meerdere pakket-kaartgroepen (elke groep is een eigen
+   .woocommerce-shipping-totals, één keer per pakket gerenderd) — zonder
+   effect zodra er (verreweg het normale geval) maar één pakket is. */
+.woocommerce-shipping-totals + .woocommerce-shipping-totals {
+    margin-top: 14px;
+}
+
+/* Bij meerdere pakketten (bv. een deel bezorgen, een deel alleen af te
+   halen): een dunne scheidingslijn + extra ruimte boven elk volgend
+   pakket-blok, zodat duidelijk is waar het ene pakket ophoudt en het
+   volgende begint — bewust GEEN eigen kader/achtergrond hier: de kaarten
+   en de datumkiezer hebben al allebei hun eigen rand, en nóg een kader
+   eromheen gaf een "doos-in-doos-in-doos"-effect. Alleen op het 2e en
+   volgende pakket-blok (het eerste heeft niets boven zich om van te
+   scheiden); laat het enkelvoudige, verreweg normale geval (maar 1 pakket)
+   ongewijzigd. */
+.woocommerce-shipping-totals.shipping + .woocommerce-shipping-totals.shipping {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1.5px solid #e4e7f0;
+}
+
 .mkcp-ship-choice,
 .mkcp-ship-choice *,
 .mkcp-ship-choice *::before,
@@ -12,7 +160,11 @@
     flex-direction: row;
     flex-wrap: wrap;
     gap: 10px;
-    margin: 4px 0 14px;
+    // Onderkant op 16px i.p.v. het eerdere ad-hoc 14px — samen met de 8px/
+    // 16px/24px-ritme hieronder (badge→kaarten 8, kaarten→kiezer 16,
+    // pakket→pakket 24) een consistente opbouw i.p.v. overal net iets
+    // andere tussenmaten.
+    margin: 4px 0 16px;
     --mkcp-sc-accent: var(--mkcp-accent, #2563eb);
     --mkcp-sc-accent-tint: color-mix(in srgb, var(--mkcp-sc-accent) 6%, #fff);
     --mkcp-sc-accent-tint2: color-mix(in srgb, var(--mkcp-sc-accent) 12%, #fff);
@@ -25,13 +177,19 @@
    De klasse staat op form.checkout (blijft altijd bestaan, i.t.t. de kaarten
    zelf die bij elke AJAX-refresh wholesale vervangen worden), en dimt/overlayt
    hier via een descendant-selector welk .woocommerce-shipping-totals-element
-   er op dat moment ook in de DOM zit. */
+   er op dat moment ook in de DOM zit.
+   Bewust een zachte shimmer-sheen i.p.v. de eerdere combinatie van fors
+   dimmen (opacity .45) + een spinner er los overheen — dat "flikkerde" bij
+   elke adres-/methodewijziging, wat met nu vaak 2 pakketten tegelijk op de
+   pagina onrustig oogde. De content blijft leesbaar (opacity .7) en de
+   sheen zelf communiceert al "bezig", zonder een los draaiend element. */
 form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals {
     position: relative;
+    overflow: hidden;
 }
 
 form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals > * {
-    opacity: .45;
+    opacity: .7;
     pointer-events: none;
     transition: opacity .15s ease;
 }
@@ -39,32 +197,66 @@ form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals > * {
 form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals::after {
     content: "";
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 24px;
-    height: 24px;
-    margin: -12px 0 0 -12px;
-    border: 2.5px solid color-mix(in srgb, var(--mkcp-accent, #2563eb) 20%, transparent);
-    border-top-color: var(--mkcp-accent, #2563eb);
-    border-radius: 50%;
-    animation: mkcp-sc-spin .7s linear infinite;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+    background-size: 250% 100%;
+    animation: mkcp-sc-shimmer 1.3s ease-in-out infinite;
     z-index: 1;
 }
 
-@keyframes mkcp-sc-spin {
-    to { transform: rotate(360deg); }
+@keyframes mkcp-sc-shimmer {
+    0%   { background-position: 150% 0; }
+    100% { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals::after {
+        animation: none;
+    }
+}
+
+/* Eigen, VASTE accentkleur per rol — los van elkaar én los van de site's
+   eigen --mkcp-accent-brandkleur (die via .mkcp-ship-choice's fallback ook
+   op de bezorgkaart terechtkwam, en op sommige sites een donkere navy blijkt
+   te zijn i.p.v. een fris blauw — dat oogde inconsistent naast de bewust
+   gekozen teal van de afhaalkaart). Door bezorgen hier net zo expliciet vast
+   te zetten als afhalen, is de rol-kleur voorspelbaar op elke site, ongeacht
+   wat er verder aan branding is ingesteld.
+   De 5 afgeleide variabelen moeten in beide blokken hieronder herhaald
+   worden (niet alleen --mkcp-sc-accent zelf) omdat ze in .mkcp-ship-choice
+   al zijn "bevroren" op het daar geldende accent — een custom property erft
+   de al-opgeloste waarde van zijn dichtstbijzijnde declaratie, niet de losse
+   var()-referentie, dus enkel --mkcp-sc-accent overschrijven op dit
+   descendant-niveau zou geen effect hebben op de tint/border/dark-varianten
+   die de kaart-icoontjes/badges daadwerkelijk gebruiken. */
+.mkcp-sc-card-wrap[data-role="delivery"] {
+    --mkcp-sc-accent: #2563eb;
+    --mkcp-sc-accent-tint: color-mix(in srgb, var(--mkcp-sc-accent) 6%, #fff);
+    --mkcp-sc-accent-tint2: color-mix(in srgb, var(--mkcp-sc-accent) 12%, #fff);
+    --mkcp-sc-accent-border: color-mix(in srgb, var(--mkcp-sc-accent) 40%, #fff);
+    --mkcp-sc-accent-dark: color-mix(in srgb, var(--mkcp-sc-accent) 80%, #000);
+    --mkcp-sc-accent-14: color-mix(in srgb, var(--mkcp-sc-accent) 14%, transparent);
+}
+
+.mkcp-sc-card-wrap[data-role="pickup"] {
+    --mkcp-sc-accent: #0d9488;
+    --mkcp-sc-accent-tint: color-mix(in srgb, var(--mkcp-sc-accent) 6%, #fff);
+    --mkcp-sc-accent-tint2: color-mix(in srgb, var(--mkcp-sc-accent) 12%, #fff);
+    --mkcp-sc-accent-border: color-mix(in srgb, var(--mkcp-sc-accent) 40%, #fff);
+    --mkcp-sc-accent-dark: color-mix(in srgb, var(--mkcp-sc-accent) 80%, #000);
+    --mkcp-sc-accent-14: color-mix(in srgb, var(--mkcp-sc-accent) 14%, transparent);
 }
 
 .mkcp-sc-card-wrap {
-    flex: 1 1 200px;
+    // flex-basis:0 i.p.v. 200px — met een niet-nul basis rekent de browser
+    // eerst met elke kaart z'n eigen intrinsieke inhoudsbreedte (bv. "Laten
+    // bezorgen: Betaald versturen €7,95" is van nature breder dan "Zelf
+    // afhalen: Ophalen in Delden"), en verdeelt de resterende ruimte pas
+    // dáárna naar verhouding — met als resultaat twee zichtbaar ongelijk
+    // brede kaarten. Met basis 0 telt de inhoud niet mee als startpunt en
+    // groeien beide kaarten (flex-grow:1) altijd exact even breed.
+    flex: 1 1 0;
     min-width: 200px;
-
-    /* Maar 1 methode beschikbaar (geen tweede kaart om naast te zetten) —
-       niet over de volle breedte uitrekken. */
-    &:only-child {
-        flex-grow: 0;
-        max-width: 320px;
-    }
 }
 
 .mkcp-sc-card {

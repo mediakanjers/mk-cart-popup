@@ -26,6 +26,73 @@ function mkcp_shipping_choice_is_active(): bool {
 
 
 /**
+ * Welke cart-item-keys zitten in een pakket dat ALLEEN afhaalmethodes heeft
+ * (geen enkele bezorgmethode beschikbaar)? Gebruikt door zowel de checkout-
+ * kaarten hierboven als de winkelwagen-popup (cart-popup.php), zodat ook daar
+ * al vóór het afrekenen duidelijk is welke producten niet verzonden kunnen
+ * worden — i.p.v. dat de klant dat pas op de checkout ontdekt.
+ *
+ * De daadwerkelijke pakket-splitsing (bv. op basis van een verzendklasse)
+ * gebeurt niet in deze plugin maar in de losse "WooCommerce Advanced Shipping
+ * Packages"-plugin (site-specifieke regels, ingesteld in díe plugin's eigen
+ * admin) — vandaar dat dit generiek naar de daadwerkelijke pakket-tarieven
+ * kijkt (net als mkcp_get_shipping_choice_template_args_for_package()), i.p.v.
+ * te leunen op een hardgecodeerde verzendklasse-naam die alleen voor deze site
+ * zou kloppen.
+ *
+ * Forceert bewust maar één keer per request een verzendkosten-berekening
+ * (static cache) — dezelfde berekening die WooCommerce toch al doet zodra de
+ * klant de winkelwagen- of checkoutpagina bezoekt, hier alleen ook al op
+ * andere pagina's (waar de popup ook getoond wordt) zodat de badge direct
+ * klopt i.p.v. pas na een bezoek aan de checkout.
+ *
+ * @return array<string,true> cart_item_key => true
+ */
+function mkcp_cart_pickup_only_item_keys(): array {
+    static $map = null;
+    if ( $map !== null ) return $map;
+    $map = [];
+
+    if ( ! function_exists( 'WC' ) || ! WC()->cart || ! WC()->shipping ) return $map;
+    if ( ! WC()->cart->needs_shipping() ) return $map;
+
+    WC()->cart->calculate_shipping();
+
+    foreach ( WC()->shipping->get_packages() as $package ) {
+        $rates = $package['rates'] ?? [];
+        if ( empty( $rates ) ) continue;
+
+        $has_delivery = false;
+        $has_pickup   = false;
+        foreach ( $rates as $rate ) {
+            if ( strpos( (string) $rate->id, 'local_pickup:' ) === 0 ) {
+                $has_pickup = true;
+            } else {
+                $has_delivery = true;
+            }
+        }
+
+        if ( $has_pickup && ! $has_delivery ) {
+            foreach ( $package['contents'] ?? [] as $key => $item ) {
+                $map[ $key ] = true;
+            }
+        }
+    }
+
+    return $map;
+}
+
+
+/**
+ * Is dit specifieke cart-item alleen af te halen (geen bezorgoptie
+ * beschikbaar voor het pakket waar het in valt)?
+ */
+function mkcp_cart_item_is_pickup_only( string $cart_item_key ): bool {
+    return ! empty( mkcp_cart_pickup_only_item_keys()[ $cart_item_key ] );
+}
+
+
+/**
  * Verbergt betaalde bezorgmethodes (cost > 0) uit $rates zodra er BINNEN de
  * bezorg-groep (dus niet ophalen — dat is een aparte keuze, geen "alternatief"
  * voor bezorgen) ook een gratis methode (cost <= 0) beschikbaar is. Zonder dit
@@ -71,56 +138,113 @@ function mkcp_shipping_choice_hide_paid_delivery( array $rates ): array {
 
 
 /**
- * Gathers the arguments required by the cart-shipping-choice.php template.
- * This mimics the arguments passed by WooCommerce when it renders the
- * original cart/cart-shipping.php template.
+ * Vriendelijkere pakketnaam dan WooCommerce's kale "Verzending 2" zodra een
+ * winkelwagen in meerdere pakketten is gesplitst (bv. één "alleen-afhalen"-
+ * product naast gewoon te bezorgen producten). Bevat een pakket precies één
+ * product, dan gebruiken we die productnaam — dat is de meest voorkomende
+ * situatie bij een split (één specifiek product met een eigen verzendklasse)
+ * en meteen duidelijk voor de klant. Bij meerdere verschillende producten in
+ * hetzelfde pakket blijft WooCommerce's eigen "Verzending N" staan — een
+ * opsomming van alle productnamen zou hier al snel te lang worden.
  */
-function mkcp_get_shipping_choice_template_args(): array {
-    if ( ! function_exists('WC') || ! WC()->shipping || ! WC()->cart || ! WC()->session ) {
-        return [];
+add_filter( 'woocommerce_shipping_package_name', function( $name, $package_id, $package ) {
+    if ( ! mkcp_shipping_choice_is_active() ) return $name;
+
+    $contents = $package['contents'] ?? [];
+    if ( count( $contents ) !== 1 ) return $name;
+
+    $item = reset( $contents );
+    $product = $item['data'] ?? null;
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) return $name;
+
+    return $product->get_name();
+}, 10, 3 );
+
+
+/**
+ * Leesbare opsomming van de producten in een pakket (bv. "Kenteken ABC-123,
+ * T-shirt rood (2x)") in plaats van WooCommerce's kale "1 item" / "2 items" —
+ * zodat bij meerdere pakketten meteen duidelijk is wélke artikelen bij welke
+ * kaartgroep (bezorgen/afhalen) horen, zonder daarvoor apart te hoeven klikken.
+ *
+ * Geeft zowel een verkorte ("short", ingekort op aantal + per-naam-lengte —
+ * wat standaard getoond wordt) als de volledige ("full") opsomming terug, zodat
+ * de template een "en N meer" kan tonen die uitklapt naar de volledige lijst
+ * i.p.v. het teveel-aantal stilzwijgend te verbergen.
+ *
+ * @return array{short: string, short_base: string, remaining: int, full: string, has_more: bool}
+ */
+function mkcp_shipping_choice_package_contents_label( array $package, int $max_names = 2, int $max_name_length = 28 ): array {
+    $empty = [ 'short' => '', 'short_base' => '', 'remaining' => 0, 'full' => '', 'has_more' => false ];
+    $contents = $package['contents'] ?? [];
+    if ( empty( $contents ) ) return $empty;
+
+    $names = [];
+    foreach ( $contents as $item ) {
+        $product = $item['data'] ?? null;
+        if ( ! $product || ! is_a( $product, 'WC_Product' ) ) continue;
+
+        $qty  = (int) ( $item['quantity'] ?? 1 );
+        $name = $product->get_name();
+        // Ook lange, individuele productnamen afkappen — anders kan zelfs met
+        // maar 1-2 producten de opsomming nog een onleesbare lange lap tekst
+        // worden (bv. lange technische productnamen zoals bevestigingsmateriaal).
+        if ( mb_strlen( $name ) > $max_name_length ) {
+            $name = mb_substr( $name, 0, $max_name_length - 1 ) . '…';
+        }
+        $names[] = $qty > 1 ? sprintf( '%s (%dx)', $name, $qty ) : $name;
     }
 
-    $packages = WC()->shipping->get_packages();
-    if ( empty( $packages ) ) {
-        return [
-            'package'                  => null,
-            'available_methods'        => [],
-            'show_package_details'     => false,
-            'show_shipping_calculator' => false,
-            'package_details'          => '',
-            'package_name'             => '',
-            'index'                    => 0,
-            'chosen_method'            => null,
-            'formatted_destination'    => null,
-            'has_calculated_shipping'  => false,
-        ];
-    }
+    $full  = implode( ', ', $names );
+    $total = count( $names );
 
-    // This plugin seems to only support the first package for shipping choice.
-    $package_index = 0;
-    if ( ! isset( $packages[ $package_index ] ) ) {
-        $package_index = key( $packages );
-        $package = reset( $packages );
-    } else {
-        $package = $packages[ $package_index ];
-    }
+    // Bij veel verschillende producten in één pakket wordt een volledige
+    // opsomming al snel een onleesbare lange lap tekst die binnen de kleine
+    // "chip" onhandig gaat wraprapen — daarom afkappen op $max_names en de
+    // rest samenvatten (klikbaar, zie template) i.p.v. altijd alles voluit
+    // te tonen.
+    $has_more = $total > $max_names;
+    $rest     = $has_more ? $total - $max_names : 0;
+    $short_base = $has_more ? implode( ', ', array_slice( $names, 0, $max_names ) ) : $full;
+    $short      = $has_more
+        /* translators: %d: aantal overige producten */
+        ? $short_base . ', ' . sprintf( _n( 'en %d meer', 'en %d meer', $rest, 'mk-cart-popup' ), $rest )
+        : $full;
 
-    // Sessie eerst, $_POST alleen als vangnet — zelfde volgorde en reden als
-    // mkcp_dd_current_rate_id() (delivery-date.php). WC_AJAX::update_order_review()
-    // draait WC()->cart->calculate_shipping() vóórdat deze fragments-filter
-    // vuurt, en die core-aanroep corrigeert de sessie zelf al naar een geldige
-    // rate zodra de eerder gekozen rate niet meer bestaat voor het nieuwe
-    // pakket (bv. na een postcode-wijziging naar een andere zone — zie
-    // wc_get_chosen_shipping_method_for_package() in WooCommerce core).
-    // $_POST bevat op dat moment nog de oude, inmiddels ongeldige keuze (de
-    // browser stuurt altijd de vóór-AJAX aangevinkte radio mee, ook als de
-    // klant 'm niet aanraakte) — zou dat voorrang krijgen, dan kan deze kaart
-    // een andere methode tonen dan de bezorgdatum-/afhaal-kalender op basis
-    // van dezelfde respons. $_POST dient alleen als vangnet voor het
+    return [
+        'short'      => $short,
+        'short_base' => $short_base,
+        'remaining'  => $rest,
+        'full'       => $full,
+        'has_more'   => $has_more,
+    ];
+}
+
+/**
+ * Gathers the arguments required by the cart-shipping-choice.php template
+ * voor ÉÉN specifiek verzendpakket. Mimicked WooCommerce's eigen
+ * wc_cart_totals_shipping_html() (wc-cart-functions.php) — die loopt zelf
+ * ook gewoon over alle pakketten en roept per pakket cart/cart-shipping.php
+ * aan met zijn eigen $index/$package; dit doet hetzelfde voor onze
+ * gestylede kaarten-variant.
+ *
+ * @param array $package       Eén pakket uit WC()->shipping->get_packages().
+ * @param int   $package_index De index van dat pakket (voor shipping_method[index]-veldnamen).
+ * @param int   $total_packages Totaal aantal pakketten (voor show_package_details).
+ */
+function mkcp_get_shipping_choice_template_args_for_package( array $package, int $package_index, int $total_packages ): array {
+    // Sessie eerst, $_POST alleen als vangnet, PER PAKKET — zelfde reden als
+    // voorheen (zie git-historie): WC_AJAX::update_order_review() draait
+    // WC()->cart->calculate_shipping() vóórdat deze fragments-filter vuurt,
+    // en die core-aanroep corrigeert de sessie zelf al naar een geldige rate
+    // zodra de eerder gekozen rate niet meer bestaat voor dit pakket (bv. na
+    // een postcode-wijziging). $_POST bevat op dat moment nog de oude,
+    // inmiddels ongeldige keuze — dient hier alleen als vangnet voor het
     // zeldzame geval dat de sessie niet beschikbaar is.
-    $chosen_method = function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null;
+    $chosen_shipping_methods = (array) WC()->session->get( 'chosen_shipping_methods', [] );
+    $chosen_method = $chosen_shipping_methods[ $package_index ] ?? null;
 
-    if ( null === $chosen_method ) {
+    if ( empty( $chosen_method ) ) {
         $chosen_method = isset( $_POST['shipping_method'][ $package_index ] )
             ? wc_clean( wp_unslash( $_POST['shipping_method'][ $package_index ] ) )
             : '';
@@ -151,18 +275,22 @@ function mkcp_get_shipping_choice_template_args(): array {
 
         if ( $default_method ) {
             $chosen_method = $default_method->id;
-            $chosen_shipping_methods = (array) WC()->session->get( 'chosen_shipping_methods', [] );
             $chosen_shipping_methods[ $package_index ] = $chosen_method;
             WC()->session->set( 'chosen_shipping_methods', $chosen_shipping_methods );
         }
     }
 
+    $contents_label = mkcp_shipping_choice_package_contents_label( $package );
+
     return array(
         'package'                  => $package,
         'available_methods'        => $package['rates'] ?? [],
-        'show_package_details'     => count( $packages ) > 1,
+        'show_package_details'     => $total_packages > 1,
         'show_shipping_calculator' => is_cart(),
-        'package_details'          => implode( ', ', wp_list_pluck( $package['contents'] ?? [], 'quantity' ) ) . ' ' . _n( 'item', 'items', count( $package['contents'] ?? [] ), 'woocommerce' ),
+        'package_details'          => $contents_label['short_base'],
+        'package_details_full'     => $contents_label['full'],
+        'package_details_has_more' => $contents_label['has_more'],
+        'package_details_remaining' => $contents_label['remaining'],
         'package_name'             => $package['package_name'] ?? '',
         'index'                    => $package_index,
         'chosen_method'            => $chosen_method,
@@ -172,11 +300,50 @@ function mkcp_get_shipping_choice_template_args(): array {
 }
 
 /**
+ * Rendert de keuzekaarten voor ÉÉN pakket (gebruikt door zowel de normale
+ * render als de AJAX-fragment-registratie hieronder). Vervangt de oude
+ * mkcp_get_shipping_choice_template_args() die altijd pakket 0 aannam.
+ *
+ * @param int|null $only_package_index Als gezet: render alleen dit pakket
+ *                                      (voor eventueel toekomstig los gebruik).
+ */
+function mkcp_render_all_shipping_choice_cards( ?int $only_package_index = null ): void {
+    if ( ! function_exists('WC') || ! WC()->shipping || ! WC()->cart || ! WC()->session ) return;
+
+    $packages = WC()->shipping->get_packages();
+    if ( empty( $packages ) ) return;
+
+    $total = count( $packages );
+
+    // Eerste doorloop: args per pakket opbouwen en per rol (bezorgen/
+    // afhalen) onthouden welk pakket-index de LAATSTE is met die rol. Fase 2
+    // toont de datum-/tijdvakkiezer voor een rol pas ná dát pakket, zodat 'ie
+    // nooit tussen twee kaartgroepen van dezelfde rol in komt te staan (bv.
+    // twee losse "Zelf afhalen"-pakketten in één winkelwagen) — en er ook bij
+    // meerdere pakketten met dezelfde rol maar 1 kiezer voor die rol getoond
+    // wordt, in plaats van een dubbele/kapotte weergave met identieke ids.
+    $all_args        = [];
+    $role_last_index = [ 'delivery' => null, 'pickup' => null ];
+    foreach ( $packages as $package_index => $package ) {
+        if ( null !== $only_package_index && $package_index !== $only_package_index ) continue;
+        $args = mkcp_get_shipping_choice_template_args_for_package( $package, (int) $package_index, $total );
+        $all_args[ $package_index ] = $args;
+        $role = strpos( (string) $args['chosen_method'], 'local_pickup:' ) === 0 ? 'pickup' : 'delivery';
+        $role_last_index[ $role ] = $package_index;
+    }
+
+    foreach ( $all_args as $package_index => $args ) {
+        $args['mkcp_render_role_widget'] = in_array( $package_index, $role_last_index, true );
+        wc_get_template( 'cart-shipping-choice.php', $args, '', MKCP_PATH . 'templates/' );
+    }
+}
+
+/**
  * Rendert de keuzekaarten. Deze functie wordt door een van de hooks hieronder aangeroepen.
  */
 function mkcp_render_shipping_choice_cards() {
 	if ( ! mkcp_shipping_choice_is_active() ) return;
-    wc_get_template( 'cart-shipping-choice.php', mkcp_get_shipping_choice_template_args(), '', MKCP_PATH . 'templates/' );
+    mkcp_render_all_shipping_choice_cards();
 }
 
 // ── Render keuzekaarten (conditioneel) ───────────────────────────────────────
@@ -237,26 +404,121 @@ add_filter( 'wc_get_template', function( $template, $template_name ) {
 // AJAX-ververste tabel-fragment ligt (woocommerce_review_order_before_order_
 // total, vlak binnen <tfoot>) — ververst dus vanzelf mee, geen aparte ajax-
 // registratie nodig (zelfde redenering als de andere zone-render hooks).
+/**
+ * Fase 2: telt de gekozen verzendkosten (excl./incl. btw, zie hieronder) per
+ * ROL op over ALLE verzendpakketten heen — i.p.v. de oude aanname dat er
+ * hooguit één actieve methode voor de hele order is. Bij een gemengd
+ * winkelwagentje (1 pakket bezorgen, 1 pakket afhalen) moet het totaalbedrag
+ * dus over de twee rollen verdeeld worden, anders staat er bv. "Afhalen:
+ * €4,95" terwijl die €4,95 in werkelijkheid de bezorgkosten van het ándere
+ * pakket zijn (afhalen zelf is gratis) — precies de bug die dit oplost.
+ *
+ * Bepaalt de gekozen rate hetzelfde als mkcp_get_shipping_choice_template_
+ * args_for_package(): sessie eerst, $_POST als vangnet per pakket-index.
+ *
+ * @return array<string,array{cost:float,tax:float,present:bool}> 'delivery'/'pickup' => kosten
+ */
+function mkcp_shipping_choice_costs_by_role(): array {
+    $totals = [
+        'delivery' => [ 'cost' => 0.0, 'tax' => 0.0, 'present' => false ],
+        'pickup'   => [ 'cost' => 0.0, 'tax' => 0.0, 'present' => false ],
+    ];
+
+    if ( ! function_exists( 'WC' ) || ! WC()->shipping || ! WC()->session ) return $totals;
+
+    $chosen_shipping_methods = (array) WC()->session->get( 'chosen_shipping_methods', [] );
+
+    foreach ( WC()->shipping->get_packages() as $package_index => $package ) {
+        $rates = $package['rates'] ?? [];
+        if ( empty( $rates ) ) continue;
+
+        $chosen_method = $chosen_shipping_methods[ $package_index ] ?? '';
+        if ( empty( $chosen_method ) ) {
+            $chosen_method = isset( $_POST['shipping_method'][ $package_index ] )
+                ? wc_clean( wp_unslash( $_POST['shipping_method'][ $package_index ] ) )
+                : '';
+        }
+
+        $rate = $rates[ $chosen_method ] ?? null;
+        if ( ! $rate ) continue;
+
+        $role = strpos( (string) $rate->id, 'local_pickup:' ) === 0 ? 'pickup' : 'delivery';
+        // NB: 'present' apart bijhouden van cost/tax — een gratis afhaalpakket
+        // (cost=0, tax=0) telt ook mee als aanwezige rol, anders zou "Afhalen:
+        // Gratis" ten onrechte wegvallen zodra er ook een betaald bezorgpakket
+        // is (cost/tax>0 zou dan de enige manier zijn om een rij te tonen).
+        $totals[ $role ]['present'] = true;
+        $totals[ $role ]['cost']   += (float) $rate->cost;
+        $totals[ $role ]['tax']   += array_sum( (array) $rate->taxes );
+    }
+
+    return $totals;
+}
+
 add_action( 'woocommerce_review_order_before_order_total', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
     if ( ! mkcp_shipping_choice_is_active() ) return;
     if ( ! function_exists( 'WC' ) || ! WC()->cart ) return;
     if ( ! WC()->cart->needs_shipping() || ! WC()->cart->show_shipping() ) return;
 
-    // Label past zich aan de daadwerkelijk gekozen methode aan: "Verzendkosten:
-    // Gratis" is verwarrend wanneer de klant net "Zelf afhalen" koos — er wordt
-    // dan niets verzonden. mkcp_dd_current_rate_id() (delivery-date.php) is de
-    // al-gedeelde, sessie-/POST-bestendige manier om de huidige keuze op te
-    // zoeken (zelfde functie die de bezorgdatum-kiezer ook gebruikt).
-    $rate_id  = function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null;
-    $is_pickup = $rate_id && strpos( $rate_id, 'local_pickup:' ) === 0;
-    $label     = $is_pickup ? __( 'Afhalen', 'mk-cart-popup' ) : __( 'Verzendkosten', 'mk-cart-popup' );
+    $totals = mkcp_shipping_choice_costs_by_role();
+    $roles  = array_filter( $totals, function( $role ) {
+        // 'present', niet cost/tax > 0 — een gratis afhaalpakket moet gewoon
+        // als "Afhalen: Gratis" getoond worden, ook naast een betaald
+        // bezorgpakket (zie de docblock bij mkcp_shipping_choice_costs_by_role()).
+        return $role['present'];
+    } );
 
-    echo '<tr class="shipping-costs">'
-       . '<th>' . esc_html( $label ) . '</th>'
-       . '<td>' . wp_kses_post( WC()->cart->get_cart_shipping_total() ) . '</td>'
-       . '</tr>';
+    // Geen van beide rollen kwam voor in de daadwerkelijk berekende pakketten
+    // (bv. sessie nog niet gevuld bij de allereerste page-load) — dan tonen we,
+    // net als voorheen, één rij op basis van de eerst gekozen methode zodat er
+    // sowieso een bedrag zichtbaar blijft.
+    if ( empty( $roles ) ) {
+        $rate_id   = function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null;
+        $is_pickup = $rate_id && strpos( $rate_id, 'local_pickup:' ) === 0;
+        $roles     = [ $is_pickup ? 'pickup' : 'delivery' => $totals[ $is_pickup ? 'pickup' : 'delivery' ] ];
+    }
+
+    $labels = [
+        'delivery' => __( 'Verzendkosten', 'mk-cart-popup' ),
+        'pickup'   => __( 'Afhalen', 'mk-cart-popup' ),
+    ];
+
+    foreach ( $roles as $role => $amounts ) {
+        $price = mkcp_shipping_choice_format_role_total( $amounts['cost'], $amounts['tax'] );
+
+        echo '<tr class="shipping-costs shipping-costs--' . esc_attr( $role ) . '">'
+           . '<th>' . esc_html( $labels[ $role ] ) . '</th>'
+           . '<td>' . wp_kses_post( $price ) . '</td>'
+           . '</tr>';
+    }
 } );
+
+/**
+ * Formatteert een opgeteld rol-subtotaal (cost excl. btw + btw-bedrag) op
+ * dezelfde manier als WC_Cart::get_cart_shipping_total() dat voor de hele
+ * order doet — nodig omdat die core-functie zelf geen subset van pakketten
+ * accepteert, alleen "alles". Zelfde incl./excl.-btw-weergave-instelling
+ * (WC()->cart->display_prices_including_tax()) en dezelfde "incl./excl.
+ * btw"-suffix-logica.
+ */
+function mkcp_shipping_choice_format_role_total( float $cost, float $tax ): string {
+    if ( WC()->cart->display_prices_including_tax() ) {
+        $total = wc_price( wc_round_tax_total( $cost + $tax ) );
+
+        if ( $tax > 0 && ! wc_prices_include_tax() ) {
+            $total .= ' <small class="tax_label">' . WC()->countries->inc_tax_or_vat() . '</small>';
+        }
+    } else {
+        $total = wc_price( $cost );
+
+        if ( $tax > 0 && wc_prices_include_tax() ) {
+            $total .= ' <small class="tax_label">' . WC()->countries->ex_tax_or_vat() . '</small>';
+        }
+    }
+
+    return $total;
+}
 
 
 // ── AJAX-anker voor verzendkosten (alleen 3-blokken layout) ─────────────────
@@ -308,7 +570,7 @@ function mkcp_shipping_choice_register_ajax_fragment() {
 
         ob_start();
         if ( file_exists( MKCP_PATH . 'templates/cart-shipping-choice.php' ) ) {
-            wc_get_template( 'cart-shipping-choice.php', mkcp_get_shipping_choice_template_args(), '', MKCP_PATH . 'templates/' );
+            mkcp_render_all_shipping_choice_cards();
         }
         $html = ob_get_clean();
 

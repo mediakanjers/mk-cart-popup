@@ -41,10 +41,28 @@ $has_checkout_hooks  = file_exists( $theme_dir . '/checkout-hooks.php' );
 $has_checkout_css    = file_exists( $theme_dir . '/checkout.css' );
 $has_script          = file_exists( $theme_dir . '/script.js' );
 $has_checkout_js     = file_exists( $theme_dir . '/checkout.js' );
+// $update_json/$update_data blijven puur voor de "bestaat het manifest lokaal
+// in de plugin-map"-diagnose hieronder — voor de daadwerkelijke "laatste
+// versie" leunen we op mkcp_fetch_update_data() (updater/updater.php), die
+// het live manifest van GitHub haalt (6u gecached). Het lokale bestand hier
+// is namelijk de kopie die MEE IN de zip zat op het moment dat déze versie
+// gebouwd werd — dat cijfer verandert nooit meer vanzelf en vergelijkt zichzelf
+// dus in feite met zichzelf, wat hier altijd "up-to-date" liet zien ongeacht
+// wat er echt op GitHub staat.
 $update_json = MKCP_PATH . 'mk-cart-popup-update.json';
-$update_data = file_exists( $update_json ) ? json_decode( file_get_contents( $update_json ), true ) : [];
-$latest_ver  = $update_data['version'] ?? $version;
-$has_update  = version_compare( $latest_ver, $version, '>' );
+// force=true: dit Updates-tabblad wordt zelden bekeken (geen hot path) en
+// moet altijd de actuele stand tonen, i.p.v. de 6-uurs cache die de
+// achtergrond-updatecheck elders wél terecht gebruikt.
+$live_update = function_exists( 'mkcp_fetch_update_data' ) ? mkcp_fetch_update_data( true ) : null;
+if ( $live_update && ! empty( $live_update->version ) ) {
+    $latest_ver = $live_update->version;
+} else {
+    // Geen verbinding met GitHub mogelijk — terugvallen op het lokale bestand
+    // zodat dit paneel iets zinnigs blijft tonen i.p.v. te breken.
+    $update_data = file_exists( $update_json ) ? json_decode( file_get_contents( $update_json ), true ) : [];
+    $latest_ver  = $update_data['version'] ?? $version;
+}
+$has_update = version_compare( $latest_ver, $version, '>' );
 
 $nav_items = [
     'dashboard' => [ 'label' => 'Dashboard',        'icon' => 'grid' ],
@@ -743,21 +761,42 @@ $icons = [
                         </button>
                     </div>
                     <div class="mkcp-glass-body">
-                        <p class="mkcp-input-hint" style="margin:0 0 12px">Automatisch gevonden in het thema van je site.</p>
+                        <p class="mkcp-input-hint" style="margin:0 0 12px">Automatisch gevonden in het thema van je site. Klik op een kleur om 'm te kopiëren.</p>
+                        <div class="mkcp-detected-loading" id="mkcp-detected-loading" style="display:none">
+                            <svg class="mkcp-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                            <span>Kleuren van je website zoeken…</span>
+                        </div>
                         <div class="mkcp-detected-swatches" id="mkcp-detected-swatches-categorized">
                             <?php foreach ( $detected_colors as $field => $hex ) : ?>
                             <button type="button" class="mkcp-detected-swatch js-mkcp-detected-apply"
                                     data-field="mkcp_style_<?php echo esc_attr( $field ); ?>"
-                                    data-color="<?php echo esc_attr( $hex ); ?>">
+                                    data-color="<?php echo esc_attr( $hex ); ?>"
+                                    title="Klik om toe te passen als <?php echo esc_attr( $detected_labels[ $field ] ?? ucfirst( $field ) ); ?>">
                                 <span class="mkcp-detected-swatch-color" style="background:<?php echo esc_attr( $hex ); ?>"></span>
                                 <span class="mkcp-detected-swatch-info">
                                     <strong><?php echo esc_html( $detected_labels[ $field ] ?? ucfirst( $field ) ); ?></strong>
                                     <small><?php echo esc_html( strtoupper( $hex ) ); ?></small>
                                 </span>
+                                <span type="button" class="mkcp-detected-swatch-copy js-mkcp-detected-copy-inline" data-color="<?php echo esc_attr( $hex ); ?>" title="Hexcode kopiëren" role="button" tabindex="0">
+                                    <?php echo $icons['copy']; ?>
+                                </span>
                             </button>
                             <?php endforeach; ?>
                         </div>
                         <div class="mkcp-detected-swatches" id="mkcp-detected-swatches-flat" style="display:none"></div>
+
+                        <?php // Admin-feedback: een kant-en-klare stijl afleiden uit precies déze
+                              // gevonden kleuren (i.p.v. de vaste presets hieronder, die los staan
+                              // van de eigen site) — niet per se alle kleuren, wel een combinatie
+                              // die goed bij elkaar past (contrastcheck via dezelfde WCAG-formule
+                              // als de Kleuren-kaart verderop). Verschijnt als NIEUWE kaart bij
+                              // "Kant-en-klare stijlen" hieronder i.p.v. de velden stilletjes op de
+                              // achtergrond te wijzigen — anders was niet duidelijk dat er iets
+                              // veranderd was (zie assets/settings.js: generateStyleFromDetectedColors()). ?>
+                        <button type="button" id="mkcp-detected-generate-style" class="mkcp-btn mkcp-btn--ghost" style="margin-top:14px;display:none">
+                            <?php echo $icons['zap']; ?> Genereer stijl uit deze kleuren
+                        </button>
+                        <p class="mkcp-input-hint" id="mkcp-detected-generate-hint" style="margin:6px 0 0;display:none">Verschijnt hieronder bij "Kant-en-klare stijlen" en wordt direct toegepast.</p>
                     </div>
                 </div>
 

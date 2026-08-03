@@ -60,8 +60,8 @@ function mkcp_fetch_manifest( string $url ) {
  * bestaat mk-cart-popup-update-beta.json simpelweg niet (404) en valt dit
  * gewoon terug op het stabiele manifest.
  */
-function mkcp_fetch_update_data() {
-    $cached = get_transient( 'mkcp_update_data' );
+function mkcp_fetch_update_data( bool $force = false ) {
+    $cached = $force ? false : get_transient( 'mkcp_update_data' );
     if ( $cached !== false ) return $cached;
 
     $best = mkcp_fetch_manifest( MKCP_UPDATER_URL );
