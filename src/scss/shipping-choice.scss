@@ -12,9 +12,11 @@
     align-items: flex-start;
     gap: 6px;
     margin: 0 0 8px;
-    padding: 5px 10px;
-    background: #f3f4f6;
-    border-radius: 8px;
+    // Bewust GEEN achtergrond/padding meer (was een grijze pil) — dat was
+    // zelf ook een "doosje" bovenop de kaarten en de datumkiezer eronder,
+    // wat bij meerdere pakketten al snel een doos-in-doos-in-doos-effect
+    // gaf. Platte tekst met hetzelfde icoontje communiceert evengoed welke
+    // producten bij dit pakket horen.
     font-size: 12.5px;
     font-weight: 600;
     color: #4b5563;
@@ -124,11 +126,43 @@
     }
 }
 
+/* Sectie-brede voortgang boven de pakket-blokken — zie
+   mkcp_render_all_shipping_choice_cards() (shipping-choice.php) voor de
+   render-voorwaarde en delivery-date.js voor de inhoud/zichtbaarheid. */
+.mkcp-sc-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding: 9px 12px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #374151;
+}
+.mkcp-sc-progress[hidden] { display: none; }
+
 /* Ruimte tussen meerdere pakket-kaartgroepen (elke groep is een eigen
    .woocommerce-shipping-totals, één keer per pakket gerenderd) — zonder
    effect zodra er (verreweg het normale geval) maar één pakket is. */
 .woocommerce-shipping-totals + .woocommerce-shipping-totals {
     margin-top: 14px;
+}
+
+/* Bij meerdere pakketten (bv. een deel bezorgen, een deel alleen af te
+   halen): een dunne scheidingslijn + extra ruimte boven elk volgend
+   pakket-blok, zodat duidelijk is waar het ene pakket ophoudt en het
+   volgende begint — bewust GEEN eigen kader/achtergrond hier: de kaarten
+   en de datumkiezer hebben al allebei hun eigen rand, en nóg een kader
+   eromheen gaf een "doos-in-doos-in-doos"-effect. Alleen op het 2e en
+   volgende pakket-blok (het eerste heeft niets boven zich om van te
+   scheiden); laat het enkelvoudige, verreweg normale geval (maar 1 pakket)
+   ongewijzigd. */
+.woocommerce-shipping-totals.shipping + .woocommerce-shipping-totals.shipping {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1.5px solid #e4e7f0;
 }
 
 .mkcp-ship-choice,
@@ -143,7 +177,11 @@
     flex-direction: row;
     flex-wrap: wrap;
     gap: 10px;
-    margin: 4px 0 14px;
+    // Onderkant op 16px i.p.v. het eerdere ad-hoc 14px — samen met de 8px/
+    // 16px/24px-ritme hieronder (badge→kaarten 8, kaarten→kiezer 16,
+    // pakket→pakket 24) een consistente opbouw i.p.v. overal net iets
+    // andere tussenmaten.
+    margin: 4px 0 16px;
     --mkcp-sc-accent: var(--mkcp-accent, #2563eb);
     --mkcp-sc-accent-tint: color-mix(in srgb, var(--mkcp-sc-accent) 6%, #fff);
     --mkcp-sc-accent-tint2: color-mix(in srgb, var(--mkcp-sc-accent) 12%, #fff);
@@ -156,13 +194,19 @@
    De klasse staat op form.checkout (blijft altijd bestaan, i.t.t. de kaarten
    zelf die bij elke AJAX-refresh wholesale vervangen worden), en dimt/overlayt
    hier via een descendant-selector welk .woocommerce-shipping-totals-element
-   er op dat moment ook in de DOM zit. */
+   er op dat moment ook in de DOM zit.
+   Bewust een zachte shimmer-sheen i.p.v. de eerdere combinatie van fors
+   dimmen (opacity .45) + een spinner er los overheen — dat "flikkerde" bij
+   elke adres-/methodewijziging, wat met nu vaak 2 pakketten tegelijk op de
+   pagina onrustig oogde. De content blijft leesbaar (opacity .7) en de
+   sheen zelf communiceert al "bezig", zonder een los draaiend element. */
 form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals {
     position: relative;
+    overflow: hidden;
 }
 
 form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals > * {
-    opacity: .45;
+    opacity: .7;
     pointer-events: none;
     transition: opacity .15s ease;
 }
@@ -170,20 +214,54 @@ form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals > * {
 form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals::after {
     content: "";
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 24px;
-    height: 24px;
-    margin: -12px 0 0 -12px;
-    border: 2.5px solid color-mix(in srgb, var(--mkcp-accent, #2563eb) 20%, transparent);
-    border-top-color: var(--mkcp-accent, #2563eb);
-    border-radius: 50%;
-    animation: mkcp-sc-spin .7s linear infinite;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+    background-size: 250% 100%;
+    animation: mkcp-sc-shimmer 1.3s ease-in-out infinite;
     z-index: 1;
 }
 
-@keyframes mkcp-sc-spin {
-    to { transform: rotate(360deg); }
+@keyframes mkcp-sc-shimmer {
+    0%   { background-position: 150% 0; }
+    100% { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    form.checkout.mkcp-sc-is-loading .woocommerce-shipping-totals::after {
+        animation: none;
+    }
+}
+
+/* Eigen, VASTE accentkleur per rol — los van elkaar én los van de site's
+   eigen --mkcp-accent-brandkleur (die via .mkcp-ship-choice's fallback ook
+   op de bezorgkaart terechtkwam, en op sommige sites een donkere navy blijkt
+   te zijn i.p.v. een fris blauw — dat oogde inconsistent naast de bewust
+   gekozen teal van de afhaalkaart). Door bezorgen hier net zo expliciet vast
+   te zetten als afhalen, is de rol-kleur voorspelbaar op elke site, ongeacht
+   wat er verder aan branding is ingesteld.
+   De 5 afgeleide variabelen moeten in beide blokken hieronder herhaald
+   worden (niet alleen --mkcp-sc-accent zelf) omdat ze in .mkcp-ship-choice
+   al zijn "bevroren" op het daar geldende accent — een custom property erft
+   de al-opgeloste waarde van zijn dichtstbijzijnde declaratie, niet de losse
+   var()-referentie, dus enkel --mkcp-sc-accent overschrijven op dit
+   descendant-niveau zou geen effect hebben op de tint/border/dark-varianten
+   die de kaart-icoontjes/badges daadwerkelijk gebruiken. */
+.mkcp-sc-card-wrap[data-role="delivery"] {
+    --mkcp-sc-accent: #2563eb;
+    --mkcp-sc-accent-tint: color-mix(in srgb, var(--mkcp-sc-accent) 6%, #fff);
+    --mkcp-sc-accent-tint2: color-mix(in srgb, var(--mkcp-sc-accent) 12%, #fff);
+    --mkcp-sc-accent-border: color-mix(in srgb, var(--mkcp-sc-accent) 40%, #fff);
+    --mkcp-sc-accent-dark: color-mix(in srgb, var(--mkcp-sc-accent) 80%, #000);
+    --mkcp-sc-accent-14: color-mix(in srgb, var(--mkcp-sc-accent) 14%, transparent);
+}
+
+.mkcp-sc-card-wrap[data-role="pickup"] {
+    --mkcp-sc-accent: #0d9488;
+    --mkcp-sc-accent-tint: color-mix(in srgb, var(--mkcp-sc-accent) 6%, #fff);
+    --mkcp-sc-accent-tint2: color-mix(in srgb, var(--mkcp-sc-accent) 12%, #fff);
+    --mkcp-sc-accent-border: color-mix(in srgb, var(--mkcp-sc-accent) 40%, #fff);
+    --mkcp-sc-accent-dark: color-mix(in srgb, var(--mkcp-sc-accent) 80%, #000);
+    --mkcp-sc-accent-14: color-mix(in srgb, var(--mkcp-sc-accent) 14%, transparent);
 }
 
 .mkcp-sc-card-wrap {

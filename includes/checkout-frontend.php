@@ -2050,11 +2050,11 @@ add_action( 'wp', function() {
 
     if ( ! $has_visual ) return;
 
-    // Verplaats delivery date widget naar de delivery sectie.
-    if ( function_exists( 'mkcp_dd_render_field' ) ) {
-        remove_action( 'woocommerce_review_order_before_submit', 'mkcp_dd_render_field', 5 );
-        add_action( 'mkcp_checkout_delivery_section', 'mkcp_dd_render_field', 10 );
-    }
+    // Fase 2: geen verplaatsing meer nodig — de bezorgdatum-/afhaal-widget(s)
+    // renderen nu al direct in de juiste sectie, als onderdeel van de per-
+    // pakket verzendkeuze-kaarten zelf (templates/cart-shipping-choice.php),
+    // die zowel in de standaard- als in de 3-blokken-layout al op de juiste
+    // plek terechtkomen (zie shipping-choice.php se eigen hook-keuze).
 
     // "Verzending en levering" sectie — na #customer_details, als grid col-1 item.
     add_action( 'woocommerce_checkout_after_customer_details', function() {
@@ -2191,13 +2191,11 @@ add_action( 'wp', function() {
                     });
                 }
 
-                // 1. Datumpicker: nog in #payment > .place-order → eerst naar leveringssectie.
-                var ddWrap = document.getElementById('mkcp-dd-wrap');
-                if (ddWrap && !ddWrap.closest('.mkcp-co-section--delivery')) {
-                    var ddOld = secDel.querySelector('#mkcp-dd-wrap');
-                    if (ddOld) ddOld.remove();
-                    secDel.appendChild(ddWrap);
-                }
+                // 1. (Fase 2, vervallen) De bezorgdatum-/afhaal-widget(s) renderen
+                //    sinds Fase 2 al direct ALS KIND van .woocommerce-shipping-
+                //    totals.shipping (zie templates/cart-shipping-choice.php) —
+                //    ze reizen dus automatisch mee met stap 0 hierboven en landen
+                //    nooit meer los in #payment. Geen aparte verplaatsing meer nodig.
 
                 // 2. Checkout-info (dynamic-checkout-messages) → leveringssectie, ná de
                 //    verzendmethode-keuze (stap 0) indien aanwezig, anders bovenaan.
@@ -2223,22 +2221,7 @@ add_action( 'wp', function() {
                     secPay.appendChild(pay);
                 }
 
-                // 4. Datumpicker die (na een AJAX-refresh, bv. wisselen bezorgen/
-                //    afhalen) opnieuw binnen #payment is meegerenderd, is altijd de
-                //    actuele versie — WooCommerce vervangt #payment daarbij wholesale
-                //    vanuit een verse server-render, dus wat híer in het betaalblok
-                //    zit is nooit een "meegesleepte" oude kopie maar juist de nieuwe.
-                //    Een eventueel al aanwezige kopie in de leveringssectie is op dat
-                //    moment per definitie de VERoUDERDE (stap 1 hierboven verplaatst
-                //    'm niet meer, want getElementById() vindt dan die oude kopie
-                //    eerst). Dus: oude kopie weg, verse kopie verplaatsen — niet
-                //    andersom, anders verdwijnt bv. de afhaallocatie na het wisselen.
-                var ddInPay = secPay.querySelector('#mkcp-dd-wrap');
-                if (ddInPay) {
-                    var ddInDel = secDel.querySelector('#mkcp-dd-wrap');
-                    if (ddInDel) ddInDel.remove();
-                    secDel.appendChild(ddInPay);
-                }
+                // 4. (Fase 2, vervallen) Zelfde reden als stap 1 hierboven.
 
                 // 5. Vangnet: verplaats wat na stap 1-3 nog overblijft (bv. content
                 //    van een toekomstige feature die hier nog niet met naam

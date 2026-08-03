@@ -8,11 +8,14 @@
  * pickup"-instantie per locatie), met een eigen adres, openingstijden per
  * weekdag en optionele tijdsloten.
  *
- * Bezorgdatum en afhalen zijn wederzijds uitsluitend: welke van de twee
- * getoond wordt, hangt af van de op dit moment gekozen verzendmethode. De
- * daadwerkelijke rendering/validatie-hooks van de bezorgdatum-kiezer
- * (delivery-date.php) checken zelf of afhalen actief is en wijken dan uit —
- * zie de "pickup-guard" op die hooks.
+ * Fase 2: bezorgdatum en afhalen zijn niet langer wederzijds uitsluitend.
+ * Een winkelwagentje kan een pakket in bezorgmodus én een pakket in
+ * afhaalmodus tegelijk hebben (bv. een kentekenplaat die alleen af te halen
+ * is, naast een gewoon te bezorgen product) — beide widgets renderen dan
+ * onafhankelijk van elkaar, elk direct onder de kaartgroep van zijn eigen
+ * pakket (zie templates/cart-shipping-choice.php). Rol-gebaseerd, niet per
+ * pakket-index: een order heeft nooit meer dan één actieve bezorg-rate en
+ * één actieve afhaal-rate tegelijk.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -85,14 +88,14 @@ function mkcp_pickup_active_location( ?string $rate_id = null ): ?array {
 }
 
 /**
- * Zelfde soort resolutie als mkcp_dd_current_rate_id(), maar leest eerst
- * $_POST['shipping_method'] (aanwezig tijdens checkout-submit/AJAX-refresh,
- * betrouwbaarder dan de sessie op dat exacte moment) met de sessie als fallback.
+ * Fase 2: zoekt binnen $_POST['shipping_method'] (over ALLE verzendpakketten
+ * heen) de eerste rate die daadwerkelijk een afhaallocatie is — i.p.v. de
+ * oude "eerste niet-lege rate, ongeacht rol"-aanname, die bij een gemengd
+ * winkelwagentje net zo goed het bezorg-pakket kon teruggeven. Delegeert aan
+ * de gedeelde mkcp_dd_role_rate_id_from_post() (delivery-date.php).
  */
 function mkcp_pickup_rate_id_from_post(): ?string {
-    $posted = array_map( 'sanitize_text_field', wp_unslash( (array) ( $_POST['shipping_method'] ?? [] ) ) );
-    $rate   = function_exists( 'mkcp_dd_first_rate_id' ) ? mkcp_dd_first_rate_id( $posted ) : null;
-    return $rate ?? ( function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null );
+    return function_exists( 'mkcp_dd_role_rate_id_from_post' ) ? mkcp_dd_role_rate_id_from_post( 'pickup' ) : null;
 }
 
 /**
@@ -208,27 +211,31 @@ function mkcp_pickup_localize_data( array $loc ): array {
 
 
 // ── Checkout veld renderen ─────────────────────────────────────────────────────
-// NB: gehaakt vanuit mkcp_dd_render_field() in delivery-date.php (die als
-// eerste checkt of afhalen actief is) — niet apart op woocommerce_review_order_before_submit,
-// om dubbele/verkeerd-geordende output te voorkomen.
-
+// Fase 2: aangeroepen vanuit templates/cart-shipping-choice.php, direct onder
+// de "Zelf afhalen"-kaartgroep van het pakket waarvoor $loc is opgezocht —
+// niet meer via delegatie vanuit delivery-date.php, zodat een gemengd
+// winkelwagentje deze widget en de bezorgdatum-widget (mkcp_dd_render_
+// delivery_field() in delivery-date.php) tegelijk kan tonen. Eigen id-
+// namespace (mkcp-pu-*, i.p.v. mkcp-dd-*) om te voorkomen dat de twee
+// widgets elkaars elementen raken zodra ze gelijktijdig in de DOM staan —
+// de CSS-classes (mkcp-dd-*) blijven wél gedeeld, puur voor de opmaak.
 function mkcp_pickup_render_field( array $loc ) {
     $dates = mkcp_pickup_available_dates( $loc );
 
     if ( empty( $dates ) ) {
-        mkcp_dd_render_empty_state( 'Afhaaldatum', true );
+        mkcp_dd_render_empty_state( 'Afhaaldatum', true, 'mkcp-pu-wrap' );
         return;
     }
 
     $chips      = array_slice( $dates, 0, 6 );
     $days_short = [ 'Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za' ];
     ?>
-    <div class="mkcp-dd-wrap mkcp-pu-wrap" id="mkcp-dd-wrap">
+    <div class="mkcp-dd-wrap mkcp-pu-wrap" id="mkcp-pu-wrap">
 
         <?php // Zelfde statische, altijd-aanwezige foutmeld-container als de
               // bezorgdatum-variant (includes/delivery-date.php) — delivery-date.js
-              // vult 'm bij beide modi op dezelfde manier. ?>
-        <div id="mkcp-dd-error" class="mkcp-dd-error" role="alert" hidden></div>
+              // vult 'm bij beide rollen op dezelfde manier. ?>
+        <div id="mkcp-pu-error" class="mkcp-dd-error" role="alert" hidden></div>
 
         <div class="mkcp-dd-header">
             <span class="mkcp-dd-label">
@@ -236,10 +243,16 @@ function mkcp_pickup_render_field( array $loc ) {
             </span>
         </div>
 
-        <p class="mkcp-dd-microcopy" id="mkcp-dd-microcopy" aria-hidden="true"></p>
+        <?php // Zelfde inklap-mechanisme als de bezorgdatum-variant (zie
+              // delivery-date.php/delivery-date.js) — na een geldige keuze
+              // blijft alleen de header + .mkcp-dd-summary zichtbaar. ?>
+        <div class="mkcp-dd-body" id="mkcp-pu-body">
+        <div class="mkcp-dd-body-inner">
 
-        <div class="mkcp-dd-chips-row" id="mkcp-dd-chips" role="group" aria-label="Kies een afhaaldatum"
-             aria-describedby="mkcp-dd-error">
+        <p class="mkcp-dd-microcopy" id="mkcp-pu-microcopy" aria-hidden="true"></p>
+
+        <div class="mkcp-dd-chips-row" id="mkcp-pu-chips" role="group" aria-label="Kies een afhaaldatum"
+             aria-describedby="mkcp-pu-error">
             <?php foreach ( $chips as $ymd ) :
                 $ts  = strtotime( $ymd );
                 $dow = (int) date( 'w', $ts );
@@ -251,7 +264,7 @@ function mkcp_pickup_render_field( array $loc ) {
             </button>
             <?php endforeach; ?>
 
-            <button type="button" class="mkcp-dd-chip mkcp-dd-chip--cal" id="mkcp-dd-cal-btn"
+            <button type="button" class="mkcp-dd-chip mkcp-dd-chip--cal" id="mkcp-pu-cal-btn"
                     aria-label="Kalender openen" aria-haspopup="dialog" aria-expanded="false">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -263,12 +276,12 @@ function mkcp_pickup_render_field( array $loc ) {
             </button>
         </div>
 
-        <div class="mkcp-dd-track" id="mkcp-dd-track">
-            <button type="button" class="mkcp-dd-nav mkcp-dd-nav--prev" id="mkcp-dd-nav-prev" aria-label="Vorige data">&#8249;</button>
-            <div class="mkcp-dd-cards-viewport" id="mkcp-dd-cards-viewport">
-                <div class="mkcp-dd-cards-list" id="mkcp-dd-cards"></div>
+        <div class="mkcp-dd-track" id="mkcp-pu-track">
+            <button type="button" class="mkcp-dd-nav mkcp-dd-nav--prev" id="mkcp-pu-nav-prev" aria-label="Vorige data">&#8249;</button>
+            <div class="mkcp-dd-cards-viewport" id="mkcp-pu-cards-viewport">
+                <div class="mkcp-dd-cards-list" id="mkcp-pu-cards"></div>
             </div>
-            <button type="button" class="mkcp-dd-nav mkcp-dd-nav--next" id="mkcp-dd-nav-next" aria-label="Volgende data">&#8250;</button>
+            <button type="button" class="mkcp-dd-nav mkcp-dd-nav--next" id="mkcp-pu-nav-next" aria-label="Volgende data">&#8250;</button>
         </div>
 
         <?php
@@ -284,39 +297,36 @@ function mkcp_pickup_render_field( array $loc ) {
             <?php endif; ?>
         </div>
 
-        <div class="mkcp-dd-confirm" id="mkcp-dd-confirm" hidden></div>
+        <div class="mkcp-dd-confirm" id="mkcp-pu-confirm" hidden></div>
 
         <?php if ( ! empty( $loc['slots_enabled'] ) ) : ?>
-        <div class="mkcp-pu-slots" id="mkcp-dd-slots" role="group" aria-label="Kies een tijdstip"
-             aria-describedby="mkcp-dd-error" hidden>
+        <div class="mkcp-pu-slots" id="mkcp-pu-slots" role="group" aria-label="Kies een tijdstip"
+             aria-describedby="mkcp-pu-error" hidden>
             <span class="mkcp-pu-slots-label">Kies een tijdstip</span>
-            <div class="mkcp-pu-slots-row" id="mkcp-dd-slots-row"></div>
+            <div class="mkcp-pu-slots-row" id="mkcp-pu-slots-row"></div>
         </div>
-        <?php /* Generieke veldnaam (niet "pickup"-specifiek): bezorgdatum-tijdsloten
-                 (zie includes/delivery-date.php) gebruiken hetzelfde veld — de twee
-                 modi zijn wederzijds uitsluitend, dus delen ze zonder conflict één
-                 hidden input. Elke kant slaat 'm op onder zijn eigen order-meta-key. */ ?>
-        <input type="hidden" name="mkcp_time_slot" id="mkcp_time_slot" value="">
         <?php endif; ?>
+        <input type="hidden" name="mkcp_pickup_time_slot" id="mkcp_pickup_time_slot" class="mkcp-pu-slot-field" value="">
 
-        <input type="hidden" name="mkcp_delivery_date" id="mkcp_delivery_date" value="">
+        <input type="hidden" name="mkcp_pickup_date" id="mkcp_pickup_date" class="mkcp-pu-date-field" value="">
 
-        <?php // Volledige attributenset (niet alleen dates/rate-id) — zie
-              // mkcp_dd_data_div_html() in includes/delivery-date.php voor
-              // waarom dit moet matchen met wat de AJAX-fragment-filter bouwt. ?>
-        <?php echo mkcp_dd_data_div_html( $loc['rate_id'] ); ?>
+        <?php // Eigen dom_id ('mkcp-pu-data' i.p.v. het delivery-widget's
+              // 'mkcp-dd-data') zodat beide widgets, indien gelijktijdig
+              // gerenderd, elk hun eigen databron hebben — zie
+              // mkcp_dd_data_div_html() in includes/delivery-date.php. ?>
+        <?php echo mkcp_dd_data_div_html( $loc['rate_id'], 'mkcp-pu-data' ); ?>
 
-        <div class="mkcp-dd-calendar" id="mkcp-dd-calendar" role="dialog" aria-label="Kies een datum" aria-hidden="true">
+        <div class="mkcp-dd-calendar" id="mkcp-pu-calendar" role="dialog" aria-label="Kies een datum" aria-hidden="true">
             <div class="mkcp-dd-cal-nav">
-                <button type="button" class="mkcp-dd-cal-prev" id="mkcp-dd-cal-prev" aria-label="Vorige maand">&#8249;</button>
-                <span class="mkcp-dd-cal-month-title" id="mkcp-dd-cal-month-title"></span>
-                <button type="button" class="mkcp-dd-cal-next" id="mkcp-dd-cal-next" aria-label="Volgende maand">&#8250;</button>
+                <button type="button" class="mkcp-dd-cal-prev" id="mkcp-pu-cal-prev" aria-label="Vorige maand">&#8249;</button>
+                <span class="mkcp-dd-cal-month-title" id="mkcp-pu-cal-month-title"></span>
+                <button type="button" class="mkcp-dd-cal-next" id="mkcp-pu-cal-next" aria-label="Volgende maand">&#8250;</button>
             </div>
             <div class="mkcp-dd-cal-dow-row">
                 <span>Ma</span><span>Di</span><span>Wo</span>
                 <span>Do</span><span>Vr</span><span>Za</span><span>Zo</span>
             </div>
-            <div class="mkcp-dd-cal-days" id="mkcp-dd-cal-days"></div>
+            <div class="mkcp-dd-cal-days" id="mkcp-pu-cal-days"></div>
             <div class="mkcp-dd-cal-legend" aria-hidden="true">
                 <span class="mkcp-dd-cal-legend-item">
                     <span class="mkcp-dd-cal-legend-dot mkcp-dd-cal-legend-dot--today"></span> Vandaag
@@ -327,7 +337,10 @@ function mkcp_pickup_render_field( array $loc ) {
             </div>
         </div>
 
-        <div class="mkcp-dd-summary" id="mkcp-dd-summary" hidden></div>
+        </div><?php // /.mkcp-dd-body-inner ?>
+        </div><?php // /.mkcp-dd-body ?>
+
+        <div class="mkcp-dd-summary" id="mkcp-pu-summary" hidden></div>
 
     </div>
     <?php
@@ -344,7 +357,7 @@ add_action( 'woocommerce_checkout_process', function() {
     // hieronder) — WooCommerce's eigen validatie handhaaft dat al, een eigen
     // duplicaat-melding hier is niet meer nodig.
 
-    $date = sanitize_text_field( wp_unslash( $_POST['mkcp_delivery_date'] ?? '' ) );
+    $date = sanitize_text_field( wp_unslash( $_POST['mkcp_pickup_date'] ?? '' ) );
     if ( empty( $date ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
         wc_add_notice( __( '"Afhaaldatum" is een verplicht veld.', 'mk-cart-popup' ), 'error' );
         return;
@@ -357,7 +370,7 @@ add_action( 'woocommerce_checkout_process', function() {
     }
 
     if ( ! empty( $loc['slots_enabled'] ) ) {
-        $slot = sanitize_text_field( wp_unslash( $_POST['mkcp_time_slot'] ?? '' ) );
+        $slot = sanitize_text_field( wp_unslash( $_POST['mkcp_pickup_time_slot'] ?? '' ) );
         if ( empty( $slot ) || ! preg_match( '/^\d{2}:\d{2}$/', $slot ) ) {
             wc_add_notice( __( 'Kies een tijdstip om af te halen.', 'mk-cart-popup' ), 'error' );
             return;
@@ -378,7 +391,11 @@ add_action( 'woocommerce_checkout_process', function() {
             wc_add_notice( __( 'Dit tijdstip zit helaas vol, kies een ander tijdstip.', 'mk-cart-popup' ), 'error' );
         }
     }
-}, 9 ); // vóór de reguliere bezorgdatum-validatie (prioriteit 10) — zonder effect op elkaar, want gebaseerd op verschillende rate_id's, maar zo blijft de volgorde voorspelbaar
+}, 9 ); // Fase 2: bezorgdatum- en afhaal-validatie draaien nu altijd allebei
+        // (niet meer mutueel uitsluitend) — elk resolvet zijn eigen rol via
+        // mkcp_dd_role_rate_id_from_post() en leest zijn eigen POST-velden,
+        // dus zonder onderlinge interactie. Prioriteit blijft puur voor een
+        // voorspelbare volgorde in de foutmeldingen.
 
 
 // ── Checkout: telefoon altijd verplicht ─────────────────────────────────────────
@@ -416,7 +433,7 @@ add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {
     $loc = mkcp_pickup_active_location( mkcp_pickup_rate_id_from_post() );
     if ( ! $loc ) return;
 
-    $date = sanitize_text_field( wp_unslash( $_POST['mkcp_delivery_date'] ?? '' ) );
+    $date = sanitize_text_field( wp_unslash( $_POST['mkcp_pickup_date'] ?? '' ) );
     if ( empty( $date ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) return;
 
     $order = wc_get_order( $order_id );
@@ -428,7 +445,7 @@ add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {
 
     $slot = '';
     if ( ! empty( $loc['slots_enabled'] ) ) {
-        $slot = sanitize_text_field( wp_unslash( $_POST['mkcp_time_slot'] ?? '' ) );
+        $slot = sanitize_text_field( wp_unslash( $_POST['mkcp_pickup_time_slot'] ?? '' ) );
         if ( preg_match( '/^\d{2}:\d{2}$/', $slot ) ) {
             $order->update_meta_data( '_mkcp_pickup_slot', $slot );
         } else {
@@ -440,7 +457,9 @@ add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {
     if ( $slot !== '' && ! empty( $loc['slot_capacity'] ) ) {
         delete_transient( 'mkcp_pu_count_' . md5( $loc['rate_id'] ) . '_' . $date . '_' . str_replace( ':', '', $slot ) );
     }
-}, 5 ); // vóór de reguliere bezorgdatum-meta-save (prioriteit 10) — zelfde reden als hierboven
+}, 5 ); // Fase 2: draait onafhankelijk van delivery-date.php's save-handler
+        // (zelfde reden als bij de validatie hierboven) — prioriteit is puur
+        // voor een voorspelbare volgorde.
 
 
 // ── Admin bestellingenpagina ───────────────────────────────────────────────────

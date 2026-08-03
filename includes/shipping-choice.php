@@ -314,9 +314,37 @@ function mkcp_render_all_shipping_choice_cards( ?int $only_package_index = null 
     if ( empty( $packages ) ) return;
 
     $total = count( $packages );
+
+    // Eerste doorloop: args per pakket opbouwen en per rol (bezorgen/
+    // afhalen) onthouden welk pakket-index de LAATSTE is met die rol. Fase 2
+    // toont de datum-/tijdvakkiezer voor een rol pas ná dát pakket, zodat 'ie
+    // nooit tussen twee kaartgroepen van dezelfde rol in komt te staan (bv.
+    // twee losse "Zelf afhalen"-pakketten in één winkelwagen) — en er ook bij
+    // meerdere pakketten met dezelfde rol maar 1 kiezer voor die rol getoond
+    // wordt, in plaats van een dubbele/kapotte weergave met identieke ids.
+    $all_args        = [];
+    $role_last_index = [ 'delivery' => null, 'pickup' => null ];
     foreach ( $packages as $package_index => $package ) {
         if ( null !== $only_package_index && $package_index !== $only_package_index ) continue;
         $args = mkcp_get_shipping_choice_template_args_for_package( $package, (int) $package_index, $total );
+        $all_args[ $package_index ] = $args;
+        $role = strpos( (string) $args['chosen_method'], 'local_pickup:' ) === 0 ? 'pickup' : 'delivery';
+        $role_last_index[ $role ] = $package_index;
+    }
+
+    // Sectie-brede voortgang ("2 van 2 pakketten compleet") — alleen zinvol
+    // zodra er zowel een bezorg- als een afhaal-rol tegelijk actief is (de
+    // enige situatie waarin de sectie door twee volledige kaartgroepen +
+    // kiezers lang kan worden). Leeg/verborgen neergezet; delivery-date.js
+    // vult 'm op basis van de daadwerkelijke widget-status.
+    if ( is_checkout() && null !== $role_last_index['delivery'] && null !== $role_last_index['pickup'] ) {
+        echo '<div class="mkcp-sc-progress" id="mkcp-sc-progress" hidden>'
+            . '<span class="mkcp-sc-progress-text" id="mkcp-sc-progress-text"></span>'
+            . '</div>';
+    }
+
+    foreach ( $all_args as $package_index => $args ) {
+        $args['mkcp_render_role_widget'] = in_array( $package_index, $role_last_index, true );
         wc_get_template( 'cart-shipping-choice.php', $args, '', MKCP_PATH . 'templates/' );
     }
 }

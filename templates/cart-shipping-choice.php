@@ -124,7 +124,7 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 					foreach ( $methods as $m ) { if ( $m->id === $chosen_method ) { $is_active = true; break; } }
 					$single = 1 === count( $methods );
 					?>
-					<div class="mkcp-sc-card-wrap">
+					<div class="mkcp-sc-card-wrap" data-role="<?php echo esc_attr( $type ); ?>">
 						<label class="mkcp-sc-card<?php echo $is_active ? ' is-active' : ''; ?>">
 							<?php if ( $single ) :
 								$m = $methods[0];
@@ -144,8 +144,26 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 									if ( $single ) {
 										echo wc_cart_totals_shipping_method_label( $methods[0] ); // phpcs:ignore WordPress.Security.EscapeOutput
 									} else {
-										/* translators: %d: aantal opties */
-										printf( esc_html__( '%d opties beschikbaar', 'mk-cart-popup' ), count( $methods ) );
+										// Goedkoopste optie alvast tonen i.p.v. alleen een aantal
+										// — geeft nuttige info zonder open te hoeven klappen.
+										$mkcp_sc_cheapest = null;
+										foreach ( $methods as $mkcp_sc_m ) {
+											$mkcp_sc_cost = (float) $mkcp_sc_m->get_cost();
+											if ( null === $mkcp_sc_cheapest || $mkcp_sc_cost < $mkcp_sc_cheapest ) {
+												$mkcp_sc_cheapest = $mkcp_sc_cost;
+											}
+										}
+										if ( $mkcp_sc_cheapest > 0 ) {
+											printf(
+												/* translators: 1: goedkoopste prijs, 2: aantal opties */
+												esc_html__( 'vanaf %1$s · %2$d opties', 'mk-cart-popup' ),
+												wp_strip_all_tags( wc_price( $mkcp_sc_cheapest ) ),
+												count( $methods )
+											);
+										} else {
+											/* translators: %d: aantal opties */
+											printf( esc_html__( 'Gratis mogelijk · %d opties', 'mk-cart-popup' ), count( $methods ) );
+										}
 									}
 									?>
 								</span>
@@ -180,6 +198,36 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 					</div>
 				<?php endforeach; ?>
 			</div>
+
+			<?php
+			// Fase 2: bezorgdatum-/afhaal-tijdvakkiezer direct onder DIT
+			// pakket se kaartgroep — gebaseerd op de daadwerkelijk gekozen
+			// methode voor dit specifieke pakket (niet meer op één globale
+			// "huidige methode over de hele winkelwagen heen"). Zo kan een
+			// gemengd winkelwagentje (dit pakket bezorgen, een ander pakket
+			// afhalen) beide kiezers tegelijk tonen.
+			// Er is echter maar 1 bezorg-widget en 1 afhaal-widget per order
+			// (afgesproken scope). $mkcp_render_role_widget komt uit
+			// mkcp_render_all_shipping_choice_cards() (shipping-choice.php)
+			// en staat alleen op true voor het LAATSTE pakket met deze rol —
+			// zo verschijnt de kiezer nooit tussen twee kaartgroepen van
+			// dezelfde rol in (bv. twee losse "Zelf afhalen"-pakketten), en
+			// ook nooit dubbel (met identieke, dus ongeldige, DOM-ids).
+			// Alleen op de checkout: de cart-pagina toont deze template ook
+			// (winkelwagen-overzicht), maar de datum-/tijdvakkiezers horen
+			// daar niet, net als voorheen.
+			if ( is_checkout() && ( $mkcp_render_role_widget ?? true ) ) {
+				$mkcp_sc_is_pickup_choice = strpos( (string) $chosen_method, 'local_pickup:' ) === 0;
+				if ( $mkcp_sc_is_pickup_choice ) {
+					$mkcp_sc_pu_loc = function_exists( 'mkcp_pickup_location_for_rate' ) ? mkcp_pickup_location_for_rate( $chosen_method ) : null;
+					if ( $mkcp_sc_pu_loc && function_exists( 'mkcp_pickup_render_field' ) ) {
+						mkcp_pickup_render_field( $mkcp_sc_pu_loc );
+					}
+				} elseif ( function_exists( 'mkcp_dd_render_delivery_field' ) ) {
+					mkcp_dd_render_delivery_field( $chosen_method );
+				}
+			}
+			?>
 
 		<?php elseif ( ! empty( $available_methods ) && is_array( $available_methods ) ) : ?>
 			<ul id="shipping_method" class="woocommerce-shipping-methods">
