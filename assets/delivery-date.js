@@ -885,11 +885,6 @@
             },
             tickMicrocopy: updateMicrocopy,
             isPickup: isPickup,
-            /* Voor de sectie-brede voortgangsbalk (#mkcp-sc-progress) — zelfde
-               volledigheidscriterium als collapseIfComplete()/validate(). */
-            isComplete: function () {
-                return !!selectedDate && (!SLOTS_ENABLED || !!selectedSlot);
-            },
             /* Voor het overkoepelende eindsamenvattingsblok
                (#mkcp-dd-final-summary) — null zolang er nog geen (geldige)
                datum gekozen is. */
@@ -922,25 +917,7 @@
             }
             instances[def.prefix].refresh();
         });
-        updateProgress();
         updateFinalSummary();
-    }
-
-    /* Sectie-brede voortgang (#mkcp-sc-progress, zie shipping-choice.php) —
-       alleen aanwezig in de DOM als er zowel een bezorg- als een afhaal-rol
-       actief is, dus hier hoeft niet apart op "2 instanties" gecontroleerd
-       te worden. */
-    function updateProgress() {
-        var box = idLast('mkcp-sc-progress');
-        var textEl = idLast('mkcp-sc-progress-text');
-        if (!box || !textEl) return;
-
-        var keys = Object.keys(instances);
-        if (!keys.length) { box.hidden = true; return; }
-
-        var done = keys.filter(function (k) { return instances[k].isComplete(); }).length;
-        textEl.textContent = done + ' van ' + keys.length + ' pakketten compleet';
-        box.hidden = false;
     }
 
     /* Eindsamenvattingsblok vlak boven de bestelknop (#mkcp-dd-final-summary,

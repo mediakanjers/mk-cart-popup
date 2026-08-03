@@ -126,23 +126,6 @@
     }
 }
 
-/* Sectie-brede voortgang boven de pakket-blokken — zie
-   mkcp_render_all_shipping_choice_cards() (shipping-choice.php) voor de
-   render-voorwaarde en delivery-date.js voor de inhoud/zichtbaarheid. */
-.mkcp-sc-progress {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 14px;
-    padding: 9px 12px;
-    background: #f3f4f6;
-    border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #374151;
-}
-.mkcp-sc-progress[hidden] { display: none; }
-
 /* Ruimte tussen meerdere pakket-kaartgroepen (elke groep is een eigen
    .woocommerce-shipping-totals, één keer per pakket gerenderd) — zonder
    effect zodra er (verreweg het normale geval) maar één pakket is. */

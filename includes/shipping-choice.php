@@ -332,17 +332,6 @@ function mkcp_render_all_shipping_choice_cards( ?int $only_package_index = null 
         $role_last_index[ $role ] = $package_index;
     }
 
-    // Sectie-brede voortgang ("2 van 2 pakketten compleet") — alleen zinvol
-    // zodra er zowel een bezorg- als een afhaal-rol tegelijk actief is (de
-    // enige situatie waarin de sectie door twee volledige kaartgroepen +
-    // kiezers lang kan worden). Leeg/verborgen neergezet; delivery-date.js
-    // vult 'm op basis van de daadwerkelijke widget-status.
-    if ( is_checkout() && null !== $role_last_index['delivery'] && null !== $role_last_index['pickup'] ) {
-        echo '<div class="mkcp-sc-progress" id="mkcp-sc-progress" hidden>'
-            . '<span class="mkcp-sc-progress-text" id="mkcp-sc-progress-text"></span>'
-            . '</div>';
-    }
-
     foreach ( $all_args as $package_index => $args ) {
         $args['mkcp_render_role_widget'] = in_array( $package_index, $role_last_index, true );
         wc_get_template( 'cart-shipping-choice.php', $args, '', MKCP_PATH . 'templates/' );
@@ -415,26 +404,121 @@ add_filter( 'wc_get_template', function( $template, $template_name ) {
 // AJAX-ververste tabel-fragment ligt (woocommerce_review_order_before_order_
 // total, vlak binnen <tfoot>) — ververst dus vanzelf mee, geen aparte ajax-
 // registratie nodig (zelfde redenering als de andere zone-render hooks).
+/**
+ * Fase 2: telt de gekozen verzendkosten (excl./incl. btw, zie hieronder) per
+ * ROL op over ALLE verzendpakketten heen — i.p.v. de oude aanname dat er
+ * hooguit één actieve methode voor de hele order is. Bij een gemengd
+ * winkelwagentje (1 pakket bezorgen, 1 pakket afhalen) moet het totaalbedrag
+ * dus over de twee rollen verdeeld worden, anders staat er bv. "Afhalen:
+ * €4,95" terwijl die €4,95 in werkelijkheid de bezorgkosten van het ándere
+ * pakket zijn (afhalen zelf is gratis) — precies de bug die dit oplost.
+ *
+ * Bepaalt de gekozen rate hetzelfde als mkcp_get_shipping_choice_template_
+ * args_for_package(): sessie eerst, $_POST als vangnet per pakket-index.
+ *
+ * @return array<string,array{cost:float,tax:float,present:bool}> 'delivery'/'pickup' => kosten
+ */
+function mkcp_shipping_choice_costs_by_role(): array {
+    $totals = [
+        'delivery' => [ 'cost' => 0.0, 'tax' => 0.0, 'present' => false ],
+        'pickup'   => [ 'cost' => 0.0, 'tax' => 0.0, 'present' => false ],
+    ];
+
+    if ( ! function_exists( 'WC' ) || ! WC()->shipping || ! WC()->session ) return $totals;
+
+    $chosen_shipping_methods = (array) WC()->session->get( 'chosen_shipping_methods', [] );
+
+    foreach ( WC()->shipping->get_packages() as $package_index => $package ) {
+        $rates = $package['rates'] ?? [];
+        if ( empty( $rates ) ) continue;
+
+        $chosen_method = $chosen_shipping_methods[ $package_index ] ?? '';
+        if ( empty( $chosen_method ) ) {
+            $chosen_method = isset( $_POST['shipping_method'][ $package_index ] )
+                ? wc_clean( wp_unslash( $_POST['shipping_method'][ $package_index ] ) )
+                : '';
+        }
+
+        $rate = $rates[ $chosen_method ] ?? null;
+        if ( ! $rate ) continue;
+
+        $role = strpos( (string) $rate->id, 'local_pickup:' ) === 0 ? 'pickup' : 'delivery';
+        // NB: 'present' apart bijhouden van cost/tax — een gratis afhaalpakket
+        // (cost=0, tax=0) telt ook mee als aanwezige rol, anders zou "Afhalen:
+        // Gratis" ten onrechte wegvallen zodra er ook een betaald bezorgpakket
+        // is (cost/tax>0 zou dan de enige manier zijn om een rij te tonen).
+        $totals[ $role ]['present'] = true;
+        $totals[ $role ]['cost']   += (float) $rate->cost;
+        $totals[ $role ]['tax']   += array_sum( (array) $rate->taxes );
+    }
+
+    return $totals;
+}
+
 add_action( 'woocommerce_review_order_before_order_total', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
     if ( ! mkcp_shipping_choice_is_active() ) return;
     if ( ! function_exists( 'WC' ) || ! WC()->cart ) return;
     if ( ! WC()->cart->needs_shipping() || ! WC()->cart->show_shipping() ) return;
 
-    // Label past zich aan de daadwerkelijk gekozen methode aan: "Verzendkosten:
-    // Gratis" is verwarrend wanneer de klant net "Zelf afhalen" koos — er wordt
-    // dan niets verzonden. mkcp_dd_current_rate_id() (delivery-date.php) is de
-    // al-gedeelde, sessie-/POST-bestendige manier om de huidige keuze op te
-    // zoeken (zelfde functie die de bezorgdatum-kiezer ook gebruikt).
-    $rate_id  = function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null;
-    $is_pickup = $rate_id && strpos( $rate_id, 'local_pickup:' ) === 0;
-    $label     = $is_pickup ? __( 'Afhalen', 'mk-cart-popup' ) : __( 'Verzendkosten', 'mk-cart-popup' );
+    $totals = mkcp_shipping_choice_costs_by_role();
+    $roles  = array_filter( $totals, function( $role ) {
+        // 'present', niet cost/tax > 0 — een gratis afhaalpakket moet gewoon
+        // als "Afhalen: Gratis" getoond worden, ook naast een betaald
+        // bezorgpakket (zie de docblock bij mkcp_shipping_choice_costs_by_role()).
+        return $role['present'];
+    } );
 
-    echo '<tr class="shipping-costs">'
-       . '<th>' . esc_html( $label ) . '</th>'
-       . '<td>' . wp_kses_post( WC()->cart->get_cart_shipping_total() ) . '</td>'
-       . '</tr>';
+    // Geen van beide rollen kwam voor in de daadwerkelijk berekende pakketten
+    // (bv. sessie nog niet gevuld bij de allereerste page-load) — dan tonen we,
+    // net als voorheen, één rij op basis van de eerst gekozen methode zodat er
+    // sowieso een bedrag zichtbaar blijft.
+    if ( empty( $roles ) ) {
+        $rate_id   = function_exists( 'mkcp_dd_current_rate_id' ) ? mkcp_dd_current_rate_id() : null;
+        $is_pickup = $rate_id && strpos( $rate_id, 'local_pickup:' ) === 0;
+        $roles     = [ $is_pickup ? 'pickup' : 'delivery' => $totals[ $is_pickup ? 'pickup' : 'delivery' ] ];
+    }
+
+    $labels = [
+        'delivery' => __( 'Verzendkosten', 'mk-cart-popup' ),
+        'pickup'   => __( 'Afhalen', 'mk-cart-popup' ),
+    ];
+
+    foreach ( $roles as $role => $amounts ) {
+        $price = mkcp_shipping_choice_format_role_total( $amounts['cost'], $amounts['tax'] );
+
+        echo '<tr class="shipping-costs shipping-costs--' . esc_attr( $role ) . '">'
+           . '<th>' . esc_html( $labels[ $role ] ) . '</th>'
+           . '<td>' . wp_kses_post( $price ) . '</td>'
+           . '</tr>';
+    }
 } );
+
+/**
+ * Formatteert een opgeteld rol-subtotaal (cost excl. btw + btw-bedrag) op
+ * dezelfde manier als WC_Cart::get_cart_shipping_total() dat voor de hele
+ * order doet — nodig omdat die core-functie zelf geen subset van pakketten
+ * accepteert, alleen "alles". Zelfde incl./excl.-btw-weergave-instelling
+ * (WC()->cart->display_prices_including_tax()) en dezelfde "incl./excl.
+ * btw"-suffix-logica.
+ */
+function mkcp_shipping_choice_format_role_total( float $cost, float $tax ): string {
+    if ( WC()->cart->display_prices_including_tax() ) {
+        $total = wc_price( wc_round_tax_total( $cost + $tax ) );
+
+        if ( $tax > 0 && ! wc_prices_include_tax() ) {
+            $total .= ' <small class="tax_label">' . WC()->countries->inc_tax_or_vat() . '</small>';
+        }
+    } else {
+        $total = wc_price( $cost );
+
+        if ( $tax > 0 && wc_prices_include_tax() ) {
+            $total .= ' <small class="tax_label">' . WC()->countries->ex_tax_or_vat() . '</small>';
+        }
+    }
+
+    return $total;
+}
 
 
 // ── AJAX-anker voor verzendkosten (alleen 3-blokken layout) ─────────────────
