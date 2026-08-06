@@ -16,6 +16,18 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.27',
+            'date'    => '2026-08-06',
+            'items'   => [
+                'Nieuw (premium): Account — een volledige vervanging van WooCommerce\'s "Mijn Account" met dashboard, bestellingenoverzicht + detail met opnieuw-bestellen, wishlist (meerdere lijsten, delen, prijs-/voorraadmeldingen), adresboek, retour-aanvragen en productreviews als losse pop-ups vanaf de bestelling, een meldingencentrum en volledige GDPR-export/verwijdering.',
+                'Nieuw: checkout krijgt een eigen inlog-pop-up en een adreskiezer die het adresboek uit Account hergebruikt zodra een klant is ingelogd; de "account aanmaken"-checkbox en het inlogformulier voor terugkerende klanten zijn nu los aan/uit te zetten, met eigen toelichtingstekst.',
+                'Nieuw: wishlist-hart-icoon op product- en overzichtspagina\'s om producten direct aan de wishlist toe te voegen, zonder naar de productpagina te hoeven.',
+                'Fix: variabele producten waarbij één of meer opties voor alle varianten hetzelfde zijn ("Elke", bv. een boeket met vaste prijsklassen maar vrij te kiezen gelegenheid/kleur/stijl) konden niet worden toegevoegd aan de winkelwagen — gaf altijd de melding dat verplichte velden ontbraken, ook als alles zichtbaar was ingevuld.',
+                'Fix: snel na elkaar wisselen van variatie-opties kon een verouderde keuze alsnog laten doorglippen naar de winkelwagen, met een verwarrende paginaherlading tot gevolg.',
+                'Fix: bij een verse bezoeker zonder eerder ingevuld adres kon de verzendkeuze-sectie op checkout helemaal leeg blijven in plaats van een "vul eerst je postcode in"-melding te tonen.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.1',
             'date'    => '2026-08-03',
             'items'   => [
