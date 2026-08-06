@@ -311,7 +311,31 @@ function mkcp_render_all_shipping_choice_cards( ?int $only_package_index = null 
     if ( ! function_exists('WC') || ! WC()->shipping || ! WC()->cart || ! WC()->session ) return;
 
     $packages = WC()->shipping->get_packages();
-    if ( empty( $packages ) ) return;
+
+    // Bij een verse, uitgelogde bezoeker (geen adres, geen sessiegeschiedenis)
+    // levert get_packages() soms een LEGE array op i.p.v. één pakket met lege
+    // $package['rates'] — dat tweede geval ving templates/cart-shipping-
+    // choice.php al netjes op met een nette "vul eerst je postcode in"-
+    // melding, maar dit eerste geval (géén pakket überhaupt) sloeg tot nu toe
+    // stil af, zonder ENIGE tekst. Zelfde melding, dezelfde stijl — alleen
+    // getoond als er ook echt iets te verzenden valt (anders is "vul je
+    // postcode in" misleidend voor bv. een winkelwagen met alleen download-
+    // producten).
+    if ( empty( $packages ) ) {
+        if ( WC()->cart->needs_shipping() ) {
+            // Verplicht in dezelfde ".woocommerce-shipping-totals.shipping"-
+            // wrapper als het echte template hieronder gebruikt: de bestaande
+            // opruim-JS (mkco_reorganize() in checkout-frontend.php) herkent
+            // en verwijdert VERSE-vs-oude kopieën uitsluitend op die class.
+            // Zonder deze wrapper bleef deze melding als wees in de DOM
+            // achter zodra er ná een adreswijziging wél pakketten kwamen —
+            // precies de gemelde bug ("tekst blijft zichtbaar na adres").
+            echo '<div class="woocommerce-shipping-totals shipping"><div class="mkcp-sc-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>'
+                . esc_html__( 'Vul hierboven eerst je postcode en huisnummer in om de verzend- en afhaalopties te bekijken.', 'mk-cart-popup' )
+                . '</span></div></div>';
+        }
+        return;
+    }
 
     $total = count( $packages );
 

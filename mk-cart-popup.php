@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer for WooCommerce. Intercepts add-to-cart on every page, handles qty/remove via AJAX, and redirects /cart to a configurable URL.
- * Version:      1.14.31-beta.1
+ * Version:      1.14.31-beta.27
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.14.31-beta.1' );
+define( 'MKCP_VER',  '1.14.31-beta.27' );
 
 // URL to the update manifest on GitHub (raw main branch).
 // Change this when you move the repo to a different organisation or name.
@@ -53,6 +53,18 @@ if ( is_admin() ) {
 }
 
 require_once MKCP_PATH . 'includes/checkout-frontend.php';
+require_once MKCP_PATH . 'includes/account-db.php';
+require_once MKCP_PATH . 'includes/account-frontend.php';
+require_once MKCP_PATH . 'includes/account-profile.php';
+require_once MKCP_PATH . 'includes/checkout-address-picker.php';
+require_once MKCP_PATH . 'includes/account-orders.php';
+require_once MKCP_PATH . 'includes/account-notifications.php';
+require_once MKCP_PATH . 'includes/account-returns.php';
+require_once MKCP_PATH . 'includes/account-reviews.php';
+require_once MKCP_PATH . 'includes/account-gdpr.php';
+require_once MKCP_PATH . 'includes/account-wishlist.php';
+require_once MKCP_PATH . 'includes/account-admin.php';
+require_once MKCP_PATH . 'includes/wishlist-icon.php';
 require_once MKCP_PATH . 'includes/abandoned-cart.php';
 require_once MKCP_PATH . 'includes/delivery-date.php';
 require_once MKCP_PATH . 'includes/pickup.php';
@@ -62,6 +74,8 @@ require_once MKCP_PATH . 'includes/shipping-choice.php';
 
 register_deactivation_hook( __FILE__, function() {
     wp_clear_scheduled_hook( 'mkcp_ac_cron' );
+    wp_clear_scheduled_hook( 'mkcp_account_wishlist_price_check' );
+    wp_clear_scheduled_hook( 'mkcp_account_notifications_cleanup' );
 } );
 
 // Eenmalige vlag voor de onboarding-tour — admin/settings.php leest 'm bij de
@@ -376,6 +390,93 @@ add_action( 'template_redirect', function() {
         exit;
     }
 } );
+
+
+// ── Fix: variabele producten met een "Elke"-attribuut via wc-ajax=add_to_cart ──
+//
+// Root cause (uitgezocht 2026-08-06, na een screenshot van "Gelegenheid,
+// Ontvanger, Kleur en Stijl zijn vereiste velden" ondanks alle 6 dropdowns
+// zichtbaar ingevuld): dit is GEEN vervolg van de eerdere .disabled-race-
+// conditionfix (beta.26) — het is een losstaande, structurele beperking van
+// WooCommerce's EIGEN wc-ajax=add_to_cart-endpoint (WC_AJAX::add_to_cart(),
+// class-wc-ajax.php), die dit plugin via wcAjaxUrl gebruikt voor élke
+// form.cart-submit, inclusief die van de single-productpagina zelf.
+//
+// Bij een variatie waar één of meer attributen op "Elke" staan (geen vaste
+// waarde per variatie — hier bv. Gelegenheid/Ontvanger/Kleur/Stijl, want de
+// 24 variaties verschillen alleen op prijsklasse+vaas) bouwt WC_AJAX::
+// add_to_cart() de $variation-array UITSLUITEND uit $product->
+// get_variation_attributes() — de eigen opgeslagen data van de variatie zelf
+// (dus lege strings voor "Elke"-attributen). Het negeert daarbij volledig
+// wat de klant in de attribute_pa_*-dropdowns heeft gekozen, óók al staat
+// dat gewoon in de POST (form.serialize() stuurt dat wél mee). WC_Cart::
+// add_to_cart() ziet vervolgens voor die "Elke"-attributen geen enkele
+// waarde (niet in de variatie-data, niet in wat er "gepost" lijkt, want dat
+// laatste komt voor dit endpoint dus nooit aan) en gooit daarom "X is een
+// vereist veld" — exact de melding uit de screenshot.
+//
+// Ter vergelijking: WooCommerce's EIGEN klassieke (niet-AJAX) form-handler
+// (WC_Form_Handler::add_to_cart_handler_variable(), class-wc-form-handler.
+// php) doet dit wél goed — die bouwt de $variation-array rechtstreeks uit
+// alle geposte attribute_*-velden. Onderstaande hook kopieert precies díe
+// aanpak, maar dan voor het AJAX-endpoint, en grijpt vóór WooCommerce's
+// eigen handler in (prioriteit 5 < WC's 10) — alléén voor variaties met
+// minstens één "Elke"-attribuut; alle andere add-to-cart-aanvragen
+// (eenvoudige producten, variaties zonder "Elke") lopen ongewijzigd via
+// WooCommerce's eigen, correcte standaardpad.
+add_action( 'wc_ajax_add_to_cart',               'mkcp_ajax_fix_any_attribute_variation', 5 );
+add_action( 'wp_ajax_woocommerce_add_to_cart',        'mkcp_ajax_fix_any_attribute_variation', 5 );
+add_action( 'wp_ajax_nopriv_woocommerce_add_to_cart', 'mkcp_ajax_fix_any_attribute_variation', 5 );
+
+function mkcp_ajax_fix_any_attribute_variation() {
+    if ( ! mkcp_woocommerce_active() || ! WC()->cart ) return;
+    if ( ! isset( $_POST['product_id'] ) ) return;
+
+    $product_id = apply_filters( 'woocommerce_add_to_cart_product_id', absint( wp_unslash( $_POST['product_id'] ) ) );
+    $product    = wc_get_product( $product_id );
+
+    // Alleen relevant voor een daadwerkelijke variatie — simpele producten
+    // en de parent-ID van een variabel product lopen gewoon door naar
+    // WooCommerce's eigen handler (die roept dit filter niet nogmaals aan,
+    // wij geven hier alleen niets terug/doen niets).
+    if ( ! $product || 'variation' !== $product->get_type() ) return;
+
+    $stored_attributes = $product->get_variation_attributes();
+    $has_any_attribute = in_array( '', $stored_attributes, true );
+    if ( ! $has_any_attribute ) return; // WooCommerce's eigen pad is hier al correct
+
+    $parent_id = $product->get_parent_id();
+    $quantity  = empty( $_POST['quantity'] ) ? 1 : wc_stock_amount( wp_unslash( $_POST['quantity'] ) );
+
+    $variations = [];
+    foreach ( $_POST as $key => $value ) {
+        if ( 'attribute_' === substr( $key, 0, 10 ) ) {
+            $variations[ sanitize_title( wp_unslash( $key ) ) ] = wp_unslash( $value );
+        }
+    }
+
+    $passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $parent_id, $quantity, $product_id, $variations );
+
+    if ( $passed_validation && false !== WC()->cart->add_to_cart( $parent_id, $quantity, $product_id, $variations ) ) {
+        do_action( 'woocommerce_ajax_added_to_cart', $parent_id );
+
+        if ( 'yes' === get_option( 'woocommerce_cart_redirect_after_add' ) ) {
+            wc_add_to_cart_message( [ $parent_id => $quantity ], true );
+        }
+
+        // Publieke static method, exact dezelfde respons-vorm die WC_AJAX::
+        // add_to_cart() ook stuurt ({fragments, cart_hash}) — stuurt zelf de
+        // JSON-respons en stopt de request (wp_send_json -> wp_die()), dus
+        // geen return meer nodig en WooCommerce's eigen handler op
+        // prioriteit 10 wordt hierna niet meer bereikt.
+        WC_AJAX::get_refreshed_fragments();
+    }
+
+    wp_send_json( [
+        'error'       => true,
+        'product_url' => apply_filters( 'woocommerce_cart_redirect_after_error', get_permalink( $parent_id ), $parent_id ),
+    ] );
+}
 
 
 // ── AJAX: update quantity ──────────────────────────────────────────────────────

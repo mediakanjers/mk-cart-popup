@@ -709,6 +709,11 @@ html, body          { overflow: hidden !important; height: 100%; }
 
 .mkcp-panel.is-active { display: block; }
 
+/* Retour-aanvragen-tabel heeft 6 kolommen (bestelling/product, klant, reden,
+   datum, status, actie) — de standaard 900px-breedte hierboven (prima voor
+   instellingenformulieren) knelt die tabel onnodig samen. */
+.mkcp-panel--account-returns { max-width: 1280px; }
+
 @keyframes mkcp-fade-up {
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }

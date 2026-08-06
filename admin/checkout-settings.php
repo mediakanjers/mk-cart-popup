@@ -45,6 +45,26 @@ function mkcp_checkout_config() {
         'company_field_enabled' => false,
         'order_notes_enabled'   => false,
 
+        // "Een account aanmaken?"-checkbox (WooCommerce-core-markup, zie
+        // includes/checkout-frontend.php) — aan/uit los van WooCommerce's
+        // eigen "toestaan tijdens checkout"-instelling, plus een eigen
+        // toelichtingstekst eronder en een verplaatsing naar onder de
+        // besteltabel. Standaard aan: verandert het bestaande gedrag niet
+        // voor sites die deze instelling nog nooit hebben opgeslagen.
+        'createaccount_enabled'    => true,
+        'createaccount_info_title' => '',
+        'createaccount_info_text'  => '',
+
+        // "Terugkerende klant?"-inlogformulier (WooCommerce-core-markup, zie
+        // global/form-login.php) — zelfde soort aan/uit + eigen toelichting
+        // als de account-aanmaken-checkbox hierboven. Los van WooCommerce's
+        // eigen "Sta inloggen tijdens checkout toe"-instelling: die bepaalt
+        // of het formulier er überhaupt kán zijn, deze toggle bepaalt of wij
+        // 'm laten zien. Standaard aan.
+        'login_reminder_enabled'    => true,
+        'login_reminder_info_title' => '',
+        'login_reminder_info_text'  => '',
+
         // Aanpasbare tekst op de "Bestelling plaatsen"-knop. Leeg =
         // WooCommerce's eigen standaardtekst.
         'checkout_button_text' => '',
@@ -134,6 +154,12 @@ function mkcp_checkout_config() {
     $cfg['order_review_collapsible_mobile'] = (bool) $cfg['order_review_collapsible_mobile'];
     $cfg['company_field_enabled'] = (bool) $cfg['company_field_enabled'];
     $cfg['order_notes_enabled']   = (bool) $cfg['order_notes_enabled'];
+    $cfg['createaccount_enabled']    = (bool) $cfg['createaccount_enabled'];
+    $cfg['createaccount_info_title'] = (string) $cfg['createaccount_info_title'];
+    $cfg['createaccount_info_text']  = (string) $cfg['createaccount_info_text'];
+    $cfg['login_reminder_enabled']    = (bool) $cfg['login_reminder_enabled'];
+    $cfg['login_reminder_info_title'] = (string) $cfg['login_reminder_info_title'];
+    $cfg['login_reminder_info_text']  = (string) $cfg['login_reminder_info_text'];
     $cfg['checkout_button_text']  = (string) $cfg['checkout_button_text'];
     $cfg['vat_checker_status_enabled'] = (bool) $cfg['vat_checker_status_enabled'];
     $cfg['header_logo_id']        = (int)  $cfg['header_logo_id'];

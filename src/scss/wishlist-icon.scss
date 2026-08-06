@@ -1,0 +1,185 @@
+/*
+ * MK Cart Popup — Wishlist hart-icoon (sitebreed)
+ *
+ * Bewust GEEN absolute overlay bovenop de productthumbnail: dat vereist een
+ * position:relative op de omliggende wrapper, en welk element dat is
+ * verschilt per thema (exact het "generiek heel moeilijk"-probleem). In
+ * plaats daarvan een compacte, inline knop die in de normale documentflow
+ * meeloopt — werkt gegarandeerd, ongeacht thema-structuur, ten koste van een
+ * iets minder "overlay-app"-achtige plaatsing. Winkeliers die 'm liever
+ * bovenop de afbeelding willen, kunnen dat met een paar regels eigen CSS
+ * (child-theme-override, zie mk-cart-popup/style.css) alsnog bereiken.
+ */
+
+.mkcp-wishlist-heart {
+    position       : relative;
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 2em;
+    height         : 2em;
+    padding        : 0;
+    border         : 1px solid var(--mkcp-light1, #e8e8e8);
+    border-radius  : 999px;
+    background     : var(--mkcp-bg, #ffffff);
+    color          : var(--mkcp-text-light, #5b6472);
+    cursor         : pointer;
+    transition     : color var(--mkcp-anim, 300ms ease), border-color var(--mkcp-anim, 300ms ease), transform 150ms ease;
+
+    // Drie icoonlagen gestapeld op elkaar (position:absolute), CSS toont er
+    // per status precies één — geen JS-innerHTML-gewissel nodig, werkt dus
+    // identiek voor elke server-side gerenderde knop overal op de site.
+    &__icon {
+        position  : absolute;
+        top       : 50%;
+        left      : 50%;
+        width     : 1.1em;
+        height    : 1.1em;
+        transform : translate(-50%, -50%);
+        fill      : none;
+        stroke    : currentColor;
+        stroke-width: 2;
+        opacity   : 0;
+        transition: opacity 150ms ease;
+    }
+
+    &__icon--heart {
+        opacity: 1;
+    }
+
+    &:hover {
+        border-color: var(--mkcp-danger, #d32f2f);
+        color       : var(--mkcp-danger, #d32f2f);
+    }
+
+    &.is-active {
+        border-color: var(--mkcp-danger, #d32f2f);
+        color       : var(--mkcp-danger, #d32f2f);
+
+        .mkcp-wishlist-heart__icon--heart {
+            fill: currentColor;
+        }
+    }
+
+    // Laden: hartje weg, draaiend rondje op zijn plek.
+    &.is-loading {
+        pointer-events: none;
+
+        .mkcp-wishlist-heart__icon--heart {
+            opacity: 0;
+        }
+
+        .mkcp-wishlist-heart__icon--spinner {
+            opacity  : 1;
+            animation: mkcp-heart-spin 0.7s linear infinite;
+        }
+    }
+
+    // Net gelukt: kort een pop-/bounce-animatie op het hartje.
+    &.is-success .mkcp-wishlist-heart__icon--heart {
+        animation: mkcp-heart-pop 480ms ease;
+    }
+
+    // Mislukt: kruisje i.p.v. hartje, met een korte schud-animatie. Bij
+    // hover verdwijnt het kruisje weer terug naar het hartje, als visuele
+    // hint dat een nieuwe klik het opnieuw probeert.
+    &.is-error {
+        border-color: var(--mkcp-danger, #d32f2f);
+        color       : var(--mkcp-danger, #d32f2f);
+        animation   : mkcp-heart-shake 420ms ease;
+
+        .mkcp-wishlist-heart__icon--heart {
+            opacity: 0;
+        }
+
+        .mkcp-wishlist-heart__icon--error {
+            opacity: 1;
+        }
+
+        &:hover {
+            .mkcp-wishlist-heart__icon--heart {
+                opacity: 1;
+            }
+
+            .mkcp-wishlist-heart__icon--error {
+                opacity: 0;
+            }
+        }
+    }
+
+    &:active {
+        transform: scale(0.9);
+    }
+}
+
+@keyframes mkcp-heart-spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes mkcp-heart-pop {
+    0%   { transform: translate(-50%, -50%) scale(1); }
+    35%  { transform: translate(-50%, -50%) scale(1.45); }
+    60%  { transform: translate(-50%, -50%) scale(0.9); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes mkcp-heart-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-4px); }
+    40%      { transform: translateX(4px); }
+    60%      { transform: translateX(-3px); }
+    80%      { transform: translateX(3px); }
+}
+
+.mkcp-wishlist-heart--loop {
+    margin: 0.35em 0;
+}
+
+.mkcp-wishlist-heart--single {
+    margin-top: 0.75em;
+}
+
+/* ── Overlay-variant voor bekende thema-structuren ──────────────────────────
+ * De generieke fallback hierboven (inline, in de documentflow) werkt overal
+ * zonder aannames — maar voor de sites waar de exacte thema-markup bekend is
+ * (rechtstreeks aangepast, zie de PHP-templates zelf) kan de badge wél netjes
+ * over de productfoto heen. Elke regel hieronder scoped bewust smal op de
+ * specifieke wrapper-klasse van dát ene thema, nooit een generieke klasse
+ * als .left/.thumb die elders op de site iets anders zou kunnen betekenen.
+ *
+ * - Mediakanjers-thema (TOM-Bloemen e.a.): content-product-standard.php,
+ *   <a class="left"> rond de thumbnail.
+ * - Cobweb-thema (Kitschuure): content-product.php,
+ *   <div class="product-card__thumb"> rond de thumbnail. */
+.woocommerce ul.products li.product a.left,
+.product-card__thumb {
+    position: relative;
+}
+
+.mkcp-wishlist-heart--loop-overlay {
+    position  : absolute;
+    top       : 0.6em;
+    right     : 0.6em;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    z-index   : 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-wishlist-heart {
+        transition: none;
+        animation : none;
+
+        &:active {
+            transform: none;
+        }
+
+        .mkcp-wishlist-heart__icon--spinner {
+            animation: none;
+        }
+
+        &.is-success .mkcp-wishlist-heart__icon--heart {
+            animation: none;
+        }
+    }
+}
