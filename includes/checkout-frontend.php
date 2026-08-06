@@ -1548,6 +1548,416 @@ add_action( 'wp', function() {
     } );
 }, 5 );
 
+// ── "Een account aanmaken?"-checkbox: aan/uit + toelichtingstekst + verplaatsen ─
+//
+// De checkbox zelf (en de eventuele wachtwoordvelden erachter) is WooCommerce-
+// core-markup (checkout/form-billing.php, niet door een thema of deze plugin
+// overschreven) — die rendert altijd in .col-1, vlak na de factuurvelden,
+// zodra WooCommerce's eigen "Sta klanten toe een account aan te maken tijdens
+// het afrekenen"-instelling aanstaat. Twee dingen die WooCommerce zelf niet
+// biedt: 'm helemaal verbergen ongeacht die instelling (zonder de instelling
+// zelf te hoeven aanpassen), en 'm ergens anders laten landen dan waar
+// WooCommerce 'm nu eenmaal neerzet.
+add_action( 'wp', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
+    if ( ! mkcp_license_has( 'premium' ) ) return;
+    $cfg = mkcp_checkout_config();
+    if ( empty( $cfg['checkout_enabled'] ) ) return;
+
+    if ( empty( $cfg['createaccount_enabled'] ) ) {
+        // Verbergen i.p.v. de WC-instelling zelf aan te passen — die blijft
+        // z'n eigen betekenis houden (of registreren via checkout überhaupt
+        // kan), dit is puur een visuele aan/uit voor de checkbox-rij zelf.
+        add_action( 'wp_footer', function() {
+            echo '<style>.woocommerce-account-fields{display:none!important}</style>';
+        }, 20 );
+        return;
+    }
+
+    // Toelichtingskader — woocommerce_before_checkout_registration_form is de
+    // enige hook die binnen .woocommerce-account-fields vuurt (form-billing.php
+    // heeft er geen vóór de checkbox), dus het kader rendert hier server-side
+    // ná de checkbox. De JS hieronder verplaatst 'm vervolgens vóór de
+    // checkbox — zelfde soort DOM-move als de hele sectie al krijgt, alleen
+    // dan één stap verder binnen dezelfde wrapper.
+    $has_info = '' !== trim( (string) ( $cfg['createaccount_info_text'] ?? '' ) )
+             || '' !== trim( (string) ( $cfg['createaccount_info_title'] ?? '' ) );
+    if ( $has_info ) {
+        add_action( 'woocommerce_before_checkout_registration_form', function() use ( $cfg ) {
+            echo '<div class="mkcp-createaccount-info">';
+            if ( '' !== trim( (string) $cfg['createaccount_info_title'] ) ) {
+                echo '<p class="mkcp-createaccount-info__title">' . esc_html( $cfg['createaccount_info_title'] ) . '</p>';
+            }
+            if ( '' !== trim( (string) $cfg['createaccount_info_text'] ) ) {
+                echo '<p class="mkcp-createaccount-info__text">' . wp_kses_post( nl2br( esc_html( $cfg['createaccount_info_text'] ) ) ) . '</p>';
+            }
+            // Live e-mailadres-regel — begint verborgen, de JS hieronder vult
+            // 'm en toont 'm zodra billing_email een waarde heeft (en verbergt
+            // 'm weer bij een leeg/ongeldig veld). Maakt de statische
+            // toelichtingstekst hierboven concreet: niet "je ontvangt een
+            // e-mail" in het algemeen, maar zichtbaar mét het adres dat de
+            // klant net zelf heeft ingevuld.
+            echo '<p class="mkcp-createaccount-info__email" hidden>'
+                . esc_html__( 'Je ontvangt op ', 'mk-cart-popup' )
+                . '<strong class="mkcp-createaccount-info__email-value"></strong>'
+                . esc_html__( ' een melding zodra je account is aangemaakt.', 'mk-cart-popup' )
+                . '</p>';
+            echo '</div>';
+        } );
+    }
+
+    // Verplaatsen naar onder de besteltabel — .woocommerce-account-fields zit
+    // in .col-1 (klantgegevens), de besteltabel in .col-2/#order_review; een
+    // CSS-grid-verplaatsing kan dat niet overbruggen (andere grid-container),
+    // vandaar dezelfde DOM-move-in-JS-aanpak als mkco_reorganize() hierboven
+    // gebruikt voor de 3-blokken-layout — maar hier los daarvan, want deze
+    // verplaatsing hoort niet bij die (optionele) layout.
+    add_action( 'wp_footer', function() {
+        ?>
+        <script>
+        (function () {
+            function mkcpMoveCreateAccount() {
+                var fields = document.querySelector('.woocommerce-account-fields');
+                var table  = document.querySelector('.shop_table.woocommerce-checkout-review-order-table');
+                if ( ! fields || ! table || ! table.parentNode ) return;
+                if ( fields.previousElementSibling !== table ) {
+                    table.parentNode.insertBefore( fields, table.nextSibling );
+                }
+                // Toelichtingskader (indien aanwezig) vóór de checkbox zetten,
+                // én de checkbox ZELF in datzelfde kader schuiven — anders
+                // ontstaan er twee losse, los-ogende doosjes onder elkaar i.p.v.
+                // één kader met de checkbox erin. ".create-account" bestaat
+                // dubbel in deze markup (form-billing.php): de checkbox-<p> én
+                // de (meestal lege) extra-accountvelden-<div> — vandaar het
+                // specifieke "p.create-account" i.p.v. de kale class-selector.
+                var info      = fields.querySelector('.mkcp-createaccount-info');
+                var checkbox  = fields.querySelector('p.create-account');
+                // "div.create-account" is WooCommerce's eigen wrapper om de
+                // account_username/account_password-velden (alleen aanwezig
+                // wanneer WC's "gebruikersnaam/wachtwoord automatisch
+                // genereren"-instellingen uit staan) — zonder deze move bleef
+                // dit blokje als los, ongestyled element ONDER het kader
+                // staan i.p.v. er visueel bij te horen.
+                var extraFields = fields.querySelector('div.create-account');
+                if ( info && fields.firstElementChild !== info ) {
+                    fields.insertBefore( info, fields.firstElementChild );
+                }
+                if ( info && checkbox && checkbox.parentNode !== info ) {
+                    info.appendChild( checkbox );
+                }
+                if ( info && extraFields && extraFields.parentNode !== info ) {
+                    info.appendChild( extraFields );
+                }
+            }
+            setTimeout( mkcpMoveCreateAccount, 120 );
+            if ( window.jQuery ) {
+                jQuery( document.body ).on( 'updated_checkout', function () {
+                    setTimeout( mkcpMoveCreateAccount, 80 );
+                } );
+            }
+
+            // Live e-mailadres in het toelichtingskader — vult/toont
+            // .mkcp-createaccount-info__email zodra billing_email een
+            // geldig-ogend adres bevat (simpele "bevat een @ + iets erna"-
+            // check, geen volledige RFC-validatie nodig — WooCommerce's
+            // eigen veldvalidatie bij het versturen dekt dat al af, dit is
+            // puur een live-preview terwijl je typt).
+            function mkcpUpdateCreateAccountEmail() {
+                var emailField = document.getElementById('billing_email');
+                var note       = document.querySelector('.mkcp-createaccount-info__email');
+                var valueEl    = document.querySelector('.mkcp-createaccount-info__email-value');
+                if ( ! emailField || ! note || ! valueEl ) return;
+                var val = emailField.value.trim();
+                if ( /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( val ) ) {
+                    valueEl.textContent = val;
+                    note.hidden = false;
+                } else {
+                    note.hidden = true;
+                }
+            }
+            // Gebruikersnaam vooraf invullen met het ingevulde e-mailadres —
+            // alleen zolang de klant het gebruikersnaamveld nog niet zelf
+            // heeft aangeraakt (mkcpUsernameTouched), anders zou elke
+            // toetsaanslag in billing_email een handmatig gekozen
+            // gebruikersnaam overschrijven. Het veld bestaat alleen wanneer
+            // WooCommerce's "gebruikersnaam automatisch genereren"-instelling
+            // uit staat (anders toont WC dit veld sowieso niet).
+            var mkcpUsernameTouched = false;
+            function mkcpPrefillUsername() {
+                var emailField = document.getElementById('billing_email');
+                var userField  = document.getElementById('account_username');
+                if ( ! emailField || ! userField || mkcpUsernameTouched ) return;
+                var val = emailField.value.trim();
+                if ( val === userField.value ) return;
+                userField.value = val;
+                if ( window.mkcpUpdateFloatingLabels ) window.mkcpUpdateFloatingLabels();
+            }
+            document.addEventListener('input', function (e) {
+                if ( ! e.target ) return;
+                if ( e.target.id === 'billing_email' ) {
+                    mkcpUpdateCreateAccountEmail();
+                    mkcpPrefillUsername();
+                } else if ( e.target.id === 'account_username' ) {
+                    mkcpUsernameTouched = true;
+                }
+            });
+            setTimeout( function () {
+                mkcpUpdateCreateAccountEmail(); // veld kan al vooringevuld zijn (ingelogde klant met opgeslagen adres, browser-autofill)
+                mkcpPrefillUsername();
+            }, 120 );
+        })();
+        </script>
+        <?php
+    }, 20 );
+}, 5 );
+
+
+// ── "Terugkerende klant?"-inlogformulier: aan/uit + eigen toelichting ────────
+//
+// Zelfde soort behandeling als de "Account aanmaken?"-checkbox hierboven,
+// voor het andere WooCommerce-core-blok dat alleen uitgelogde bezoekers zien
+// (global/form-login.php, aangestuurd door WooCommerce's eigen "Sta inloggen
+// tijdens checkout toe"-instelling). Geen verplaatsing nodig — dit blok
+// rendert al bovenaan de checkout, vóór de klantgegevens, wat de logische
+// plek is voor een "log eerst in"-prompt.
+add_action( 'wp', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
+    if ( ! mkcp_license_has( 'premium' ) ) return;
+    $cfg = mkcp_checkout_config();
+    if ( empty( $cfg['checkout_enabled'] ) ) return;
+
+    if ( empty( $cfg['login_reminder_enabled'] ) ) {
+        add_action( 'wp_footer', function() {
+            echo '<style>.woocommerce-form-login-toggle,.woocommerce-form-login{display:none!important}</style>';
+        }, 20 );
+        return;
+    }
+
+    // woocommerce_login_form_start vuurt als allereerste regel binnen
+    // <form class="woocommerce-form-login">, vóór WooCommerce's eigen
+    // introductietekst en de gebruikersnaam-/wachtwoordvelden — precies waar
+    // een eigen titel/toelichting bovenaan het formulier moet landen.
+    if ( '' !== trim( (string) ( $cfg['login_reminder_info_text'] ?? '' ) ) || '' !== trim( (string) ( $cfg['login_reminder_info_title'] ?? '' ) ) ) {
+        add_action( 'woocommerce_login_form_start', function() use ( $cfg ) {
+            echo '<div class="mkcp-login-reminder-info">';
+            if ( '' !== trim( (string) $cfg['login_reminder_info_title'] ) ) {
+                echo '<p class="mkcp-login-reminder-info__title">' . esc_html( $cfg['login_reminder_info_title'] ) . '</p>';
+            }
+            if ( '' !== trim( (string) $cfg['login_reminder_info_text'] ) ) {
+                echo '<p class="mkcp-login-reminder-info__text">' . wp_kses_post( nl2br( esc_html( $cfg['login_reminder_info_text'] ) ) ) . '</p>';
+            }
+            echo '</div>';
+        } );
+        // WooCommerce's eigen introductiezin ("Als je eerder bij ons hebt
+        // gewinkeld...") is niet filterbaar (geen hook/filter beschikbaar voor
+        // die specifieke tekst in global/form-login.php) — onderdrukt daarom
+        // via CSS i.p.v. PHP, zie ".woocommerce-form-login:has(.mkcp-login-
+        // reminder-info) > p:first-child" in checkout.scss, alleen actief
+        // wanneer er ook echt een eigen kader is ingevoegd.
+    }
+
+    // Vertrouwenssignaal onder de knop ("Veilig inloggen") — woocommerce_
+    // login_form_end vuurt vlak vóór </form>, dus als laatste element in de
+    // grid (zie ".mkcp-login-trust" / grid-area "trust" in checkout.scss).
+    add_action( 'woocommerce_login_form_end', function() {
+        echo '<p class="mkcp-login-trust"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> '
+            . esc_html__( 'Veilig inloggen', 'mk-cart-popup' ) . '</p>';
+    } );
+
+    // Drie interactie-verbeteringen die pure styling niet kan oplossen:
+    // 1) autofocus op gebruikersnaam zodra het formulier opengaat (scheelt
+    //    een klik) — WooCommerce's eigen showlogin-handler (checkout.js) doet
+    //    zelf al de slideToggle()+scroll, hier alleen de focus erna.
+    // 2) laadstatus op de knop bij versturen — dit is een gewone, volledige
+    //    POST (geen AJAX), dus zonder dit geeft een klik geen enkele
+    //    feedback tijdens de round-trip naar de server.
+    // 3) direct na een mislukte inlogpoging ($_POST['login'] gezet, WC
+    //    rendert het formulier dan hoe dan ook zichtbaar) naar het kaartje
+    //    scrollen + kort schudden — zonder dit kan WooCommerce's foutmelding
+    //    boven de pagina-fold verdwijnen na de volledige paginaherlaad.
+    // WooCommerce's eigen foutmelding (".woocommerce-error", boven de
+    // pagina) is overbodig zodra de mislukte-inlogpoging-feedback hieronder
+    // (scroll + shake + rood randje op het kaartje zelf) er al is — anders
+    // meldt de pagina twee keer hetzelfde. Alleen onderdrukken wanneer dit
+    // request-cyclus een inlogpoging WAS ($_POST['login']) — checkout-eigen
+    // validatiefouten (bv. verplicht veld leeg bij "Bestelling plaatsen")
+    // lopen via een aparte AJAX-cyclus zonder $_POST['login'] en blijven dus
+    // gewoon zichtbaar.
+    $mkcp_just_attempted_login = isset( $_POST['login'] );
+    if ( $mkcp_just_attempted_login ) {
+        add_action( 'wp_footer', function() {
+            echo '<style>.woocommerce-checkout > .woocommerce-error{display:none!important}</style>';
+        }, 20 );
+    }
+
+    add_action( 'wp_footer', function() use ( $mkcp_just_attempted_login ) {
+        ?>
+        <script>
+        (function () {
+            var FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+            var lastFocusedTrigger = null;
+            var modal, dialog;
+
+            // De melding gaat boven #customer_details staan, maar beide
+            // samen in ÉÉN gedeelde wrapper (.mkcp-login-and-details) i.p.v.
+            // los als twee grid-items — CSS Grid deelt rijhoogtes over ALLE
+            // kolommen, dus een eigen grid-rij voor de melding zou de
+            // rechterkolom (Prijzen/besteloverzicht) net zo goed mee omlaag
+            // duwen. Als één gezamenlijk grid-item (normale block-flow
+            // erbinnen) blijft de rechterkolom precies uitgelijnd met de
+            // bovenkant van #customer_details, zoals vóór deze toevoeging.
+            function mkcpMoveLoginToggle() {
+                var toggle = document.querySelector('.woocommerce-form-login-toggle');
+                var anchor = document.getElementById('customer_details');
+                if ( ! anchor || ! anchor.parentNode ) return;
+                if ( document.querySelector('.mkcp-login-and-details') ) return; // al verplaatst
+
+                // #customer_details in DIENS eigen ouder opzoeken i.p.v. aan
+                // te nemen dat .woocommerce-checkout die ouder is — sommige
+                // plugins (bv. "Checkout Field Editor for WooCommerce") zetten
+                // er een extra #checkout_form_inner-wrapper tussen (zie ook de
+                // display:contents-regel hiervoor in checkout.scss).
+                //
+                // De wrapper moet er ALTIJD komen, ook zonder .toggle (bv. een
+                // ingelogde klant, die ziet nooit een "Terugkerende klant?"-
+                // melding) — de grid-plaatsing van #customer_details loopt via
+                // .mkcp-login-and-details (zie checkout.scss), dus zonder
+                // wrapper viel #customer_details terug op de standaard grid-
+                // auto-plaatsing en schoof de hele rechterkolom mee omlaag.
+                var outer = document.createElement('div');
+                outer.className = 'mkcp-login-and-details';
+                anchor.parentNode.insertBefore( outer, anchor );
+
+                if ( toggle ) {
+                    var wrap = document.createElement('div');
+                    wrap.className = 'mkcp-login-area';
+                    wrap.appendChild( toggle );
+                    outer.appendChild( wrap );
+                }
+                outer.appendChild( anchor );
+            }
+            mkcpMoveLoginToggle();
+
+            function mkcpBuildLoginModal() {
+                var form = document.querySelector('.woocommerce-form-login');
+                if ( ! form || document.getElementById('mkcp-login-modal') ) return;
+
+                modal = document.createElement('div');
+                modal.id = 'mkcp-login-modal';
+                modal.className = 'mkcp-login-modal';
+                modal.setAttribute( 'inert', '' );
+                modal.innerHTML =
+                    '<div class="mkcp-login-modal__backdrop"></div>' +
+                    '<div class="mkcp-login-modal__dialog" role="dialog" aria-modal="true" aria-label="<?php echo esc_js( __( 'Inloggen', 'mk-cart-popup' ) ); ?>" tabindex="-1">' +
+                        '<button type="button" class="mkcp-login-modal__close" aria-label="<?php echo esc_js( __( 'Sluiten', 'mk-cart-popup' ) ); ?>">' +
+                            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+                        '</button>' +
+                    '</div>';
+                dialog = modal.querySelector('.mkcp-login-modal__dialog');
+                // WooCommerce rendert dit formulier standaard al met inline
+                // style="display:none" (global/form-login.php, 'hidden' =>
+                // !$show_form) — die stijl reist gewoon mee bij het verplaatsen
+                // en overleefde de modal-wrapper's eigen zichtbaarheids-CSS,
+                // met een lege dialoog tot gevolg. Zichtbaarheid is nu
+                // volledig de verantwoordelijkheid van .mkcp-login-modal.is-
+                // open, dus de eigen inline stijl van het formulier moet weg.
+                form.style.display = '';
+                dialog.appendChild( form );
+                document.body.appendChild( modal );
+
+                modal.querySelector('.mkcp-login-modal__backdrop').addEventListener('click', closeLoginModal);
+                modal.querySelector('.mkcp-login-modal__close').addEventListener('click', closeLoginModal);
+
+                form.addEventListener('submit', function () {
+                    form.classList.add('is-submitting');
+                });
+            }
+
+            function openLoginModal( trigger ) {
+                if ( ! modal ) return;
+                lastFocusedTrigger = ( trigger && trigger.nodeType === 1 ) ? trigger : document.activeElement;
+                modal.removeAttribute('inert');
+                modal.classList.add('is-open');
+                document.documentElement.classList.add('mkcp-login-modal-open');
+                document.body.classList.add('mkcp-login-modal-open');
+                dialog.focus();
+                setTimeout( function () {
+                    var el = document.getElementById('username');
+                    if ( el && el.offsetParent !== null ) el.focus();
+                }, 50 );
+            }
+
+            function closeLoginModal() {
+                if ( ! modal || ! modal.classList.contains('is-open') ) return;
+                modal.classList.remove('is-open');
+                modal.setAttribute('inert', '');
+                document.documentElement.classList.remove('mkcp-login-modal-open');
+                document.body.classList.remove('mkcp-login-modal-open');
+                if ( lastFocusedTrigger && document.body.contains( lastFocusedTrigger ) ) {
+                    lastFocusedTrigger.focus();
+                }
+                lastFocusedTrigger = null;
+            }
+
+            mkcpBuildLoginModal();
+
+            // WooCommerce's eigen showlogin-handler (checkout.js) luistert via
+            // EVENT DELEGATION op document.body ($(document.body).on('click',
+            // 'a.showlogin', ...)) — die hangt dus niet op de link zelf, en
+            // clone+replace (wat wél op een DIRECT gebonden listener had
+            // gewerkt) doet daar niets tegen. Zonder tegenmaatregel vuurden
+            // beide handlers op elke klik: onze popup ging open, terwijl
+            // WooCommerce's eigen slideToggle() tegelijk de (inmiddels in
+            // de modal verplaatste) formulier-inhoud weer inklapte — vandaar
+            // de soms lege dialoog. e.stopPropagation() hier, vóór de bubbel
+            // ooit bij document.body aankomt, voorkomt dat WC's handler
+            // überhaupt nog gevuurd wordt.
+            document.querySelectorAll('.showlogin').forEach( function ( link ) {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openLoginModal( link );
+                });
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if ( ! modal || ! modal.classList.contains('is-open') ) return;
+                if ( e.key === 'Escape' ) { closeLoginModal(); return; }
+                if ( e.key !== 'Tab' ) return;
+                // Eenvoudige focus-trap: bij Tab voorbij het laatste/eerste
+                // focusbare element weer naar het andere uiteinde springen.
+                var items = dialog.querySelectorAll( FOCUSABLE_SELECTOR );
+                if ( ! items.length ) return;
+                var first = items[0], last = items[ items.length - 1 ];
+                if ( e.shiftKey && document.activeElement === first ) {
+                    e.preventDefault(); last.focus();
+                } else if ( ! e.shiftKey && document.activeElement === last ) {
+                    e.preventDefault(); first.focus();
+                }
+            });
+
+            <?php if ( $mkcp_just_attempted_login ) : ?>
+            // Mislukte inlogpoging: de pagina is net volledig herladen met
+            // $_POST['login'] gezet — open de modal meteen weer, met een
+            // korte shake, i.p.v. te verwachten dat de klant 'm zelf opnieuw
+            // aanklikt.
+            if ( modal ) {
+                openLoginModal( null );
+                dialog.classList.add('mkcp-login-shake');
+                dialog.addEventListener('animationend', function () {
+                    dialog.classList.remove('mkcp-login-shake');
+                }, { once: true });
+            }
+            <?php endif; ?>
+        })();
+        </script>
+        <?php
+    }, 20 );
+}, 5 );
+
+
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
     if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
@@ -2243,6 +2653,22 @@ add_action( 'wp', function() {
             if (window.jQuery) {
                 jQuery(document).on('updated_checkout', function () {
                     setTimeout(mkco_reorganize, 80);
+                });
+            }
+
+            // Skeleton-laadstatus voor de leveringssectie tijdens WooCommerce's
+            // "update_checkout"-AJAX (land/verzendmethode wijzigen) — zie de
+            // toelichting bij .mkcp-co-section__body.is-loading in checkout.scss:
+            // WC's eigen blockUI dimt alleen #payment/#order_review, niet deze
+            // door mkco_reorganize() verplaatste sectie.
+            if (window.jQuery) {
+                jQuery(document.body).on('update_checkout', function () {
+                    var body = document.querySelector('.mkcp-co-section--delivery .mkcp-co-section__body');
+                    if (body) body.classList.add('is-loading');
+                });
+                jQuery(document.body).on('updated_checkout', function () {
+                    var body = document.querySelector('.mkcp-co-section--delivery .mkcp-co-section__body');
+                    if (body) body.classList.remove('is-loading');
                 });
             }
 
