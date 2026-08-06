@@ -26,6 +26,15 @@
     var OPEN_CLS = 'is-open';
     var BODY_CLS = 'mk-cart-open';
 
+    // Fallback cart-icoon-selector wanneer de admin geen eigen CSS-selector
+    // heeft ingevuld. Bewust ZONDER a[href*="cart"] — dat matchte in de
+    // praktijk elke "Toevoegen aan winkelwagen"-link op een archiefpagina
+    // (WooCommerce's eigen AJAX-knoppen hebben een href als
+    // "?add-to-cart=123") en elke "Winkelwagen"-menu-/footer-link, waardoor
+    // de badge op tientallen plekken tegelijk verscheen i.p.v. alleen op het
+    // header-cart-icoon.
+    var DEFAULT_CART_ICON_SELECTOR = '.cart-contents, .woocommerce-cart-link, [data-cart-count]';
+
     // Focus-trap/-restore (WAI-ARIA dialog pattern). FOCUSABLE_SELECTOR bepaalt
     // de Tab-cyclus binnen de drawer; lastFocusedTrigger onthoudt waar de focus
     // vandaan kwam zodat closePopup() 'm daar weer kan neerzetten.
@@ -564,20 +573,39 @@
     function submitCartForm( $form, $btn ) {
         if ( $form.hasClass( 'mk-loading' ) ) return; // dubbele klik/submit binnen dezelfde ronde
 
-        // Variabel product zonder (nog) opgeloste variation_id: WooCommerce's
-        // eigen add-to-cart-variation.js disabled de knop hiervoor normaal
-        // gesproken, maar bij thema's met een eigen swatch-UI (of veel
-        // variaties, waarbij WC de matching-variatie pas ná een eigen AJAX-
-        // call oplost) kan de knop nog even klikbaar zijn vóórdat dat gebeurd
-        // is. Zonder deze check stuurt de server een foutrespons terug en
-        // valt dit hieronder terug op window.location/form.submit() — dat
-        // voelt voor de klant aan als "de pagina herlaadt en de popup
-        // verschijnt niet". Liever hier al een duidelijke melding, geen
-        // mislukte round-trip.
+        // Variabel product zonder (nog) opgeloste/actuele variation_id.
+        // WooCommerce's eigen add-to-cart-variation.js hangt ZIJN click-
+        // handler rechtstreeks aan dit <form> (wij zitten op document) — door
+        // event-bubbling vuurt die van WooCommerce dus altijd eerder dan de
+        // onze. Zodra een dropdown wijzigt, zet WooCommerce SYNCHROON de
+        // class "disabled" (+ "wc-variation-selection-needed") op de knop,
+        // en haalt die er pas weer af zodra de bijbehorende variatie
+        // (eventueel via een eigen AJAX-rondje bij veel variatiecombinaties)
+        // daadwerkelijk is teruggevonden. Vroeger checkten we hier alléén of
+        // variation_id > 0 was — maar bij snel meerdere dropdowns achter
+        // elkaar wijzigen kan dat veld nog een VEROUDERDE waarde bevatten
+        // die niet bij de laatste keuze hoort, terwijl de knop intussen wél
+        // alweer .disabled is. Die verouderde variation_id werd dan alsnog
+        // meegestuurd, de server wees 'm af, en onze eigen foutafhandeling
+        // deed daarna een volledige pagina-herlading (zie het "error"-blok
+        // hieronder) — voor de klant leek dat willekeurig, want de dropdowns
+        // stonden na de herlading gewoon weer goed. .disabled meenemen in
+        // deze check dekt dit hele scenario, sync én async.
         if ( $form.hasClass( 'variations_form' ) ) {
             var $variationIdField = $form.find( 'input[name="variation_id"]' );
-            if ( $variationIdField.length && ! ( parseInt( $variationIdField.val() || 0, 10 ) > 0 ) ) {
-                showToast( 'Kies eerst een optie voordat je toevoegt aan de winkelwagen.', 'error' );
+            var variationNotReady = $btn.hasClass( 'disabled' )
+                || ( $variationIdField.length && ! ( parseInt( $variationIdField.val() || 0, 10 ) > 0 ) );
+            if ( variationNotReady ) {
+                // WooCommerce's eigen handler (zie hierboven) toonde bij
+                // .disabled al zijn eigen window.alert() ("kies een optie" /
+                // "niet beschikbaar") — dan hoeven wij niet nogmaals een
+                // eigen melding te tonen, dat zou dubbelop zijn. Alleen in
+                // het randgeval waarin de knop nog NIET .disabled is maar er
+                // toch nog geen variation_id bekend is, heeft de klant nog
+                // geen enkele melding gezien — dan tonen we die zelf.
+                if ( ! $btn.hasClass( 'disabled' ) ) {
+                    showToast( 'Kies eerst een optie voordat je toevoegt aan de winkelwagen.', 'error' );
+                }
                 return;
             }
         }
@@ -1244,10 +1272,22 @@
     // CSS in/uit beeld worden geschakeld). .first() zou dan altijd aan hetzelfde
     // — mogelijk onzichtbare — icoon plakken; hang de badge daarom op elk
     // matchend icoon, met een eigen gekloonde badge per element.
+    //
+    // :not(.mk-cart-popup__btn) alleen was niet genoeg: de fallback-selector
+    // hieronder bevat [data-cart-count], en dat attribuut staat ook op #mk-
+    // cart-popup zelf (de drawer-root, zie templates/cart-popup.php) — dat
+    // element werd zo zelf een "match", en .css('position','relative') erop
+    // overschreef de vereiste position:fixed van de drawer (cart-popup.scss),
+    // waarna de popup niet meer als overlay opende. Sluit daarom expliciet de
+    // eigen plugin-DOM (drawer + peek-tab) uit, niet alleen de trigger-knop.
     function mkcpAttachBadgeToAll( selector, $badgeTemplate ) {
-        $( selector ).filter( ':not(.mk-cart-popup__btn)' ).each( function( i ) {
-            mkcpAttachBadge( $( this ), i === 0 ? $badgeTemplate : $badgeTemplate.clone() );
-        } );
+        $( selector )
+            .filter( ':not(.mk-cart-popup__btn)' )
+            .not( POPUP ).not( POPUP + ' *' )
+            .not( '#mkcp-peek' ).not( '#mkcp-peek *' )
+            .each( function( i ) {
+                mkcpAttachBadge( $( this ), i === 0 ? $badgeTemplate : $badgeTemplate.clone() );
+            } );
     }
 
     // Aantal-in-winkelwagen badge op het eigen cart-icoon van het thema.
@@ -1266,7 +1306,7 @@
             '</span>' );
         var selector = cartCountBadgeSelector
             ? cartCountBadgeSelector
-            : '.cart-contents, .woocommerce-cart-link, [data-cart-count], a[href*="cart"]';
+            : DEFAULT_CART_ICON_SELECTOR;
         mkcpAttachBadgeToAll( selector, $badge );
     }
 
@@ -1292,7 +1332,7 @@
             '</span>' );
         var selector = cartIconSelector
             ? cartIconSelector
-            : '.cart-contents, .woocommerce-cart-link, [data-cart-count], a[href*="cart"]';
+            : DEFAULT_CART_ICON_SELECTOR;
         mkcpAttachBadgeToAll( selector, $badge );
     }
 
@@ -1414,6 +1454,22 @@
         }
     }
 
+    // Spiegelt de lokale (localStorage) "bewaar voor later"-opslag naar de
+    // wishlist van ingelogde premium-klanten — puur best-effort, geen
+    // wachten/blokkeren en geen foutafhandeling nodig: de localStorage-opslag
+    // hierboven blijft de bron van waarheid voor de cart-popup-UI zelf, dit
+    // is alleen een cross-device-back-up (zie account-tab-overleg). Werkt
+    // niet voor gasten/basic-klanten — mkcp_wishlist_params bestaat dan
+    // simpelweg niet (zie includes/wishlist-icon.php).
+    function mirrorSavedToWishlist( productId ) {
+        if ( ! productId || typeof mkcp_wishlist_params === 'undefined' ) return;
+        $.post( mkcp_wishlist_params.ajax_url, {
+            action:     'mkcp_account_wishlist_item_add',
+            nonce:      mkcp_wishlist_params.nonce,
+            product_id: productId
+        } );
+    }
+
     $( document ).on( 'click', '.js-mkcp-save-later', function() {
         if ( ! saveForLater ) return;
         var $btn     = $( this );
@@ -1427,6 +1483,7 @@
         var saved = getSaved();
         saved.push( { name: name, undo: undoData, thumb: thumb, price: price, savedAt: Date.now(), productId: pid } );
         setSaved( saved );
+        mirrorSavedToWishlist( pid );
 
         cartAjax( 'mkcp_remove_item', { cart_item_key: key }, function() {
             renderSavedItems();
