@@ -259,15 +259,34 @@ if ( $show_cards && ! in_array( $chosen_method, $mkcp_sc_available_ids, true ) )
 				</p>
 			<?php endif; ?>
 			<?php
-		elseif ( ! $has_calculated_shipping || ! $formatted_destination ) :
-			if ( is_cart() && 'no' === get_option( 'woocommerce_enable_shipping_calc' ) ) {
-				echo wp_kses_post( apply_filters( 'woocommerce_shipping_not_enabled_on_cart_html', __( 'Shipping costs are calculated during checkout.', 'woocommerce' ) ) );
-			} else {
-				echo wp_kses_post( apply_filters( 'woocommerce_shipping_may_be_available_html', __( 'Enter your address to view shipping options.', 'woocommerce' ) ) );
-			}
-		elseif ( ! is_cart() ) :
-			echo wp_kses_post( apply_filters( 'woocommerce_no_shipping_available_html', __( 'There are no shipping options available. Please ensure that your address has been entered correctly, or contact us if you need any help.', 'woocommerce' ) ) );
-		else :
+		// Nette, opgemaakte melding i.p.v. WooCommerce's kale, ongestylede
+		// standaardtekst — dit is precies het moment waarop de kaartenstijl
+		// hierboven ($show_cards) nog niets kan tonen (bv. postcode/huisnummer
+		// nog niet ingevuld, of adres wél compleet maar toch geen enkele
+		// verzendmethode beschikbaar). Zelfde lege-staat-stijl (icoon +
+		// gestippelde kaart) als .mkcp-dd-empty bij de bezorgdatumkiezer,
+		// zodat dit niet als "kapot"/leeg aanvoelt maar als een duidelijke,
+		// verwachte tussenstap. WooCommerce's eigen filters blijven intact
+		// (apply_filters), alleen de OUTPUT wordt nu in een kader gezet.
+		elseif ( ! $has_calculated_shipping || ! $formatted_destination ) : ?>
+			<div class="mkcp-sc-empty">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+				<span>
+				<?php
+				if ( is_cart() && 'no' === get_option( 'woocommerce_enable_shipping_calc' ) ) {
+					echo wp_kses_post( apply_filters( 'woocommerce_shipping_not_enabled_on_cart_html', __( 'De verzendkosten worden tijdens het afrekenen berekend.', 'mk-cart-popup' ) ) );
+				} else {
+					echo wp_kses_post( apply_filters( 'woocommerce_shipping_may_be_available_html', __( 'Vul hierboven eerst je postcode en huisnummer in om de verzend- en afhaalopties te bekijken.', 'mk-cart-popup' ) ) );
+				}
+				?>
+				</span>
+			</div>
+		<?php elseif ( ! is_cart() ) : ?>
+			<div class="mkcp-sc-empty">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+				<span><?php echo wp_kses_post( apply_filters( 'woocommerce_no_shipping_available_html', __( 'Er zijn geen verzendopties beschikbaar. Controleer of je adres correct is ingevuld, of neem contact met ons op.', 'mk-cart-popup' ) ) ); ?></span>
+			</div>
+		<?php else :
 			echo wp_kses_post(
 				apply_filters(
 					'woocommerce_cart_no_shipping_available_html',

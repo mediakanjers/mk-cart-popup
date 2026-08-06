@@ -38,18 +38,55 @@
     min-width: 0;
 }
 
+// Lege staat — postcode/huisnummer nog niet ingevuld (of, op de winkelwagen-
+// pagina, écht geen verzendmethode beschikbaar). Zelfde gestippelde-kader-
+// stijl als .mkcp-dd-empty bij de bezorgdatumkiezer, zodat dit als een
+// duidelijke, verwachte tussenstap oogt i.p.v. een leeg/kapot vlak.
+.mkcp-sc-empty {
+    display      : flex;
+    align-items  : flex-start;
+    gap          : 10px;
+    padding      : 12px 14px;
+    border       : 1.5px dashed #d1d5db;
+    border-radius: 10px;
+    background   : #f9fafb;
+    color        : #4b5563;
+    font-size    : 13px;
+    line-height  : 1.5;
+
+    svg {
+        width      : 20px;
+        height     : 20px;
+        flex-shrink: 0;
+        margin-top : 1px;
+        color      : #9ca3af;
+    }
+}
+
 // "en N meer" / "minder tonen" — klikbaar in/uitklappen van de volledige
-// artikelenlijst (zie mkcp-sc-package-details-short/-full hierboven).
+// artikelenlijst (zie mkcp-sc-package-details-short/-full hierboven). Zelfde
+// compacte knop-pil-taal als .showcoupon/.mkcp-manual-entry (checkout.scss):
+// vaste padding/radius/gewicht/accentkleur, i.p.v. de losstaande --mkcp-sc-
+// accent-variabele (blauw) die hier eerder een eigen, afwijkende kleur gaf.
 .mkcp-sc-package-more,
 .mkcp-sc-package-less {
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-weight: 700;
-    color: var(--mkcp-sc-accent, #2563eb);
-    text-decoration: underline;
-    cursor: pointer;
+    display        : inline-flex;
+    align-items    : center;
+    padding        : 3px 10px;
+    background     : var(--mkcp-accent-soft, rgba(46, 125, 50, .08));
+    color          : var(--mkcp-primary, var(--mkcp-accent, #2e7d32));
+    font-size      : 12px;
+    font-weight    : 600;
+    border         : 1px solid rgba(46, 125, 50, .2);
+    border-radius  : 999px;
+    text-decoration: none;
+    cursor         : pointer;
+    transition      : background .15s, border-color .15s;
+
+    &:hover {
+        background  : rgba(46, 125, 50, .15);
+        border-color: rgba(46, 125, 50, .32);
+    }
 }
 
 .mkcp-sc-package-details-full {

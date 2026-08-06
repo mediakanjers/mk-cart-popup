@@ -37,25 +37,20 @@
     --mkcp-dd-accent-border: color-mix(in srgb, var(--mkcp-dd-accent) 40%, #fff);
 }
 
-/* Eigen, VASTE accentkleur per rol — zelfde element (.mkcp-pu-wrap staat
-   altijd samen met .mkcp-dd-wrap in de class-list, zie
-   mkcp_pickup_render_field() in pickup.php), dus deze ene override per rol
-   volstaat: alle --mkcp-dd-accent-*-afgeleiden hierboven worden op DIT
-   element opnieuw berekend met de nieuwe waarde (in tegenstelling tot de
-   kaarten in shipping-choice.scss, waar de afgeleiden op een voorouder-
-   element staan en dus wél stuk voor stuk herhaald moesten worden).
-   Bezorgen krijgt hier bewust ook een eigen vaste waarde i.p.v. gewoon de
-   fallback (var(--mkcp-accent, #2563eb)) op .mkcp-dd-wrap hierboven te laten
-   staan — sommige sites hebben zelf al een --mkcp-accent ingesteld (bv. een
-   donkere merk-navy), wat de bezorgwidget dan een andere kleur gaf dan de
-   bewust gekozen teal van de afhaalwidget. .mkcp-dd-wrap:not(.mkcp-pu-wrap)
-   raakt nooit hetzelfde element als .mkcp-pu-wrap hieronder (per definitie
-   uitgesloten door :not()), dus er is geen specificiteitsstrijd tussen de
-   twee regels. */
-.mkcp-dd-wrap:not(.mkcp-pu-wrap) {
-    --mkcp-dd-accent: #2563eb;
-}
-
+/* Afhalen krijgt een eigen, VASTE accentkleur (teal) i.p.v. de fallback
+   (var(--mkcp-accent, #2563eb)) op .mkcp-dd-wrap hierboven — zodat bezorgen
+   en afhalen altijd aan hun kleur te onderscheiden blijven, ook wanneer een
+   site zelf al een --mkcp-accent heeft ingesteld die anders per ongeluk aan
+   beide widgets dezelfde kleur zou geven. Bezorgen zelf heeft bewust GEEN
+   eigen override (meer): dat volgt gewoon --mkcp-accent van de rest van de
+   checkout, net als de adreskaarten/knoppen elders op de pagina — alleen
+   afhalen wijkt hier bewust van af.
+   .mkcp-pu-wrap staat altijd samen met .mkcp-dd-wrap in de class-list (zie
+   mkcp_pickup_render_field() in pickup.php); alle --mkcp-dd-accent-*-
+   afgeleiden op .mkcp-dd-wrap hierboven worden op DIT element opnieuw
+   berekend met deze nieuwe waarde (in tegenstelling tot de kaarten in
+   shipping-choice.scss, waar de afgeleiden op een voorouder-element staan en
+   dus wél stuk voor stuk herhaald moesten worden). */
 .mkcp-pu-wrap {
     --mkcp-dd-accent: #0d9488;
 }
@@ -125,6 +120,24 @@
 .mkcp-dd-body-inner {
     overflow: hidden;
     min-height: 0;
+    // De nav-pijltjes (.mkcp-dd-nav--prev/--next hieronder) steken bewust
+    // 13px buiten hun eigen .mkcp-dd-track-doos uit. Zonder deze padding +
+    // compenserende negatieve margin (samen 0 netto ruimte-effect — puur
+    // een boksgrens-truc) telt die uitstekende 13px mee als horizontale
+    // overflow van DIT element (nodig voor de inklap-animatie hierboven,
+    // dus overflow:hidden kan niet weg). Bij elke klik op een pijltje riep
+    // delivery-date.js scrollIntoView() aan op de nieuw geselecteerde
+    // datum — de browser scrollt dan ELKE scrollbare voorouder die nodig is
+    // om 'm zichtbaar te maken, dus ook dít element (overflow:hidden telt
+    // daarvoor net zo goed mee als overflow:auto), niet alleen de bedoelde
+    // .mkcp-dd-cards-viewport/.mkcp-dd-chips-row-scroller. Bij een paar
+    // kliks achter elkaar stapelde die scroll zich op, waardoor het hele
+    // blok zichtbaar naar links opschoof en de pijltjes deels achter de
+    // sectie-achtergrond verdwenen. Met deze padding/margin blijft de
+    // 13px-uitstulping binnen de eigen boksgrens vallen, dus is er nooit
+    // echte overflow om te (laten) scrollen.
+    padding: 0 13px;
+    margin: 0 -13px;
 }
 .mkcp-dd-wrap.is-collapsed {
     margin-bottom: 10px;
@@ -798,20 +811,34 @@
     align-items: center;
     gap: 8px;
 }
-.mkcp-dd-final-row strong { color: #111827; }
+.mkcp-dd-final-row strong { color: #111827; display: block; }
 
 .mkcp-dd-final-icon {
-    width: 18px;
-    height: 18px;
+    width: 26px;
+    height: 26px;
     flex-shrink: 0;
-    // Vast blauw, zelfde als de bezorg-rol elders (kaarten, widget) — niet
-    // var(--mkcp-accent, ...): dat zou hier alsnog de site's eigen
-    // brandkleur laten doorschemeren, precies het lek dat elders al is
-    // gefikst.
     color: #2563eb;
+    background-color: #2563eb;
+    border-radius: 50%;
+    padding: 3px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 0em;
 }
-.mkcp-dd-final-row--pickup .mkcp-dd-final-icon { color: #0d9488; }
-.mkcp-dd-final-icon svg { width: 100%; height: 100%; stroke: currentColor; }
+
+.mkcp-dd-final-row--pickup .mkcp-dd-final-icon {
+    color: #0d9488;
+    background-color: #0d9488;
+    border-radius: 50%;
+    padding: 3px;
+}
+
+.mkcp-dd-final-icon svg {
+    width: 70%;
+    height: 100%;
+    stroke: white;
+}
 
 /* ── Afhalen: locatie-info + tijdsloten ──────────────────────────────────────── */
 
