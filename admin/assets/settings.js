@@ -73,6 +73,62 @@
         if (activeNav && adminWrap) adminWrap.setAttribute('data-active-panel', activeNav.dataset.tab || 'dashboard');
     }());
 
+    // ── Retour-aanvragen (Account → Retouren) ───────────────────────────────
+    //
+    // Statusfilter herlaadt de pagina met een aangepaste query-string (simpel
+    // en robuust — de tabel staat toch al server-side gerenderd, geen reden
+    // om dat ene filter apart via AJAX te doen). Goedkeuren/afwijzen/
+    // voltooien gaat wél via AJAX: vervangt alleen de tabelkaart, niet de
+    // hele pagina, en blijft in hetzelfde filter staan (server geeft het
+    // filter terug mee in de herrenderde HTML).
+    (function() {
+        // Event delegation i.p.v. een losse element-referentie op te slaan —
+        // het filterveld wordt na elke Goedkeuren/Afwijzen/Voltooien-actie
+        // vervangen (de hele kaart krijgt een nieuwe outerHTML), waardoor een
+        // vastgehouden referentie stale zou worden en de listener na de
+        // eerste actie niet meer zou vuren.
+        document.addEventListener('change', function(e) {
+            if (e.target.id !== 'mkcp-return-status-filter') return;
+            var url = new URL(window.location.href);
+            if (e.target.value) {
+                url.searchParams.set('mkcp_return_status', e.target.value);
+            } else {
+                url.searchParams.delete('mkcp_return_status');
+            }
+            window.location.href = url.toString();
+        });
+
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.js-mkcp-return-action');
+            if (!btn || typeof mkcpAdmin === 'undefined') return;
+
+            var row = btn.closest('tr[data-return-id]');
+            if (!row) return;
+            var noteField = row.querySelector('.js-mkcp-return-note');
+            var currentFilterEl = document.getElementById('mkcp-return-status-filter');
+            var currentFilter = currentFilterEl ? currentFilterEl.value : '';
+
+            btn.disabled = true;
+            var data = new FormData();
+            data.append('action', 'mkcp_account_admin_return_update');
+            data.append('nonce', mkcpAdmin.returnsNonce);
+            data.append('id', row.dataset.returnId);
+            data.append('status', btn.dataset.status);
+            data.append('note', noteField ? noteField.value : '');
+            data.append('status_filter', currentFilter);
+
+            fetch(mkcpAdmin.ajaxUrl, { method: 'POST', body: data, credentials: 'same-origin' })
+                .then(function(res) { return res.json(); })
+                .then(function(json) {
+                    if (json && json.success && json.data && typeof json.data.html === 'string') {
+                        var panel = document.querySelector('.mkcp-panel--account-returns .mkcp-glass');
+                        if (panel) panel.outerHTML = json.data.html;
+                    }
+                })
+                .catch(function() { btn.disabled = false; });
+        });
+    }());
+
 
     // ── Sub-tabs binnen een panel (bv. Bezorgen / Afhalen) ───────────────────
     // Puur clientside tonen/verbergen — alle velden van beide sub-tabs blijven
@@ -115,37 +171,82 @@
         toggle.addEventListener('change', sync);
     });
 
+    // ── "Account aanmaken?"-checkbox — toelichtingstekst live aan/uit ────────
+
+    (function() {
+        var toggle = document.getElementById('mkcp-createaccount-enabled');
+        var row    = document.getElementById('mkcp-createaccount-info-row');
+        if (!toggle || !row) return;
+        var fields = row.querySelectorAll('input, textarea');
+        var sync = function() {
+            row.style.opacity = toggle.checked ? '' : '.4';
+            row.style.pointerEvents = toggle.checked ? '' : 'none';
+            fields.forEach(function(f) { f.disabled = !toggle.checked; });
+        };
+        toggle.addEventListener('change', sync);
+    }());
+
+    // ── "Terugkerende klant?"-inlogformulier — toelichtingstekst live aan/uit ─
+
+    (function() {
+        var toggle = document.getElementById('mkcp-login-reminder-enabled');
+        var row    = document.getElementById('mkcp-login-reminder-info-row');
+        if (!toggle || !row) return;
+        var fields = row.querySelectorAll('input, textarea');
+        var sync = function() {
+            row.style.opacity = toggle.checked ? '' : '.4';
+            row.style.pointerEvents = toggle.checked ? '' : 'none';
+            fields.forEach(function(f) { f.disabled = !toggle.checked; });
+        };
+        toggle.addEventListener('change', sync);
+    }());
+
 
     // ── Product switcher (Cart Popup ↔ Cart Checkout) ────────────────────────
 
     var productBtns       = document.querySelectorAll('.mkcp-product-btn[data-product]');
     var productInput      = document.getElementById('mkcp-active-product');
-    var navWrapPopup      = document.getElementById('mkcp-nav-wrap-popup');
-    var navWrapCheckout   = document.getElementById('mkcp-nav-wrap-checkout');
-    var navPopup          = document.getElementById('mkcp-nav-popup');
-    var navCheckout       = document.getElementById('mkcp-nav-checkout');
+    var navWraps = {
+        popup:    document.getElementById('mkcp-nav-wrap-popup'),
+        checkout: document.getElementById('mkcp-nav-wrap-checkout'),
+        account:  document.getElementById('mkcp-nav-wrap-account')
+    };
+    // Elk product krijgt hier zijn eigen tab-prefix + terugvaltab, zodat een
+    // toekomstig vierde product hier maar op één plek toegevoegd hoeft te
+    // worden i.p.v. op meerdere losse if/else-takken (zoals dit vóór de
+    // Account-tab nog was, met een expliciete "isCheckoutPanel"-check).
+    var PRODUCT_DEFAULTS = {
+        popup:    { prefix: null,         defaultTab: 'dashboard' },
+        checkout: { prefix: 'checkout-',  defaultTab: 'checkout-dashboard' },
+        account:  { prefix: 'account-',   defaultTab: 'account-general' }
+    };
     var popupSidebar      = document.getElementById('mkcp-popup-sidebar');
     var PRODUCT_KEY       = 'mkcp_active_product';
 
     function activateProduct(product) {
+        if (!PRODUCT_DEFAULTS[product]) product = 'popup';
+
         productBtns.forEach(function(b) { b.classList.toggle('is-active', b.dataset.product === product); });
-        if (navWrapPopup)    navWrapPopup.style.display    = product === 'popup'    ? '' : 'none';
-        if (navWrapCheckout) navWrapCheckout.style.display = product === 'checkout' ? '' : 'none';
-        if (popupSidebar) popupSidebar.style.display = product === 'checkout' ? 'none' : '';
+        Object.keys(navWraps).forEach(function(key) {
+            if (navWraps[key]) navWraps[key].style.display = key === product ? '' : 'none';
+        });
+        if (popupSidebar) popupSidebar.style.display = product === 'popup' ? '' : 'none';
         if (productInput) productInput.value = product;
 
-        // Switch to correct panel for the newly visible nav.
-        // Prefix-check i.p.v. een handmatige naamlijst — anders belandt elke
-        // nieuwe "checkout-*"-tab (zoals dat eerder met checkout-builder/
-        // -styling/-delivery gebeurde) hier niet in de lijst, waardoor een
-        // reload na het opslaan altijd terugspringt naar checkout-dashboard.
+        // Switch to correct panel for the newly visible nav — alleen als de
+        // huidige panel niet al bij dit product hoort (prefix-check, anders
+        // belandt elke nieuwe "checkout-*"/"account-*"-tab hier niet in de
+        // lijst en springt een reload na opslaan altijd terug naar het
+        // eerste tabblad van dat product).
         var currentPanel = (document.querySelector('.mkcp-panel.is-active') || {}).dataset && document.querySelector('.mkcp-panel.is-active').dataset.panel;
-        var isCheckoutPanel = !!currentPanel && currentPanel.indexOf('checkout-') === 0;
+        var belongsToProduct = currentPanel && Object.keys(PRODUCT_DEFAULTS).some(function(key) {
+            var prefix = PRODUCT_DEFAULTS[key].prefix;
+            var matches = prefix ? currentPanel.indexOf(prefix) === 0 : currentPanel.indexOf('-') === -1;
+            return key === product && matches;
+        });
 
-        if (product === 'checkout' && !isCheckoutPanel) {
-            activateTab('checkout-dashboard');
-        } else if (product === 'popup' && isCheckoutPanel) {
-            activateTab('dashboard');
+        if (!belongsToProduct) {
+            activateTab(PRODUCT_DEFAULTS[product].defaultTab);
         }
 
         try { localStorage.setItem(PRODUCT_KEY, product); } catch(e) {}
@@ -161,7 +262,7 @@
         var stored;
         try { stored = localStorage.getItem(PRODUCT_KEY); } catch(e) {}
         var initial = urlProduct || stored || 'popup';
-        if (initial === 'checkout') activateProduct('checkout');
+        if (initial !== 'popup') activateProduct(initial);
     }());
 
 
@@ -192,7 +293,12 @@
 
     document.querySelectorAll('.mkcp-badge-pos-option input[type="radio"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
-            document.querySelectorAll('.mkcp-badge-pos-option').forEach(function(opt) {
+            // Scoped op de eigen .mkcp-badge-position-grid — er staan meerdere
+            // van deze positie-kiezers los naast elkaar op de pagina (hartje-
+            // badge, aantal-badge, ...), een ongescoped document-brede query
+            // wiste de highlight van de andere kiezer(s) mee.
+            var grid = this.closest('.mkcp-badge-position-grid');
+            grid.querySelectorAll('.mkcp-badge-pos-option').forEach(function(opt) {
                 opt.classList.remove('is-selected');
             });
             this.closest('.mkcp-badge-pos-option').classList.add('is-selected');

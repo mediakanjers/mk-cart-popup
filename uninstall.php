@@ -29,6 +29,8 @@ function mkcp_uninstall_cleanup_current_site() {
         'mkcp_license_clock_offset',
         'mkcp_ac_db_version',
         'mkcp_ac_delay_migrated',
+        'mkcp_account_settings',
+        'mkcp_account_db_version',
         'mkcp_pu_ready_log',
         'mkcp_seen_feature_highlights',
         'mkcp_show_onboarding',
@@ -66,6 +68,13 @@ function mkcp_uninstall_cleanup_current_site() {
     // Custom tabellen van de verlaten-winkelwagen-feature.
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_abandoned_carts" );
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_ac_suppressed" );
+
+    // Custom tabellen van de Account-omgeving (includes/account-db.php).
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_wishlist_items" );
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_wishlists" );
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_addresses" );
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_notifications" );
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}mkcp_return_requests" );
 
     // Cron-event — deactivatie ruimt dit al op, maar een plugin kan ook
     // zonder tussentijdse deactivatie direct verwijderd worden.

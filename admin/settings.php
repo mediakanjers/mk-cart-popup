@@ -153,6 +153,12 @@ add_action( 'admin_init', function() {
         'country_field_locked'         => ! empty( $post['mkcp_checkout_country_field_locked'] ),
         'company_field_enabled'        => ! empty( $post['mkcp_checkout_company_field_enabled'] ),
         'order_notes_enabled'          => ! empty( $post['mkcp_checkout_order_notes_enabled'] ),
+        'createaccount_enabled'        => ! empty( $post['mkcp_checkout_createaccount_enabled'] ),
+        'createaccount_info_title'     => sanitize_text_field( $post['mkcp_checkout_createaccount_info_title'] ?? '' ),
+        'createaccount_info_text'      => sanitize_textarea_field( wp_unslash( $post['mkcp_checkout_createaccount_info_text'] ?? '' ) ),
+        'login_reminder_enabled'       => ! empty( $post['mkcp_checkout_login_reminder_enabled'] ),
+        'login_reminder_info_title'    => sanitize_text_field( $post['mkcp_checkout_login_reminder_info_title'] ?? '' ),
+        'login_reminder_info_text'     => sanitize_textarea_field( wp_unslash( $post['mkcp_checkout_login_reminder_info_text'] ?? '' ) ),
         'checkout_button_text'         => sanitize_text_field( $post['mkcp_checkout_button_text'] ?? '' ),
         'vat_checker_status_enabled'   => ! empty( $post['mkcp_checkout_vat_checker_status_enabled'] ),
 
@@ -208,6 +214,44 @@ add_action( 'admin_init', function() {
         'hide_paid_delivery_if_free' => ! empty( $post['mkcp_hide_paid_delivery'] ),
     ];
     update_option( 'mkcp_checkout_settings', $checkout );
+
+    // Account settings — zelfde onvoorwaardelijke save-aanpak als hierboven
+    // bij Checkout: de premium-gate wordt afgedwongen op het frontend
+    // (mkcp_account_is_active() in includes/account-frontend.php), niet hier.
+    $account_return_window  = isset( $post['mkcp_account_return_window_days'] ) ? absint( $post['mkcp_account_return_window_days'] ) : 14;
+    $account_max_addresses  = isset( $post['mkcp_account_max_addresses'] ) ? absint( $post['mkcp_account_max_addresses'] ) : 20;
+    $account_orders_per_page = isset( $post['mkcp_account_orders_per_page'] ) ? absint( $post['mkcp_account_orders_per_page'] ) : 10;
+    $account_notif_retention = isset( $post['mkcp_account_notification_retention_days'] ) ? absint( $post['mkcp_account_notification_retention_days'] ) : 0;
+    $account_tier_silver     = isset( $post['mkcp_account_rewards_tier_silver_threshold'] ) ? absint( $post['mkcp_account_rewards_tier_silver_threshold'] ) : 100;
+    $account_tier_gold       = isset( $post['mkcp_account_rewards_tier_gold_threshold'] ) ? absint( $post['mkcp_account_rewards_tier_gold_threshold'] ) : 500;
+    $account = [
+        'account_enabled'                 => ! empty( $post['mkcp_account_enabled'] ),
+        'account_wishlist_enabled'        => ! empty( $post['mkcp_account_wishlist_enabled'] ),
+        'account_returns_enabled'         => ! empty( $post['mkcp_account_returns_enabled'] ),
+        'account_notifications_enabled'   => ! empty( $post['mkcp_account_notifications_enabled'] ),
+        'account_rewards_enabled'         => ! empty( $post['mkcp_account_rewards_enabled'] ),
+        'account_wishlist_emails_enabled' => ! empty( $post['mkcp_account_wishlist_emails_enabled'] ),
+        // Elke numerieke instelling hieronder wordt hier nogmaals hard
+        // geclampt — het admin-invoerveld dwingt hetzelfde al client-side af
+        // (min/max-attributen), maar dat is UX, geen beveiliging.
+        'account_return_window_days'      => max( 1, min( 90, $account_return_window ?: 14 ) ),
+        'account_max_addresses'           => max( 1, min( 200, $account_max_addresses ?: 20 ) ),
+        'account_orders_per_page'         => max( 1, min( 100, $account_orders_per_page ?: 10 ) ),
+        'account_notification_retention_days' => min( 3650, $account_notif_retention ),
+        'account_rewards_tier_silver_threshold' => max( 1, $account_tier_silver ?: 100 ),
+        'account_rewards_tier_gold_threshold'   => max( 1, $account_tier_gold ?: 500 ),
+
+        // E-mailsjablonen — vrije tekst, geen kleur-/getalvalidatie nodig,
+        // wel sanitize_textarea_field (behoudt regeleindes, in
+        // tegenstelling tot sanitize_text_field) zodat de {placeholder}-
+        // opmaak met eigen regels intact blijft.
+        'account_wishlist_price_email_subject' => sanitize_text_field( $post['mkcp_account_wishlist_price_email_subject'] ?? '' ),
+        'account_wishlist_price_email_body'    => sanitize_textarea_field( $post['mkcp_account_wishlist_price_email_body'] ?? '' ),
+        'account_wishlist_stock_email_subject' => sanitize_text_field( $post['mkcp_account_wishlist_stock_email_subject'] ?? '' ),
+        'account_wishlist_stock_email_body'    => sanitize_textarea_field( $post['mkcp_account_wishlist_stock_email_body'] ?? '' ),
+    ];
+    update_option( 'mkcp_account_settings', $account );
+    if ( function_exists( 'mkcp_account_admin_clear_stats_cache' ) ) mkcp_account_admin_clear_stats_cache();
 
     // Block saving popup settings when no valid license is active.
     $license_tier = mkcp_license_tier();
@@ -325,6 +369,7 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
             'licenseTier'    => mkcp_license_tier(),
             'testEmailNonce' => wp_create_nonce( 'mkcp_test_email' ),
             'themeNonce'     => wp_create_nonce( 'mkcp_admin_theme' ),
+            'returnsNonce'   => wp_create_nonce( 'mkcp_account_admin_returns' ),
             'homeUrl'        => home_url( '/' ),
         ] );
 

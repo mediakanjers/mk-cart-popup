@@ -4,6 +4,8 @@
 $c              = mkcp_config();
 $cfg_co         = mkcp_checkout_config();
 $co_enabled     = ! empty( $cfg_co['checkout_enabled'] );
+$cfg_ac         = mkcp_account_config();
+$ac_enabled     = ! empty( $cfg_ac['account_enabled'] );
 $saved          = isset( $_GET['saved'] );
 $active_tab     = sanitize_key( $_GET['tab']     ?? 'dashboard' );
 $active_product = sanitize_key( $_GET['product'] ?? 'popup' );
@@ -18,7 +20,9 @@ $active_product = sanitize_key( $_GET['product'] ?? 'popup' );
 // bezoeker op zo'n URL terechtkomt.
 if ( 0 === strpos( $active_tab, 'checkout-' ) ) {
     $active_product = 'checkout';
-} elseif ( 'popup' !== $active_product && 'checkout' !== $active_product ) {
+} elseif ( 0 === strpos( $active_tab, 'account-' ) ) {
+    $active_product = 'account';
+} elseif ( ! in_array( $active_product, [ 'popup', 'checkout', 'account' ], true ) ) {
     $active_product = 'popup';
 }
 $logo_url_co    = ! empty( $cfg_co['header_logo_id'] )
@@ -163,10 +167,17 @@ $icons = [
                         <small>Checkout pagina <span class="mkcp-status-pill <?php echo $co_enabled ? 'mkcp-status-pill--on' : 'mkcp-status-pill--off'; ?>"><?php echo $co_enabled ? 'Aan' : 'Uit'; ?></span></small>
                     </span>
                 </button>
+                <button type="button" class="mkcp-product-btn <?php echo $active_product === 'account' ? 'is-active' : ''; ?> <?php echo ! $ac_enabled ? 'is-off' : ''; ?>" data-product="account">
+                    <span class="mkcp-product-icon"><?php echo $icons['bookmark']; ?></span>
+                    <span class="mkcp-product-info">
+                        <strong>Account</strong>
+                        <small>Mijn account pagina <span class="mkcp-status-pill <?php echo $ac_enabled ? 'mkcp-status-pill--on' : 'mkcp-status-pill--off'; ?>"><?php echo $ac_enabled ? 'Aan' : 'Uit'; ?></span></small>
+                    </span>
+                </button>
             </div>
 
             <!-- Cart Popup nav -->
-            <div class="mkcp-nav-wrap" id="mkcp-nav-wrap-popup" <?php echo $active_product === 'checkout' ? 'style="display:none"' : ''; ?>>
+            <div class="mkcp-nav-wrap" id="mkcp-nav-wrap-popup" <?php echo $active_product !== 'popup' ? 'style="display:none"' : ''; ?>>
             <nav class="mkcp-nav mkcp-nav--popup" id="mkcp-nav-popup">
                 <div class="mkcp-nav-section">Overzicht</div>
 
@@ -237,7 +248,7 @@ $icons = [
             </div><!-- /.mkcp-nav-wrap -->
 
             <!-- Cart Checkout nav -->
-            <div class="mkcp-nav-wrap" id="mkcp-nav-wrap-checkout" <?php echo $active_product === 'popup' ? 'style="display:none"' : ''; ?>>
+            <div class="mkcp-nav-wrap" id="mkcp-nav-wrap-checkout" <?php echo $active_product !== 'checkout' ? 'style="display:none"' : ''; ?>>
             <nav class="mkcp-nav mkcp-nav--checkout" id="mkcp-nav-checkout">
                 <div class="mkcp-nav-section">Overzicht</div>
 
@@ -292,6 +303,61 @@ $icons = [
                     <?php echo $icons['zap']; ?>
                     Bedankt-pagina
                     <?php if ( ! empty( $cfg_co['thankyou_enabled'] ) ) : ?>
+                        <span class="mkcp-nav-dot"></span>
+                    <?php endif; ?>
+                </div>
+
+            </nav>
+            </div><!-- /.mkcp-nav-wrap -->
+
+            <!-- Account nav -->
+            <?php $ac_open_returns = function_exists( 'mkcp_account_admin_get_stats' ) ? ( mkcp_account_admin_get_stats()['open_returns'] ?? 0 ) : 0; ?>
+            <div class="mkcp-nav-wrap" id="mkcp-nav-wrap-account" <?php echo $active_product !== 'account' ? 'style="display:none"' : ''; ?>>
+            <nav class="mkcp-nav mkcp-nav--account" id="mkcp-nav-account">
+                <div class="mkcp-nav-section">Overzicht</div>
+
+                <div class="mkcp-nav-item <?php echo $active_tab === 'account-dashboard' ? 'is-active' : ''; ?>" data-tab="account-dashboard">
+                    <?php echo $icons['grid']; ?>
+                    Dashboard
+                    <?php if ( $ac_enabled ) : ?>
+                        <span class="mkcp-nav-dot"></span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="mkcp-nav-item <?php echo $active_tab === 'account-stats' ? 'is-active' : ''; ?>" data-tab="account-stats">
+                    <?php echo $icons['bar-chart']; ?>
+                    Statistieken
+                </div>
+
+                <div class="mkcp-nav-section">Instellingen</div>
+
+                <div class="mkcp-nav-item <?php echo $active_tab === 'account-general' ? 'is-active' : ''; ?>" data-tab="account-general">
+                    <?php echo $icons['sliders']; ?>
+                    Algemeen
+                </div>
+
+                <div class="mkcp-nav-item <?php echo $active_tab === 'account-wishlist' ? 'is-active' : ''; ?>" data-tab="account-wishlist">
+                    <?php echo $icons['bookmark']; ?>
+                    Wishlist
+                    <?php if ( ! empty( $cfg_ac['account_wishlist_enabled'] ) ) : ?>
+                        <span class="mkcp-nav-dot"></span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="mkcp-nav-item <?php echo $active_tab === 'account-returns' ? 'is-active' : ''; ?>" data-tab="account-returns">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                    Retouren
+                    <?php if ( $ac_open_returns > 0 ) : ?>
+                        <span class="mkcp-nav-badge"><?php echo esc_html( $ac_open_returns ); ?></span>
+                    <?php elseif ( ! empty( $cfg_ac['account_returns_enabled'] ) ) : ?>
+                        <span class="mkcp-nav-dot"></span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="mkcp-nav-item <?php echo $active_tab === 'account-rewards' ? 'is-active' : ''; ?>" data-tab="account-rewards">
+                    <?php echo $icons['star']; ?>
+                    Beloningen
+                    <?php if ( ! empty( $cfg_ac['account_rewards_enabled'] ) ) : ?>
                         <span class="mkcp-nav-dot"></span>
                     <?php endif; ?>
                 </div>
@@ -3046,6 +3112,100 @@ $icons = [
                             </div>
                         </div>
 
+                        <?php
+                        $co_createaccount_enabled = ! empty( $cfg_co['createaccount_enabled'] );
+                        $wc_registration_enabled  = 'yes' === get_option( 'woocommerce_enable_signup_and_login_from_checkout' );
+                        ?>
+                        <?php if ( ! $wc_registration_enabled ) : ?>
+                        <div class="mkcp-glass" style="margin-bottom:16px;border-color:#f59e0b">
+                            <div class="mkcp-glass-body" style="display:flex;align-items:center;gap:12px">
+                                <span style="color:#f59e0b;flex-shrink:0"><?php echo $icons['alert']; ?></span>
+                                <span style="font-size:13px;color:var(--mkcp-ui-text2)">
+                                    <strong>WooCommerce-instelling staat uit</strong> — deze toggle zet alleen ónze eigen weergave aan/uit. De checkbox verschijnt pas zodra WooCommerce's eigen "Account aanmaken tijdens checkout toestaan"-instelling ook aanstaat.
+                                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=wc-settings&tab=account' ) ); ?>" target="_blank" style="color:var(--mkcp-ui-accent)">Open die instelling →</a>
+                                </span>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <!-- "Een account aanmaken?"-checkbox aan/uit — WooCommerce's eigen checkbox, wordt door deze plugin verplaatst naar onder de besteltabel -->
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>"Een account aanmaken?"-checkbox tonen</strong>
+                                <small>WooCommerce's eigen checkbox (alleen zichtbaar voor uitgelogde bezoekers, en alleen als WooCommerce → Instellingen → Account &amp; privacy account aanmaken tijdens checkout toestaat). Wordt automatisch verplaatst naar onder de besteltabel.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_createaccount_enabled" id="mkcp-createaccount-enabled" value="1"
+                                            <?php checked( $co_createaccount_enabled ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Checkbox tonen</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" id="mkcp-createaccount-info-row" style="<?php echo ! $co_createaccount_enabled ? 'opacity:.4;pointer-events:none' : ''; ?>">
+                            <div class="mkcp-setting-label">
+                                <strong>Toelichtingskader</strong>
+                                <small>Verschijnt in een eigen kader boven de checkbox — leg uit wat een account aanmaken oplevert en wat de vervolgstappen zijn (bv. wachtwoord instellen na de bestelling)</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <input type="text" class="mkcp-input" name="mkcp_checkout_createaccount_info_title"
+                                       placeholder="Account aanmaken?" style="margin-bottom:8px"
+                                       value="<?php echo esc_attr( $cfg_co['createaccount_info_title'] ?? '' ); ?>"
+                                       <?php echo ! $co_createaccount_enabled ? 'disabled' : ''; ?>>
+                                <textarea class="mkcp-input" name="mkcp_checkout_createaccount_info_text" rows="3"
+                                          placeholder="Met een account bewaar je je adresgegevens en kun je al je bestellingen terugvinden. Na het afronden van je bestelling ontvang je een e-mail om een wachtwoord in te stellen."
+                                          <?php echo ! $co_createaccount_enabled ? 'disabled' : ''; ?>><?php echo esc_textarea( $cfg_co['createaccount_info_text'] ?? '' ); ?></textarea>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <?php $co_login_reminder_enabled = ! empty( $cfg_co['login_reminder_enabled'] ); ?>
+                <div class="mkcp-glass">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['phone']; ?></div>
+                        <h3>"Terugkerende klant?"-inlogformulier</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <!-- WooCommerce's eigen inlogherinnering aan/uit — wordt alleen getoond als WooCommerce's eigen "Sta inloggen tijdens checkout toe"-instelling ook aanstaat -->
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Inlogherinnering tonen</strong>
+                                <small>WooCommerce's eigen "Terugkerende klant?"-melding + inlogformulier (alleen zichtbaar als WooCommerce → Instellingen → Account &amp; privacy inloggen tijdens checkout toestaat)</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_login_reminder_enabled" id="mkcp-login-reminder-enabled" value="1"
+                                            <?php checked( $co_login_reminder_enabled ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Tonen</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" id="mkcp-login-reminder-info-row" style="<?php echo ! $co_login_reminder_enabled ? 'opacity:.4;pointer-events:none' : ''; ?>">
+                            <div class="mkcp-setting-label">
+                                <strong>Toelichtingskader</strong>
+                                <small>Verschijnt bovenaan het inlogformulier — laat leeg om WooCommerce's eigen standaardtekst te gebruiken</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <input type="text" class="mkcp-input" name="mkcp_checkout_login_reminder_info_title"
+                                       placeholder="Al eerder besteld?" style="margin-bottom:8px"
+                                       value="<?php echo esc_attr( $cfg_co['login_reminder_info_title'] ?? '' ); ?>"
+                                       <?php echo ! $co_login_reminder_enabled ? 'disabled' : ''; ?>>
+                                <textarea class="mkcp-input" name="mkcp_checkout_login_reminder_info_text" rows="3"
+                                          placeholder="Log in met je account om je gegevens automatisch in te vullen en je bestelgeschiedenis te bekijken."
+                                          <?php echo ! $co_login_reminder_enabled ? 'disabled' : ''; ?>><?php echo esc_textarea( $cfg_co['login_reminder_info_text'] ?? '' ); ?></textarea>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -4889,6 +5049,445 @@ $icons = [
 
                 <div class="mkcp-save-bar">
                     <button type="submit" class="mkcp-btn mkcp-btn--primary" <?php echo $co_disabled; ?>>
+                        <?php echo $icons['check']; ?> Opslaan
+                    </button>
+                </div>
+
+            </div>
+
+
+            <?php
+            // Gedeeld door alle Account-tabbladen hieronder.
+            $ac_dimmed = $is_premium && ! $ac_enabled ? 'style="opacity:.5;pointer-events:none"' : '';
+            $ac_stats  = function_exists( 'mkcp_account_admin_get_stats' ) ? mkcp_account_admin_get_stats() : null;
+            ?>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- ACCOUNT — Dashboard                                               -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+
+            <div class="mkcp-panel mkcp-panel--account-dashboard <?php echo $active_tab === 'account-dashboard' ? 'is-active' : ''; ?>" data-panel="account-dashboard">
+
+                <div class="mkcp-page-header">
+                    <h2>Account</h2>
+                    <p>Vervangt WooCommerce's standaard "Mijn account"-pagina door een eigen, naadloos aansluitende ervaring — zelfde stijl als de winkelwagen en checkout, geen losstaand WooCommerce-scherm meer.</p>
+                </div>
+
+                <?php if ( ! $is_premium ) : ?>
+                <div class="mkcp-glass" style="margin-bottom:20px;border-color:#f59e0b">
+                    <div class="mkcp-glass-body" style="display:flex;align-items:center;gap:12px">
+                        <span style="color:#f59e0b;flex-shrink:0"><?php echo $icons['shield']; ?></span>
+                        <span style="font-size:13px;color:var(--mkcp-ui-text2)">
+                            <strong>Premium vereist</strong> — het Account-gedeelte is net als Cart Checkout een premium-feature.
+                            <button type="button" data-goto="licentie" style="background:none;border:none;padding:0;color:var(--mkcp-ui-accent);cursor:pointer;font-size:inherit;text-decoration:underline">Licentie activeren →</button>
+                        </span>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <div class="mkcp-dash-grid">
+
+                    <div class="mkcp-dash-card" style="grid-column:span 2; border-left:3px solid <?php echo $ac_enabled ? '#27ae60' : '#888'; ?>">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px">
+                            <div style="display:flex; align-items:center; gap:14px">
+                                <div class="mkcp-dash-card-icon" style="background:<?php echo $ac_enabled ? '#27ae601a' : 'var(--mkcp-ui-bg2)'; ?>; color:<?php echo $ac_enabled ? '#27ae60' : 'var(--mkcp-ui-text3)'; ?>; flex-shrink:0">
+                                    <?php echo $icons['sliders']; ?>
+                                </div>
+                                <div>
+                                    <div style="font-size:11px; color:var(--mkcp-ui-text3); text-transform:uppercase; letter-spacing:.5px; font-weight:600; margin-bottom:4px">Status</div>
+                                    <div style="font-size:20px; font-weight:700; color:<?php echo $ac_enabled ? '#27ae60' : 'var(--mkcp-ui-text)'; ?>; line-height:1.1"><?php echo $ac_enabled ? 'Ingeschakeld' : 'Uitgeschakeld'; ?></div>
+                                    <div class="mkcp-dash-card-sub"><?php echo $is_premium ? 'Premium-licentie actief' : 'Premium-licentie vereist'; ?></div>
+                                </div>
+                            </div>
+                            <button type="button" class="mkcp-btn mkcp-btn--ghost" data-goto="account-general" style="margin-left:auto; white-space:nowrap">
+                                <?php echo $icons['sliders']; ?> Naar Algemeen
+                            </button>
+                        </div>
+                    </div>
+
+                    <?php
+                    $ac_dash_modules = [
+                        [ 'key' => 'wishlist',      'label' => 'Wishlist',   'icon' => 'bookmark',   'tab' => 'account-wishlist' ],
+                        [ 'key' => 'returns',       'label' => 'Retouren',   'icon' => 'refresh-cw', 'tab' => 'account-returns' ],
+                        [ 'key' => 'notifications', 'label' => 'Meldingen',  'icon' => 'zap',         'tab' => 'account-general' ],
+                        [ 'key' => 'rewards',       'label' => 'Beloningen', 'icon' => 'star',        'tab' => 'account-rewards' ],
+                    ];
+                    foreach ( $ac_dash_modules as $dm ) :
+                        $dm_on = ! empty( $cfg_ac[ 'account_' . $dm['key'] . '_enabled' ] );
+                    ?>
+                    <div class="mkcp-dash-card" style="cursor:pointer" data-goto="<?php echo esc_attr( $dm['tab'] ); ?>">
+                        <div class="mkcp-dash-card-icon <?php echo $dm_on ? 'mkcp-dash-card-icon--green' : ''; ?>" style="<?php echo ! $dm_on ? 'background:var(--mkcp-ui-bg2);color:var(--mkcp-ui-text3)' : ''; ?>">
+                            <?php echo $icons[ $dm['icon'] ]; ?>
+                        </div>
+                        <h4><?php echo esc_html( $dm['label'] ); ?></h4>
+                        <div class="mkcp-dash-card-value" style="font-size:16px"><?php echo $dm_on ? 'Aan' : 'Uit'; ?></div>
+                        <div class="mkcp-dash-card-sub">Klik om te beheren</div>
+                    </div>
+                    <?php endforeach; ?>
+
+                    <?php if ( $ac_stats ) : ?>
+                        <div class="mkcp-dash-card">
+                            <div class="mkcp-dash-card-icon mkcp-dash-card-icon--accent"><?php echo $icons['bar-chart']; ?></div>
+                            <h4>Klanten</h4>
+                            <div class="mkcp-dash-card-value"><?php echo esc_html( number_format_i18n( $ac_stats['active_customers'] ) ); ?></div>
+                            <div class="mkcp-dash-card-sub">Met een account-profiel</div>
+                        </div>
+
+                        <div class="mkcp-dash-card">
+                            <div class="mkcp-dash-card-icon mkcp-dash-card-icon--amber"><?php echo $icons['refresh-cw']; ?></div>
+                            <h4>Open retouren</h4>
+                            <div class="mkcp-dash-card-value"><?php echo esc_html( number_format_i18n( $ac_stats['open_returns'] ) ); ?></div>
+                            <div class="mkcp-dash-card-sub">Van <?php echo esc_html( number_format_i18n( $ac_stats['total_returns'] ) ); ?> totaal</div>
+                        </div>
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- ACCOUNT — Statistieken                                            -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+
+            <div class="mkcp-panel mkcp-panel--account-stats <?php echo $active_tab === 'account-stats' ? 'is-active' : ''; ?>" data-panel="account-stats">
+
+                <div class="mkcp-page-header">
+                    <h2>Statistieken</h2>
+                    <p>Puur informatief — geen instellingen op dit tabblad, dus geen "Opslaan"-knop nodig.</p>
+                </div>
+
+                <?php if ( $ac_stats ) : ?>
+                <div class="mkcp-glass">
+                    <div class="mkcp-glass-body">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:<?php echo $ac_stats['top_wishlisted'] ? '18px' : '0'; ?>">
+                            <div>
+                                <div style="font-size:22px;font-weight:700;color:var(--mkcp-ui-text)"><?php echo esc_html( number_format_i18n( $ac_stats['active_customers'] ) ); ?></div>
+                                <div style="font-size:11.5px;color:var(--mkcp-ui-text3)">klanten met een account-profiel</div>
+                            </div>
+                            <div>
+                                <div style="font-size:22px;font-weight:700;color:var(--mkcp-ui-text)"><?php echo esc_html( number_format_i18n( $ac_stats['wishlist_items_total'] ) ); ?></div>
+                                <div style="font-size:11.5px;color:var(--mkcp-ui-text3)">producten op een wishlist</div>
+                            </div>
+                            <div>
+                                <div style="font-size:22px;font-weight:700;color:var(--mkcp-ui-text)"><?php echo esc_html( number_format_i18n( $ac_stats['wishlist_conversion_pct'], 1 ) ); ?>%</div>
+                                <div style="font-size:11.5px;color:var(--mkcp-ui-text3)">wishlist-items ooit gekocht</div>
+                            </div>
+                            <div>
+                                <div style="font-size:22px;font-weight:700;color:var(--mkcp-ui-text)"><?php echo esc_html( number_format_i18n( $ac_stats['open_returns'] ) ); ?> <span style="font-size:13px;font-weight:400;color:var(--mkcp-ui-text3)">/ <?php echo esc_html( number_format_i18n( $ac_stats['total_returns'] ) ); ?></span></div>
+                                <div style="font-size:11.5px;color:var(--mkcp-ui-text3)">open retour-aanvragen</div>
+                            </div>
+                        </div>
+
+                        <?php if ( $ac_stats['top_wishlisted'] ) : ?>
+                        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+                            <thead>
+                                <tr style="text-align:left;color:var(--mkcp-ui-text3);font-size:11px;text-transform:uppercase;letter-spacing:.3px">
+                                    <th style="padding:0 0 6px;font-weight:600">Meest gewishlist'e producten</th>
+                                    <th style="padding:0 0 6px;font-weight:600;text-align:right">Keer bewaard</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $ac_stats['top_wishlisted'] as $row ) : ?>
+                                <tr style="border-top:1px solid var(--mkcp-ui-border)">
+                                    <td style="padding:6px 0;color:var(--mkcp-ui-text2)"><?php echo esc_html( $row['name'] ); ?></td>
+                                    <td style="padding:6px 0;text-align:right;color:var(--mkcp-ui-text2)"><?php echo esc_html( number_format_i18n( $row['count'] ) ); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+            </div>
+
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- ACCOUNT — Algemeen                                                -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+
+            <div class="mkcp-panel mkcp-panel--account-general <?php echo $active_tab === 'account-general' ? 'is-active' : ''; ?>" data-panel="account-general">
+
+                <div class="mkcp-page-header">
+                    <h2>Algemeen</h2>
+                    <p>Hoofdschakelaar, het meldingencentrum, en praktische plafonds/opschoning. Wishlist/Retouren/Beloningen hebben elk hun eigen tabblad hiernaast.</p>
+                </div>
+
+                <div class="mkcp-glass" style="<?php echo $ac_enabled ? 'border-color:var(--mkcp-ui-accent)' : ''; ?>">
+                    <div class="mkcp-glass-body" style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <strong style="font-size:14px;color:var(--mkcp-ui-text)">Account inschakelen <?php if ( ! $is_premium ) echo '<span class="mkcp-premium-badge">Premium</span>'; ?></strong>
+                            <p style="font-size:12px;color:var(--mkcp-ui-text3);margin:4px 0 0">Ingelogde klanten met een premium licentie zien vanaf dan de eigen Account-pagina i.p.v. WooCommerce's standaard "Mijn account". Uitgelogde bezoekers merken niets — inloggen/registreren/wachtwoord vergeten blijven altijd de gewone WooCommerce-flow.</p>
+                        </div>
+                        <label class="mkcp-toggle" style="flex-shrink:0;margin-left:20px">
+                            <input type="checkbox" name="mkcp_account_enabled" value="1"
+                                <?php checked( $ac_enabled ); ?>>
+                            <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mkcp-glass" <?php echo $ac_dimmed; ?>>
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['zap']; ?></div>
+                        <h3>Meldingen</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Meldingencentrum</strong>
+                                <small>Het meldingencentrum in het account (prijsdaling, weer op voorraad, retourstatus). Uitzetten verbergt het hele tabblad, niet alleen losse meldingtypes.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <label class="mkcp-toggle">
+                                    <input type="checkbox" name="mkcp_account_notifications_enabled" value="1" <?php checked( ! empty( $cfg_ac['account_notifications_enabled'] ) ); ?>>
+                                    <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Meldingen opschonen na</strong>
+                                <small>Gelezen meldingen ouder dan dit aantal dagen worden automatisch verwijderd (dagelijkse cron). Ongelezen meldingen worden nooit automatisch verwijderd. 0 = nooit opschonen.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_account_notification_retention_days"
+                                       value="<?php echo esc_attr( $cfg_ac['account_notification_retention_days'] ?? 0 ); ?>" min="0" max="3650" step="1"> dagen (0 = nooit)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mkcp-glass" <?php echo $ac_dimmed; ?>>
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['sliders']; ?></div>
+                        <h3>Limieten</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Max. aantal adressen</strong>
+                                <small>Praktisch plafond per klant — voorkomt misbruik van het adresboek.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_account_max_addresses"
+                                       value="<?php echo esc_attr( $cfg_ac['account_max_addresses'] ?? 20 ); ?>" min="1" max="200" step="1">
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Bestellingen per pagina</strong>
+                                <small>Aantal bestellingen per paginering-pagina in het bestellingenoverzicht.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_account_orders_per_page"
+                                       value="<?php echo esc_attr( $cfg_ac['account_orders_per_page'] ?? 10 ); ?>" min="1" max="100" step="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mkcp-save-bar">
+                    <button type="submit" class="mkcp-btn mkcp-btn--primary">
+                        <?php echo $icons['check']; ?> Opslaan
+                    </button>
+                </div>
+
+            </div>
+
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- ACCOUNT — Wishlist                                                -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+
+            <div class="mkcp-panel mkcp-panel--account-wishlist <?php echo $active_tab === 'account-wishlist' ? 'is-active' : ''; ?>" data-panel="account-wishlist">
+
+                <div class="mkcp-page-header">
+                    <h2>Wishlist</h2>
+                    <p>Klanten kunnen producten bewaren, delen via link, en een melding krijgen bij prijsdaling of als iets weer op voorraad is.</p>
+                </div>
+
+                <div class="mkcp-glass" <?php echo $ac_dimmed; ?>>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Wishlist inschakelen</strong>
+                                <small>Zet het hele wishlist-tabblad in het account aan/uit.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <label class="mkcp-toggle">
+                                    <input type="checkbox" name="mkcp_account_wishlist_enabled" value="1" <?php checked( ! empty( $cfg_ac['account_wishlist_enabled'] ) ); ?>>
+                                    <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>E-mail bij prijsdaling/weer op voorraad</strong>
+                                <small>Stuurt een e-mail naar de klant zodra een wishlist-product goedkoper wordt of weer op voorraad komt (naast de in-app melding). Los uit te zetten zonder het hele meldingencentrum te raken.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <label class="mkcp-toggle">
+                                    <input type="checkbox" name="mkcp_account_wishlist_emails_enabled" value="1" <?php checked( ! empty( $cfg_ac['account_wishlist_emails_enabled'] ) ); ?>>
+                                    <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <?php
+                $ac_email_placeholder_hint = 'Beschikbare plaatshouders: {voornaam}, {achternaam}, {product_naam}, {winkel_naam}, {wishlist_url} — {nieuwe_prijs}/{oude_prijs} alleen bij de prijsdaling-mail.';
+                ?>
+                <div class="mkcp-glass" <?php echo $ac_dimmed; ?>>
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['type']; ?></div>
+                        <h3>E-mailteksten</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+                        <p class="mkcp-input-hint" style="margin-top:0"><?php echo esc_html( $ac_email_placeholder_hint ); ?></p>
+
+                        <div class="mkcp-setting-row mkcp-setting-row--stack">
+                            <div class="mkcp-setting-label"><strong>Prijsdaling — onderwerp</strong></div>
+                            <input type="text" class="mkcp-input" name="mkcp_account_wishlist_price_email_subject"
+                                   value="<?php echo esc_attr( $cfg_ac['account_wishlist_price_email_subject'] ?? '' ); ?>">
+                        </div>
+                        <div class="mkcp-setting-row mkcp-setting-row--stack">
+                            <div class="mkcp-setting-label"><strong>Prijsdaling — inhoud</strong></div>
+                            <textarea class="mkcp-input" name="mkcp_account_wishlist_price_email_body" rows="5"><?php echo esc_textarea( $cfg_ac['account_wishlist_price_email_body'] ?? '' ); ?></textarea>
+                        </div>
+                        <div class="mkcp-setting-row mkcp-setting-row--stack">
+                            <div class="mkcp-setting-label"><strong>Weer op voorraad — onderwerp</strong></div>
+                            <input type="text" class="mkcp-input" name="mkcp_account_wishlist_stock_email_subject"
+                                   value="<?php echo esc_attr( $cfg_ac['account_wishlist_stock_email_subject'] ?? '' ); ?>">
+                        </div>
+                        <div class="mkcp-setting-row mkcp-setting-row--stack" style="margin-bottom:0">
+                            <div class="mkcp-setting-label"><strong>Weer op voorraad — inhoud</strong></div>
+                            <textarea class="mkcp-input" name="mkcp_account_wishlist_stock_email_body" rows="5"><?php echo esc_textarea( $cfg_ac['account_wishlist_stock_email_body'] ?? '' ); ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mkcp-save-bar">
+                    <button type="submit" class="mkcp-btn mkcp-btn--primary">
+                        <?php echo $icons['check']; ?> Opslaan
+                    </button>
+                </div>
+
+            </div>
+
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- ACCOUNT — Retouren                                            -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+
+            <div class="mkcp-panel mkcp-panel--account-returns <?php echo $active_tab === 'account-returns' ? 'is-active' : ''; ?>" data-panel="account-returns">
+
+                <div class="mkcp-page-header">
+                    <h2>Retouren</h2>
+                    <p>Instellingen hieronder gebruiken de gewone "Opslaan"-knop; acties in het aanvragen-overzicht daaronder worden meteen doorgevoerd, daar is geen aparte opslaan voor nodig.</p>
+                </div>
+
+                <div class="mkcp-glass" <?php echo $ac_dimmed; ?>>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Retouren inschakelen</strong>
+                                <small>Klanten kunnen vanaf een voltooide bestelling een retour aanvragen.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <label class="mkcp-toggle">
+                                    <input type="checkbox" name="mkcp_account_returns_enabled" value="1" <?php checked( ! empty( $cfg_ac['account_returns_enabled'] ) ); ?>>
+                                    <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Retourtermijn</strong>
+                                <small>Aantal dagen na "voltooid" dat een klant nog een retour mag aanvragen.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_account_return_window_days"
+                                       value="<?php echo esc_attr( $cfg_ac['account_return_window_days'] ?? 14 ); ?>" min="1" max="90" step="1"> dagen
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mkcp-save-bar">
+                    <button type="submit" class="mkcp-btn mkcp-btn--primary">
+                        <?php echo $icons['check']; ?> Opslaan
+                    </button>
+                </div>
+
+                <div class="mkcp-page-header" style="margin-top:32px">
+                    <h2 style="font-size:18px">Retour-aanvragen</h2>
+                    <p>Overzicht van alle retour-aanvragen die klanten hebben ingediend.</p>
+                </div>
+
+                <?php echo function_exists( 'mkcp_account_admin_render_returns_panel' ) ? mkcp_account_admin_render_returns_panel() : ''; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+
+            </div>
+
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- ACCOUNT — Beloningen                                              -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+
+            <div class="mkcp-panel mkcp-panel--account-rewards <?php echo $active_tab === 'account-rewards' ? 'is-active' : ''; ?>" data-panel="account-rewards">
+
+                <div class="mkcp-page-header">
+                    <h2>Beloningen</h2>
+                    <p>Toont een puntenwidget op het dashboard — alleen zichtbaar als WooCommerce Points and Rewards actief is, deze instellingen zijn een extra laag daarbovenop. Wordt nog verder uitgebreid.</p>
+                </div>
+
+                <?php if ( ! class_exists( 'WC_Points_Rewards_Manager' ) ) : ?>
+                <div class="mkcp-glass" style="margin-bottom:20px;border-color:#f59e0b">
+                    <div class="mkcp-glass-body" style="display:flex;align-items:center;gap:12px">
+                        <span style="color:#f59e0b;flex-shrink:0"><?php echo $icons['alert']; ?></span>
+                        <span style="font-size:13px;color:var(--mkcp-ui-text2)">
+                            <strong>WooCommerce Points and Rewards niet gevonden</strong> — de puntenwidget blijft verborgen totdat die plugin actief is. Onderstaande instellingen kun je alvast klaarzetten.
+                        </span>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <div class="mkcp-glass" <?php echo $ac_dimmed; ?>>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Beloningen inschakelen</strong>
+                                <small>Toont de puntenwidget op het dashboard van de klant.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <label class="mkcp-toggle">
+                                    <input type="checkbox" name="mkcp_account_rewards_enabled" value="1" <?php checked( ! empty( $cfg_ac['account_rewards_enabled'] ) ); ?>>
+                                    <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Tiergrenzen</strong>
+                                <small>Vanaf hoeveel punten een klant Zilver resp. Goud is (Brons is altijd de start). Puur cosmetisch, geen echte WooCommerce Points and Rewards-functionaliteit.</small>
+                            </div>
+                            <div class="mkcp-setting-control" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                Zilver vanaf
+                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_account_rewards_tier_silver_threshold"
+                                       value="<?php echo esc_attr( $cfg_ac['account_rewards_tier_silver_threshold'] ?? 100 ); ?>" min="1" step="1"> punten,
+                                Goud vanaf
+                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_account_rewards_tier_gold_threshold"
+                                       value="<?php echo esc_attr( $cfg_ac['account_rewards_tier_gold_threshold'] ?? 500 ); ?>" min="1" step="1"> punten
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mkcp-save-bar">
+                    <button type="submit" class="mkcp-btn mkcp-btn--primary">
                         <?php echo $icons['check']; ?> Opslaan
                     </button>
                 </div>
