@@ -22,7 +22,7 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
-            'version' => '1.14.31-beta.74',
+            'version' => '1.14.31-beta.28',
             'date'    => '2026-09-22',
             'items'   => [
                 // ── Account ──
@@ -42,6 +42,8 @@ function mkcp_changelog_entries() {
                 'Fix: bezorg-/afhaaldata worden gevalideerd zodat een lege/foutieve datum niet meer als "1 januari 1970" verschijnt, en afhaalbestellingen die klaarstaan tonen nu de juiste laatste stap in de besteltracker.',
                 'Fix: diverse mobiele lay-outproblemen in Account verholpen (een "dode zone" tussen omslagpunten, ontbrekende ruimte boven de iPhone-thuisbalk, een pagina die zijwaarts kon scrollen).',
                 'Fix: de vorige/volgende-pijltjes van de productcarrousel op het Dashboard konden na het laden van "Onlangs bekeken" onterecht uitgeschakeld blijven.',
+                'Fix: de "Elke"-attributen-fix voor variabele producten werkt nu ook bij "opnieuw bestellen" en bij het overzetten van een wishlist-item naar de winkelwagen.',
+                'Verbetering: het Account-dashboard laadt nu merkbaar sneller door minder databasebelasting.',
                 // ── Checkout ──
                 'Nieuw: cross-sell-productsuggesties onder het orderoverzicht op checkout, met eigen aan/uit-instelling en een klikbare "toevoegen"-knop.',
                 'Nieuw: bij een gemengd winkelmandje (verzenden + afhalen) groepeert het orderoverzicht op checkout nu met kopjes + filterknoppen (Alles/Verzenden/Afhalen).',
@@ -51,6 +53,8 @@ function mkcp_changelog_entries() {
                 'Nieuw: na het invullen van postcode + huisnummer springt de focus automatisch door naar het telefoonnummerveld.',
                 'Nieuw: telefoonnummer wordt tijdens het typen live opgemaakt volgens de officiële netnummer-indeling van Nederland, België of Duitsland, met een klikbaar vlagicoontje waarmee je het telefoonnummer-land los van het factuur-/afleveradres kan instellen (handig bij bv. een Belgisch mobiel nummer op een Nederlands adres), plus een niet-blokkerende waarschuwing bij een onvolledig aantal cijfers.',
                 'Nieuw: e-mailadres op checkout krijgt dezelfde typfout-suggestie ("Bedoelde je gmail.com?") als het inlogscherm.',
+                'Verbetering: het inloggen/"account aanmaken" op checkout gebeurt via twee duidelijke tabs i.p.v. losse meldingen, en blijft na het aanvinken zichtbaar bevestigd ook als je de pop-up weer sluit.',
+                'Fix: de rechterkolom op checkout (bestelling/BTW) kon na het inloggen ver naar beneden schuiven met een groot leeg vlak erboven.',
                 'Verbetering: BTW-weergave en "verzenden naar een ander adres" zijn nu schuifknoppen i.p.v. losse knoppen/een vierkantje, met een rustiger rechterpaneel en compactere, consistentere betaalmethode-lijst.',
                 'Verbetering: merkbare snelheidswinst op checkout — een overbodige, premature verzendkosten-berekening bij elk "totalen bijwerken"-verzoek is verwijderd, samen met andere achterliggende performance-fixes.',
                 'Fix: sectie-icoontjes (verzenden/afhalen) op checkout werden niet getoond door een verkeerde manier van SVG-opmaak injecteren in JavaScript.',
@@ -73,6 +77,9 @@ function mkcp_changelog_entries() {
                 'Fix: de sleepgreep werd eerder afgesneden door de afgeronde hoeken van de pop-up; een handmatig ingestelde breedte ging verloren bij een automatische ververting; de pop-up klapte soms abrupt dicht i.p.v. netjes uit te schuiven bij snel sluiten na het aanpassen van de breedte.',
                 'Fix: de "volledig scherm"-knop werkte niet meer consistent voor schermlezer-gebruikers, en toetsenbordgebruikers konden per ongeluk uit de pop-up "wegtaben" via de sleepgreep.',
                 // ── Admin/instellingen ──
+                'Nieuw: Installatie-check op elk hoofdonderdeel (Winkelwagen, Checkout, Account) — waarschuwt direct als een WordPress/WooCommerce-instelling nog moet gebeuren om een functie écht te laten werken, met een 1-klik-oplossing waar mogelijk.',
+                'Nieuw: WooCommerce\'s eigen account-instellingen (account aanmaken bij checkout/op de accountpagina, wachtwoord/gebruikersnaam automatisch genereren) zijn nu rechtstreeks vanuit de plugin te bewerken, zonder naar WooCommerce → Instellingen te hoeven.',
+                'Nieuw: de onboarding-rondleiding neemt nu ook het hele Account-onderdeel mee.',
                 'Nieuw: bulkacties in het retourenbeheer (meerdere aanvragen tegelijk goedkeuren/afwijzen/voltooien met notitie), en een eigen uitlegtekst instelbaar boven het Retourneren-tabblad in Account.',
                 'Nieuw: de breedte-sleepgreep en het account-icoontje van de winkelwagen-pop-up zijn los aan/uit te zetten, net als productreviews en de nieuwsbrief-checkbox binnen Account.',
                 'Fix: een negatief bedrag bij "Gratis verzending vanaf" of de minimale bestelwaarde kon per ongeluk worden opgeslagen; wordt nu altijd op minimaal 0 gehouden.',
@@ -80,23 +87,6 @@ function mkcp_changelog_entries() {
                 'Verbetering: de plugin-updatecontrole accepteert alleen nog updatepakketten van vertrouwde, beveiligde (https) bronnen, en een onbekende/foutieve licentiecontrole weigert voortaan toegang tot premium-functies i.p.v. daar stilzwijgend op terug te vallen.',
                 'Verbetering: de updatemelding in het WordPress-dashboard toont nu een eigen plugin-icoon en banner i.p.v. een lege placeholder.',
                 'Verbetering: de "WP-Cron uitgeschakeld"-melding voor verlaten-winkelwagen-herinneringen is verplaatst van een losse admin-melding naar een permanent statuskaartje in de installatiecheck, dat ook toont of de laatste herinneringsmail daadwerkelijk is verstuurd.',
-            ],
-        ],
-        [
-            'version' => '1.14.31-beta.28',
-            'date'    => '2026-09-03',
-            'items'   => [
-                'Nieuw: Installatie-check op elk hoofdonderdeel (Winkelwagen, Checkout, Account) — waarschuwt direct als een WordPress/WooCommerce-instelling nog moet gebeuren om een functie écht te laten werken (bv. een ontbrekende verzendzone, de "Mijn account"-pagina, of een niet-gekoppelde postcode-/BTW-plugin), met een 1-klik-oplossing waar mogelijk.',
-                'Nieuw: WooCommerce\'s eigen account-instellingen (account aanmaken bij checkout/op de accountpagina, wachtwoord/gebruikersnaam automatisch genereren) zijn nu rechtstreeks vanuit de plugin te bewerken, zonder naar WooCommerce → Instellingen te hoeven.',
-                'Nieuw: de onboarding-rondleiding neemt nu ook het hele Account-onderdeel mee.',
-                'Verbetering: de sleepgreep van de winkelwagen-drawer is visueel vernieuwd (subtieler in rust, duidelijker bij slepen) en volledig met het toetsenbord te bedienen.',
-                'Verbetering: het inloggen/"account aanmaken" op checkout gebeurt nu via twee duidelijke tabs i.p.v. losse meldingen, en blijft na het aanvinken zichtbaar bevestigd ook als je de pop-up weer sluit.',
-                'Verbetering: de productlijst bij verzendkeuze toont nu altijd alles in één keer, in plaats van af te kappen met een "en X meer"-knop.',
-                'Fix: de rechterkolom op checkout (bestelling/BTW) kon na het inloggen ver naar beneden schuiven met een groot leeg vlak erboven.',
-                'Fix: reviews van een verwijderde klant blijven nu staan (met geanonimiseerde naam/gegevens) in plaats van een kapotte/verweesde review achter te laten; volledige GDPR-export en -verwijdering uitgebreid naar wishlist, adresboek en meldingen.',
-                'Fix: de "Elke"-attributen-fix voor variabele producten (zie 1.14.31-beta.27) werkt nu ook bij "opnieuw bestellen" en bij het overzetten van een wishlist-item naar de winkelwagen.',
-                'Verbetering: bezorgdatum-beschikbaarheid en het Account-dashboard laden nu merkbaar sneller door minder databasebelasting.',
-                'Verbetering: strengere beveiliging van het update-systeem (alleen vertrouwde downloadbronnen) en de licentiecontrole.',
             ],
         ],
         [
