@@ -34,6 +34,7 @@
         'orders'        => [ 'label' => __( 'Bestellingen', 'mk-cart-popup' ),     'icon' => 'box' ],
         'wishlist'      => [ 'label' => __( 'Wishlist', 'mk-cart-popup' ),         'icon' => 'heart' ],
         'addresses'     => [ 'label' => __( 'Adressen', 'mk-cart-popup' ),         'icon' => 'pin' ],
+        'returns'       => [ 'label' => __( 'Retourneren', 'mk-cart-popup' ),      'icon' => 'return' ],
         'notifications' => [ 'label' => __( 'Meldingen', 'mk-cart-popup' ),        'icon' => 'bell', 'badge' => $mkcp_unread ],
         'profile'       => [ 'label' => __( 'Accountgegevens', 'mk-cart-popup' ),  'icon' => 'sliders' ],
     ];
@@ -45,6 +46,7 @@
     if ( function_exists( 'mkcp_account_module_enabled' ) ) {
         if ( ! mkcp_account_module_enabled( 'wishlist' ) )      unset( $mkcp_nav_items['wishlist'] );
         if ( ! mkcp_account_module_enabled( 'notifications' ) ) unset( $mkcp_nav_items['notifications'] );
+        if ( ! mkcp_account_module_enabled( 'returns' ) )       unset( $mkcp_nav_items['returns'] );
     }
 
     // Sidebar-groepering — puur visuele hiërarchie (geen routing-impact, de
@@ -52,18 +54,21 @@
     // simpelweg geen ruimte voor sectielabels).
     $mkcp_nav_groups = [
         'winkelen' => [ 'label' => __( 'Winkelen', 'mk-cart-popup' ), 'routes' => [ 'dashboard', 'orders', 'wishlist' ] ],
-        'account'  => [ 'label' => __( 'Account', 'mk-cart-popup' ),  'routes' => [ 'addresses', 'notifications', 'profile' ] ],
+        'account'  => [ 'label' => __( 'Account', 'mk-cart-popup' ),  'routes' => [ 'addresses', 'returns', 'notifications', 'profile' ] ],
     ];
 
     $mkcp_icons = [
         'home'    => '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
         'box'     => '<path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>',
-        'heart'   => '<path d="M12 20s-7-4.35-9.5-8.5C1 8 2 4.5 5.5 4.5c2 0 3.5 1.5 4.5 3 1-1.5 2.5-3 4.5-3 3.5 0 4.5 3.5 3 7C19 15.65 12 20 12 20z"/>',
+        'heart'   => '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
         'pin'     => '<path d="M12 21s7-7.2 7-12a7 7 0 10-14 0c0 4.8 7 12 7 12z"/><circle cx="12" cy="11" r="2"/>',
-        'bell'    => '<path d="M6 8a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/>',
+        'return'  => '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
+        'bell'    => '<path d="M18 8a6 6 0 00-12 0c0 4.5-1.5 6.5-2 7h16c-.5-.5-2-2.5-2-7z"/><path d="M13.7 3a2 2 0 00-3.4 0"/><path d="M9 18a3 3 0 006 0"/>',
         'sliders' => '<line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="18" r="2"/>',
         'logout'  => '<path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>',
+        'shop'    => '<circle cx="12" cy="12" r="10"/><polyline points="12 8 8 12 12 16"/><line x1="16" y1="12" x2="8" y2="12"/>',
         'sun'     => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        'cart'    => '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>',
         'moon'    => '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>',
     ];
 
@@ -78,7 +83,15 @@
 <html <?php language_attributes(); ?>>
     <head>
         <meta charset="<?php bloginfo( 'charset' ); ?>">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <?php
+        // D1: viewport-fit=cover laat env(safe-area-inset-*) daadwerkelijk
+        // een waarde teruggeven op toestellen met een notch/home-indicator
+        // (bv. iPhone) — zonder dit blijft env() gewoon 0 en heeft de
+        // safe-area-padding op .mkcp-account-bottomnav (account.scss) geen
+        // effect. Deze pagina rendert zijn eigen <head> volledig los van het
+        // thema (template_include-override), dus moet 'm hier zelf zetten.
+        ?>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <script>
         // Vóór de eerste render het opgeslagen thema al zetten (i.p.v. pas na
         // het laden van account.js in de footer) — anders flitst de pagina
@@ -135,6 +148,10 @@
                             </a>
                         <?php endforeach; ?>
                     <?php endforeach; ?>
+                    <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="mkcp-account-nav__link mkcp-account-nav__link--shop">
+                        <?php echo $mkcp_icon( 'shop' ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                        <span class="mkcp-account-nav__label"><?php esc_html_e( 'Terug naar winkel', 'mk-cart-popup' ); ?></span>
+                    </a>
                     <a href="<?php echo esc_url( wp_logout_url( home_url( '/' ) ) ); ?>" class="mkcp-account-nav__link mkcp-account-nav__link--logout">
                         <?php echo $mkcp_icon( 'logout' ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
                         <span class="mkcp-account-nav__label"><?php esc_html_e( 'Uitloggen', 'mk-cart-popup' ); ?></span>
@@ -155,10 +172,32 @@
                         <span class="mkcp-account-topbar__crumb-sep">/</span>
                         <span class="mkcp-account-topbar__crumb-current"><?php esc_html_e( 'Dashboard', 'mk-cart-popup' ); ?></span>
                     </div>
-                    <button type="button" id="mkcp-account-theme-toggle" class="mkcp-account-theme-toggle" aria-label="<?php esc_attr_e( 'Wissel tussen licht en donker thema', 'mk-cart-popup' ); ?>">
-                        <span class="mkcp-account-theme-toggle__icon mkcp-account-theme-toggle__icon--sun"><?php echo $mkcp_icon( 'sun' ); // phpcs:ignore WordPress.Security.EscapeOutput ?></span>
-                        <span class="mkcp-account-theme-toggle__icon mkcp-account-theme-toggle__icon--moon"><?php echo $mkcp_icon( 'moon' ); // phpcs:ignore WordPress.Security.EscapeOutput ?></span>
-                    </button>
+                    <?php
+                    // J2: winkelwagen-icoontje naast de thema-toggle — .mkcp-open
+                    // laat de bestaande cart-popup.js-trigger de drawer openen
+                    // (assets/cart-popup.js, "Trigger: cart icon links"), geen
+                    // aparte JS nodig. Badge-aantal wordt bij paginalaad server-
+                    // side gezet; live-updates lopen al via WooCommerce's eigen
+                    // fragments-mechanisme dat cart-popup.js ook gebruikt.
+                    $mkcp_cart_count = ( function_exists( 'WC' ) && WC()->cart ) ? WC()->cart->get_cart_contents_count() : 0;
+                    ?>
+                    <?php
+                    // C1: cart-icoon + thema-toggle samen in één flex-groep —
+                    // zonder deze wrapper waren het 3 losse kinderen van
+                    // .mkcp-account-topbar (met justify-content:space-between),
+                    // waardoor het cart-icoon als middelste kind los in het
+                    // midden van de topbar landde i.p.v. naast de toggle.
+                    ?>
+                    <div class="mkcp-account-topbar__actions">
+                        <a href="#" id="mkcp-account-cart-icon" class="mkcp-account-cart-icon mkcp-open" aria-label="<?php esc_attr_e( 'Winkelwagen openen', 'mk-cart-popup' ); ?>"<?php echo $mkcp_cart_count > 0 ? '' : ' hidden'; ?>>
+                            <?php echo $mkcp_icon( 'cart' ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                            <span class="mkcp-account-cart-icon__badge"><?php echo esc_html( (string) $mkcp_cart_count ); ?></span>
+                        </a>
+                        <button type="button" id="mkcp-account-theme-toggle" class="mkcp-account-theme-toggle" aria-label="<?php esc_attr_e( 'Wissel tussen licht en donker thema', 'mk-cart-popup' ); ?>">
+                            <span class="mkcp-account-theme-toggle__icon mkcp-account-theme-toggle__icon--sun"><?php echo $mkcp_icon( 'sun' ); // phpcs:ignore WordPress.Security.EscapeOutput ?></span>
+                            <span class="mkcp-account-theme-toggle__icon mkcp-account-theme-toggle__icon--moon"><?php echo $mkcp_icon( 'moon' ); // phpcs:ignore WordPress.Security.EscapeOutput ?></span>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="mkcp-account-content" class="mkcp-account-content" role="tabpanel" aria-live="polite">

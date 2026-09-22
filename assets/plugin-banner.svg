@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1544 500" width="1544" height="500">
+  <defs>
+    <linearGradient id="mkcpBannerGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2e7d32"/>
+      <stop offset="100%" stop-color="#1b5e20"/>
+    </linearGradient>
+  </defs>
+  <rect width="1544" height="500" fill="url(#mkcpBannerGrad)"/>
+  <g transform="translate(150,175)" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="26" cy="140" r="12" fill="#ffffff" stroke="none"/>
+    <circle cx="128" cy="140" r="12" fill="#ffffff" stroke="none"/>
+    <path d="M4 4h30l18 92a14 14 0 0014 12h68a14 14 0 0014-12l16-64H40"/>
+  </g>
+  <text x="330" y="270" font-family="Arial, sans-serif" font-size="72" font-weight="700" fill="#ffffff">MK Cart Popup &amp; Checkout</text>
+  <text x="330" y="320" font-family="Arial, sans-serif" font-size="30" fill="#dcedc8">Cart drawer · Checkout builder · Account mini-app · Retouren</text>
+</svg>

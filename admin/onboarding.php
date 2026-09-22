@@ -12,23 +12,17 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 
-// ── C1: heeft de winkel al een WooCommerce-verzendzone? ──────────────────────
-//
 // Zelfde detectiepatroon als includes/delivery-date.php (mkcp_dd_get_shipping_
-// methods()) gebruikt — hier alleen de "bestaat er minstens één zone"-vraag,
-// niet de volledige rate-lijst.
+// methods()) — hier alleen "bestaat er minstens één zone", niet de rate-lijst.
 function mkcp_onboarding_has_shipping_zones(): bool {
     if ( ! class_exists( 'WC_Shipping_Zones' ) ) return false;
     return count( WC_Shipping_Zones::get_zones() ) > 0;
 }
 
 
-// ── D2: "wat is er nieuw"-infrastructuur ──────────────────────────────────────
-//
-// Start bewust leeg — er is nu geen concrete nieuwe feature om aan te
-// kondigen. Een toekomstige highlight toevoegen is één add_filter-item:
-// [ 'id' => 'unieke-slug', 'selector' => '...', 'tabActivator' => '...',
-//   'title' => '...', 'description' => '...' ].
+// "Wat is er nieuw"-infrastructuur — start bewust leeg. Een highlight
+// toevoegen is één add_filter-item: [ 'id' => 'unieke-slug', 'selector' =>
+// '...', 'tabActivator' => '...', 'title' => '...', 'description' => '...' ].
 function mkcp_onboarding_feature_highlights(): array {
     return apply_filters( 'mkcp_onboarding_feature_highlights', [] );
 }
@@ -56,13 +50,10 @@ add_action( 'wp_ajax_mkcp_mark_feature_seen', function() {
 } );
 
 
-// ── Gebundelde localize-data voor admin/assets/onboarding.js ─────────────────
-//
-// $mkcp_start_tour komt uit admin/settings.php (leest + verwijdert de
+// $start_tour komt uit admin/settings.php (leest + verwijdert de
 // mkcp_show_onboarding-vlag die mk-cart-popup.php bij activatie zet) — hier
-// alleen als parameter binnengehaald, niet opnieuw bepaald, anders zou de
-// eenmalige option twee keer worden "geconsumeerd" als deze functie ooit
-// vaker dan één keer per request wordt aangeroepen.
+// alleen als parameter binnengehaald, anders zou de eenmalige option twee
+// keer "geconsumeerd" worden als deze functie vaker per request draait.
 function mkcp_onboarding_localize_data( bool $start_tour ): array {
     $license = mkcp_license_get_data();
     $config  = mkcp_config();

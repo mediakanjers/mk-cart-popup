@@ -26,6 +26,13 @@ function mkcp_checkout_config() {
         'ssl_badge_enabled'       => false,
         'ssl_badge_text'          => 'SSL-versleuteling',
         'payment_icons_enabled'   => false,
+
+        // Cross-sell onder het orderoverzicht — los aan/uit te zetten, maar
+        // hergebruikt dezelfde modus/aantal-instelling en mkcp_get_crosssell_
+        // products() als de winkelwagen-popup. Met AJAX add-to-cart-knop,
+        // i.t.t. de bedankt-pagina-cross-sell die alleen doorlinkt.
+        'checkout_crosssell_enabled' => false,
+        'checkout_crosssell_title'   => 'Misschien ook interessant?',
         'dequeue_theme_css'       => false,
         'dequeue_theme_hooks'     => false,
         'dequeue_theme_js'        => false,
@@ -33,34 +40,27 @@ function mkcp_checkout_config() {
         'btw_follow_popup'        => true,
         'order_review_collapsible_mobile' => false,
 
-        // Formuliervelden — thema-onafhankelijke, portable alternatieven voor
-        // wat voorheen alleen via een thema-hook bestond (en dus verdween
-        // zodra "Thema hooks uitschakelen" aanstond). Bedrijfsnaam gebruikt
-        // WooCommerce's eigen billing_company/shipping_company-veld (staat er
-        // al, maar zonder grid-positie); bestelnotities stuurt WooCommerce's
-        // eigen woocommerce_enable_order_notes_field-filter aan i.p.v. een
-        // duplicaat-veld te renderen — zo blijft ook de admin-orderpagina's
-        // "Customer provided note"-weergave (die dezelfde filter leest) in
-        // lijn met deze instelling.
+        // Thema-onafhankelijke alternatieven voor velden die voorheen alleen
+        // via een thema-hook bestonden (en dus verdwenen bij "Thema hooks
+        // uitschakelen"). Bedrijfsnaam gebruikt WooCommerce's bestaande
+        // billing_company/shipping_company-veld; bestelnotities stuurt
+        // WooCommerce's woocommerce_enable_order_notes_field-filter aan i.p.v.
+        // een duplicaat-veld, zodat de admin-orderpagina in lijn blijft.
         'company_field_enabled' => false,
         'order_notes_enabled'   => false,
 
         // "Een account aanmaken?"-checkbox (WooCommerce-core-markup, zie
-        // includes/checkout-frontend.php) — aan/uit los van WooCommerce's
-        // eigen "toestaan tijdens checkout"-instelling, plus een eigen
-        // toelichtingstekst eronder en een verplaatsing naar onder de
-        // besteltabel. Standaard aan: verandert het bestaande gedrag niet
-        // voor sites die deze instelling nog nooit hebben opgeslagen.
+        // includes/checkout-frontend.php) — los van WooCommerce's eigen
+        // "toestaan tijdens checkout"-instelling. Standaard aan: verandert
+        // bestaand gedrag niet voor sites die dit nog nooit opsloegen.
         'createaccount_enabled'    => true,
         'createaccount_info_title' => '',
         'createaccount_info_text'  => '',
 
         // "Terugkerende klant?"-inlogformulier (WooCommerce-core-markup, zie
-        // global/form-login.php) — zelfde soort aan/uit + eigen toelichting
-        // als de account-aanmaken-checkbox hierboven. Los van WooCommerce's
-        // eigen "Sta inloggen tijdens checkout toe"-instelling: die bepaalt
-        // of het formulier er überhaupt kán zijn, deze toggle bepaalt of wij
-        // 'm laten zien. Standaard aan.
+        // global/form-login.php). Los van WooCommerce's "Sta inloggen tijdens
+        // checkout toe"-instelling: die bepaalt of het formulier kán bestaan,
+        // deze toggle bepaalt of wij 'm laten zien. Standaard aan.
         'login_reminder_enabled'    => true,
         'login_reminder_info_title' => '',
         'login_reminder_info_text'  => '',
@@ -69,12 +69,11 @@ function mkcp_checkout_config() {
         // WooCommerce's eigen standaardtekst.
         'checkout_button_text' => '',
 
-        // BTW-nummer-checker integratie (premium) — spiegelt de postcode-
-        // checker-integratie hierboven: detecteert de EU/UK VAT Validation
-        // Manager for WooCommerce-plugin (WPFactory) en toont bij aan/uit
-        // dezelfde .mkcp-pc-status laad-/succes-/foutmelding-balk bij het
-        // billing_eu_vat_number-veld dat die plugin toevoegt. Zie
-        // mkcp_vat_checker_active() in includes/checkout-frontend.php.
+        // BTW-nummer-checker integratie (premium) — detecteert de EU/UK VAT
+        // Validation Manager for WooCommerce-plugin (WPFactory) en toont
+        // dezelfde .mkcp-pc-status laad-/succes-/foutmelding-balk als de
+        // postcode-checker. Zie mkcp_vat_checker_active() in includes/
+        // checkout-frontend.php.
         'vat_checker_status_enabled' => false,
 
         // Bezorgdatum kiezer (premium)
@@ -129,11 +128,19 @@ function mkcp_checkout_config() {
         // Verberg betaalde bezorgmethodes zodra gratis bezorging beschikbaar
         // is binnen dezelfde "Laten bezorgen"-kaart — zie mkcp_get_shipping_
         // choice_template_args() in includes/shipping-choice.php. Standaard
-        // uit: een winkelier kan bewust een betaalde snelle/expresoptie naast
-        // gratis standaardverzending willen tonen (bv. "Gratis 5-7 dagen" vs
-        // "Express €6,95"), dus dit mag geen ongevraagde gedragsverandering
-        // zijn voor bestaande installaties.
+        // uit: winkeliers kunnen bewust een betaalde express-optie naast
+        // gratis verzending willen tonen.
         'hide_paid_delivery_if_free' => false,
+
+        // Eigen labeltekst per verzendmethode (rate_id => tekst) — toont
+        // alleen anders in de keuzekaarten; de echte WooCommerce-methodenaam
+        // (e-mails/facturen/orderpagina) blijft ongemoeid.
+        'shipping_choice_labels' => [],
+
+        // G2: wisselende teksten tijdens "Bestelling verwerken…" — leeg
+        // (default) valt terug op die ene vaste tekst, zie assets/checkout-
+        // loading-messages.js.
+        'loading_messages'          => '',
     ];
 
     $saved = get_option( 'mkcp_checkout_settings', [] );
@@ -146,6 +153,8 @@ function mkcp_checkout_config() {
     $cfg['ssl_badge_enabled']     = (bool) $cfg['ssl_badge_enabled'];
     $cfg['ssl_badge_text']        = (string) $cfg['ssl_badge_text'];
     $cfg['payment_icons_enabled'] = (bool) $cfg['payment_icons_enabled'];
+    $cfg['checkout_crosssell_enabled'] = (bool) $cfg['checkout_crosssell_enabled'];
+    $cfg['checkout_crosssell_title']   = (string) $cfg['checkout_crosssell_title'];
     $cfg['dequeue_theme_css']     = (bool) $cfg['dequeue_theme_css'];
     $cfg['dequeue_theme_hooks']   = (bool) $cfg['dequeue_theme_hooks'];
     $cfg['dequeue_theme_js']      = (bool) $cfg['dequeue_theme_js'];
@@ -167,6 +176,7 @@ function mkcp_checkout_config() {
     if ( ! is_array( $cfg['checkout_blocks'] ) ) $cfg['checkout_blocks'] = [];
     $cfg['pickup_enabled'] = (bool) $cfg['pickup_enabled'];
     $cfg['hide_paid_delivery_if_free'] = (bool) $cfg['hide_paid_delivery_if_free'];
+    if ( ! is_array( $cfg['shipping_choice_labels'] ) ) $cfg['shipping_choice_labels'] = [];
     if ( ! is_array( $cfg['pickup_locations'] ) ) $cfg['pickup_locations'] = [];
     $cfg['pickup_ready_enabled']       = (bool) $cfg['pickup_ready_enabled'];
     $cfg['pickup_ready_email_enabled'] = (bool) $cfg['pickup_ready_email_enabled'];

@@ -1,28 +1,33 @@
 /*
  * MK Cart Popup — Account stylesheet
  *
- * Leunt op de gedeelde --mkcp-*-tokens uit cart-popup.scss (kleuren die de
- * winkelier zelf instelt via Instellingen → Styling — die zijn altijd al
- * vóór deze stylesheet geladen op elke niet-cart-pagina) VOOR merk-kleuren
- * (accent/knoppen), en op een eigen, kleinere set --mkcp-acc-*-tokens
- * HIERONDER voor de licht/donker-thema-oppervlakken (achtergrond/kaart/
- * rand/tekst) van de Account-omgeving zelf — dat onderscheid is bewust:
- * de merkaccentkleur verandert nooit met het thema, de oppervlakken wel.
+ * Leunt op de gedeelde --mkcp-*-tokens uit cart-popup.scss (winkelier-
+ * instelbare kleuren, al geladen op elke niet-cart-pagina) VOOR merk-kleuren
+ * (accent/knoppen), en op een eigen --mkcp-acc-*-tokens-set hieronder voor
+ * de licht/donker-thema-oppervlakken van de Account-omgeving zelf — bewust
+ * gescheiden: de merkaccentkleur verandert nooit met het thema, de
+ * oppervlakken wel.
  *
  * Licht is de default; html[data-mkcp-theme="dark"] (gezet door assets/
- * account.js, zie account-page.php's FOUC-vrije inline <script> in de
- * <head>) overschrijft dezelfde custom properties met de donkere set.
+ * account.js, FOUC-vrije inline <script> in account-page.php) overschrijft
+ * dezelfde custom properties met de donkere set.
  */
+
+// Eén consistent breakpoint-systeem i.p.v. de zes losse waarden die dit
+// bestand voorheen door elkaar gebruikte — die mix liet een "dode zone"
+// ontstaan waar de zijbalk al plaatsmaakte voor de bottom-nav maar andere
+// onderdelen nog op hun desktop-weergave bleven hangen. $mkcp-tablet voor
+// het zijbalk/bottom-nav-omslagpunt, $mkcp-phone voor verdere verdichting.
+$mkcp-tablet: 1023px;
+$mkcp-phone : 600px;
 
 body.mkcp-account-page {
     margin     : 0;
     padding    : 0;
-    // Vangnet tegen zijwaarts scrollende pagina's op mobiel — mocht ergens
-    // een kaart/rij toch net iets te breed uitvallen, dan knipt dit dat af
-    // i.p.v. dat de hele pagina een horizontale scrollbalk krijgt. Raakt
-    // bewust alleen de PAGINA (body), niet de losse horizontaal-scrollende
-    // widgets (.mkcp-dash-product-scroller e.d.), die hebben hun eigen
-    // overflow-x:auto en blijven gewoon werken.
+    // Vangnet tegen zijwaarts scrollende pagina's op mobiel — knipt een te
+    // brede kaart/rij af i.p.v. een horizontale scrollbalk op de hele pagina.
+    // Raakt bewust alleen de PAGINA, niet horizontaal-scrollende widgets
+    // (.mkcp-dash-product-scroller e.d.), die hebben hun eigen overflow-x:auto.
     overflow-x : hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size  : 16px;
@@ -202,8 +207,10 @@ html[data-mkcp-theme="dark"] body.mkcp-account-page {
     }
 }
 
-.mkcp-account-nav__link--logout {
-    margin-top: 8px;
+.mkcp-account-nav__link--shop {
+    margin-top   : 12px;
+    padding-top  : 12px;
+    border-top   : 1px solid var(--mkcp-acc-border);
 }
 
 .mkcp-account-nav__group-label {
@@ -235,6 +242,10 @@ html[data-mkcp-theme="dark"] body.mkcp-account-page {
     min-width: 0;
     display  : flex;
     flex-direction: column;
+    // Vangnet: body's overflow-x:hidden verbergt alleen de zichtbare gevolgen
+    // — het onderliggende element kan zelf nog breder zijn. Hier expliciet
+    // ook clippen, dicht bij de bron, i.p.v. het kind-element opsporen.
+    overflow-x: hidden;
 }
 
 .mkcp-account-topbar {
@@ -284,6 +295,13 @@ html[data-mkcp-theme="dark"] body.mkcp-account-page {
     }
 
     &__icon--moon { display: none; }
+
+    // D2: zelfde 44px-vuistregel als .mkcp-icon-btn hierboven.
+    @media (max-width: $mkcp-phone) {
+        width : 44px;
+        height: 44px;
+        flex  : 0 0 44px;
+    }
 }
 
 // html[data-mkcp-theme="dark"] toont de maan i.p.v. de zon (aangeven WAT een
@@ -295,13 +313,78 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     &__icon--moon { display: flex; }
 }
 
+// J2: winkelwagen-icoontje naast de thema-toggle — zelfde formaat/stijl,
+// alleen zichtbaar zolang er iets in de winkelwagen zit (server-side [hidden]).
+.mkcp-account-topbar__actions {
+    display    : flex;
+    align-items: center;
+    gap        : 8px;
+}
+
+.mkcp-account-cart-icon {
+    position       : relative;
+    width          : 40px;
+    height         : 40px;
+    flex           : 0 0 40px;
+    border-radius  : 10px;
+    border         : 1.5px solid var(--mkcp-acc-border);
+    background     : var(--mkcp-acc-card-bg);
+    color          : var(--mkcp-acc-accent-text);
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    cursor         : pointer;
+    transition     : border-color 150ms ease, background-color 150ms ease;
+
+    svg { stroke: currentColor; width: 18px; height: 18px; }
+
+    &:hover {
+        border-color: var(--mkcp-accent, #2e7d32);
+        background  : var(--mkcp-acc-tint);
+    }
+
+    &[hidden] { display: none; }
+
+    // D2: zelfde 44px-vuistregel als .mkcp-icon-btn/.mkcp-account-theme-toggle.
+    @media (max-width: $mkcp-phone) {
+        width : 44px;
+        height: 44px;
+        flex  : 0 0 44px;
+    }
+}
+
+.mkcp-account-cart-icon__badge {
+    position     : absolute;
+    top          : -5px;
+    right        : -5px;
+    min-width    : 17px;
+    height       : 17px;
+    padding      : 0 4px;
+    border-radius: 999px;
+    background   : var(--mkcp-danger, #d32f2f);
+    color        : #ffffff;
+    font-size    : 10px;
+    font-weight  : 700;
+    line-height  : 17px;
+    text-align   : center;
+}
+
 .mkcp-account-content {
     flex          : 1;
     max-width     : 1100px;
     width         : 100%;
     margin        : 0 auto;
-    padding       : 26px 28px 40px;
+    // Als CSS-variabele i.p.v. losse waarden, zodat de dashboard-hero
+    // hieronder dezelfde zijmarge als negatieve marge kan hergebruiken voor
+    // een "full-bleed"-effect binnen deze kolom (klassieke 100vw-truc past
+    // niet, dit is een sidebar+main-layout, geen gecentreerde paginabreedte).
+    --mkcp-content-pad-x: 28px;
+    padding       : 26px var(--mkcp-content-pad-x) 40px;
     transition    : opacity var(--mkcp-anim, 300ms ease);
+    // De hero's negatieve marge is exact -1× deze padding, dus de hero landt
+    // precies op de rand van dit element — clipt hier wat te breed is, zonder
+    // de full-bleed-hero te raken.
+    overflow-x    : hidden;
 
     &.is-loading { opacity: 0.5; }
 }
@@ -318,6 +401,12 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     background     : var(--mkcp-acc-card-bg);
     border-top     : 1.5px solid var(--mkcp-acc-border);
     z-index        : 10;
+    // D1: ruimte voor de iPhone-home-indicator-balk — zonder dit viel de
+    // vaste bottom-nav op recentere toestellen onder die balk. Vereist
+    // viewport-fit=cover in de eigen <meta name="viewport"> (templates/
+    // account-page.php) — anders is env() gewoon 0 en verandert er niets.
+    padding-bottom : env(safe-area-inset-bottom, 0px);
+    box-sizing     : content-box;
 
     &.is-loading {
         pointer-events: none;
@@ -345,6 +434,22 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
         color      : var(--mkcp-acc-accent-text);
 
         span:not(.mkcp-account-bottomnav__badge) { font-weight: 600; }
+
+        // D4: klein indicatorstipje boven het actieve icoon — zelfde
+        // idioom als de meeste native app-tabbalken, maakt in één oogopslag
+        // duidelijk waar je bent zonder alleen op de kleurverandering te
+        // hoeven vertrouwen.
+        &::before {
+            content      : '';
+            position     : absolute;
+            top          : -6px;
+            left         : 50%;
+            width        : 4px;
+            height       : 4px;
+            border-radius: 50%;
+            background   : var(--mkcp-acc-accent-text);
+            transform    : translateX(-50%);
+        }
     }
 }
 
@@ -368,64 +473,12 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     }
 }
 
-@media (max-width: 1023px) {
-    .mkcp-account-sidebar { display: none; }
-    .mkcp-account-bottomnav { display: flex; }
-    .mkcp-account-content { padding-bottom: 84px; }
-    .mkcp-dash-quickactions { grid-template-columns: repeat(2, 1fr); }
-    .mkcp-dash-grid { grid-template-columns: 1fr; }
-    .mkcp-dash-product-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-// Telefoonformaat: minder zijmarge (28px voelt krap-maar-nog-oké op een
-// tablet, maar eet op een 320-375px-scherm te veel bruikbare breedte op) +
-// een paar losse elementen die op deze breedte anders te veel in de verdrukking
-// komen (bestelrij-kolommen, besteltracker-labels).
-@media (max-width: 600px) {
-    .mkcp-account-content { padding-left: 16px; padding-right: 16px; }
-    .mkcp-account-topbar  { padding-left: 16px; padding-right: 16px; }
-
-    // Bestelling-rij: van 5 kolommen op één regel (thumbs/hoofdinfo/totaal/
-    // status/pijltje) naar 2 regels: thumbs+pijltje blijven over de volle
-    // hoogte staan, totaal en status verhuizen naar een tweede regel onder
-    // de hoofdinfo. grid-area i.p.v. herordenen in de markup — geen PHP-
-    // wijziging nodig. Elke area hier is een geldige rechthoek (thumbs en
-    // chevron beslaan beide rijen in hun kolom, main beslaat 2 kolommen op
-    // rij 1, total/status elk 1 kolom op rij 2).
-    .mkcp-order-row {
-        grid-template-columns: 52px 1fr auto auto;
-        grid-template-areas:
-            "thumbs main   main   chevron"
-            "thumbs total  status chevron";
-        row-gap    : 6px;
-        padding    : 12px 14px;
-    }
-
-    .mkcp-order-row__thumbs  { grid-area: thumbs; align-self: center; }
-    .mkcp-order-row__main    { grid-area: main; }
-    .mkcp-order-row__chevron { grid-area: chevron; align-self: center; }
-    .mkcp-order-row__total   { grid-area: total; font-size: 13px; }
-
-    // Scoped tot .mkcp-order-row — .mkcp-order-badge staat ook elders
-    // (order-detailpagina) en mag daar zijn eigen (niet-grid-)layout houden.
-    .mkcp-order-row .mkcp-order-badge { grid-area: status; justify-self: end; }
-
-    // Besteltracker: labels mogen op dit formaat best 2 regels worden i.p.v.
-    // nowrap (dat kon bij "In behandeling" e.d. de kaart breder duwen dan
-    // het scherm) — een fractie minder strak, maar gegarandeerd geen
-    // overflow meer.
-    .mkcp-order-progress__label {
-        white-space: normal;
-        text-align : center;
-        max-width  : 5.5em;
-    }
-
-    // De minmax(310px, 1fr)-ondergrens van de adressenlijst (bedoeld om
-    // kaarten op desktop lekker breed te houden) is op een 320px-scherm
-    // net te breed voor de beschikbare ruimte na de padding hierboven —
-    // op deze breedte is 1 volle-breedte-kolom sowieso de bedoeling.
-    .mkcp-address-list { grid-template-columns: 1fr; }
-}
+// BUG GEVONDEN EN OPGELOST: twee media-blokken stonden hier eerder, vroeg in
+// het bestand, maar de DESKTOP-basisregels van de geraakte classes
+// (.mkcp-dash-grid e.a.) staan pas veel verderop. Bij gelijke specificiteit
+// wint niet "de media-query" maar de regel die LAATST in de brontekst staat
+// — de latere desktop-regel overschreef de mobiele override alsnog. Verplaatst
+// naar onderaan dit bestand (zoek "MOBIELE OVERRIDES").
 
 
 /* ── Panelwissel-animatie ────────────────────────────────────────────────────
@@ -475,7 +528,6 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     color     : var(--mkcp-danger, #d32f2f);
 }
 
-
 /* ── Skeleton-loader bij elke fragment-wissel ───────────────────────────────── */
 
 .mkcp-skeleton {
@@ -523,6 +575,13 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     display              : grid;
     grid-template-columns: repeat(4, 1fr);
     gap                  : 10px;
+
+    // De echte .mkcp-dash-stats/.mkcp-dash-quickactions schakelen al bij
+    // $mkcp-tablet naar 2 kolommen — zonder dit sprong de layout zichtbaar
+    // zodra de echte inhoud de nog 4-koloms skeleton verving.
+    @media (max-width: $mkcp-tablet) {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .mkcp-skeleton__stat {
@@ -598,6 +657,12 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
 
 .mkcp-account-view__header h1 { margin-bottom: 0; }
 
+// Browser-standaard margin-top van <h1> (± 0.67em) stond hier nooit expliciet
+// gereset — op mobiel duwde dat de titel onnodig naar beneden.
+@media (max-width: $mkcp-phone) {
+    .mkcp-account-view__header h1 { margin-top: 0; }
+}
+
 // Bestelling-detail: "Opnieuw bestellen" staat als los blok-element ónder de
 // titel (h1 heeft hierboven bewust margin-bottom:0, want op andere pagina's
 // staat er niets ná de titel binnen deze header) — hier specifiek wat
@@ -652,7 +717,7 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
 
     .mkcp-account-form-row { margin-bottom: 1em; }
 
-    @media (max-width: 480px) {
+    @media (max-width: $mkcp-phone) {
         grid-template-columns: 1fr;
     }
 }
@@ -997,6 +1062,87 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     color     : var(--mkcp-acc-muted);
 }
 
+// Bredere, persoonlijkere header — gradient in de accentkleur i.p.v. een
+// kale kop, zelfde color-mix()-aanpak als --mkcp-acc-tint2 hierboven.
+.mkcp-dash-header--hero {
+    // Full-bleed — breekt uit de zijpadding van .mkcp-account-content via
+    // negatieve marges gelijk aan die padding, met evenveel binnen-padding
+    // gecompenseerd zodat de inhoud niet verschuift.
+    margin       : -26px calc(-1 * var(--mkcp-content-pad-x, 28px)) 26px;
+    padding      : 32px var(--mkcp-content-pad-x, 28px) 28px;
+    border-radius: 0 0 20px 20px;
+    background   : linear-gradient(135deg, color-mix(in srgb, var(--mkcp-accent, #2e7d32) 16%, var(--mkcp-acc-card-bg)), color-mix(in srgb, var(--mkcp-accent, #2e7d32) 4%, var(--mkcp-acc-card-bg)));
+    border       : 1.5px solid var(--mkcp-acc-border);
+    border-top   : none;
+
+    h1 { font-size: 28px; }
+
+    // Minder verticale ruimte vóór de inhoud — de hero was ontworpen voor
+    // desktop, op mobiel kost dezelfde padding/tekstgrootte relatief veel.
+    @media (max-width: $mkcp-phone) {
+        // Eigen, ruimere zij-inzet i.p.v. --mkcp-content-pad-x (16px) — de
+        // tekst/knoppen zaten anders praktisch tegen de kaartrand aan.
+        padding: 22px 24px 30px;
+
+        h1 { font-size: 22px; }
+    }
+}
+
+.mkcp-dash-header__ctas {
+    display  : flex;
+    flex-wrap: wrap;
+    gap      : 8px;
+    margin-top: 14px;
+}
+
+.mkcp-dash-header__cta {
+    display        : inline-flex;
+    align-items    : center;
+    gap            : 6px;
+    padding        : 8px 14px;
+    border-radius  : 10px;
+    background     : var(--mkcp-acc-card-bg);
+    border         : 1.5px solid var(--mkcp-acc-border);
+    color          : var(--mkcp-acc-text) !important;
+    font-size      : 0.86em;
+    font-weight    : 600;
+    text-decoration: none !important;
+    transition     : transform 120ms ease, box-shadow 120ms ease;
+
+    &:hover {
+        box-shadow: var(--mkcp-acc-shadow-hover);
+        transform : translateY(-1px);
+    }
+}
+
+.mkcp-dash-header__cart-teaser {
+    display        : inline-flex;
+    align-items    : center;
+    gap            : 8px;
+    margin-top     : 12px;
+    padding        : 8px 14px;
+    border-radius  : 10px;
+    background     : var(--mkcp-acc-card-bg);
+    border         : 1.5px solid var(--mkcp-acc-border);
+    color          : var(--mkcp-acc-text) !important;
+    font-size      : 0.88em;
+    font-weight    : 600;
+    text-decoration: none !important;
+    transition     : transform 120ms ease, box-shadow 120ms ease;
+
+    &:hover {
+        box-shadow: var(--mkcp-acc-shadow-hover);
+        transform : translateY(-1px);
+    }
+
+    // Op mobiel helemaal weg — geen ruimte-reservering t.o.v. de vaste
+    // bottom-nav, dus kon erover heen vallen op een korte pagina. Mobiel
+    // heeft al de bottom-nav + winkelwagen-icoon in de topbar.
+    @media (max-width: $mkcp-tablet) {
+        display: none;
+    }
+}
+
 .mkcp-dash-card {
     padding      : 22px;
     border-radius: 14px;
@@ -1120,6 +1266,19 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     margin   : 10px 0 0;
     font-size: 13px;
     color    : var(--mkcp-acc-muted);
+}
+
+// Alleen relevant op de orderdetailpagina (account-orders.php:743): daar
+// staat de status-/datumregel vlak vóór de eerste kaart (voortgang of,
+// zonder voortgang, meteen de productenkaart), met 0px ruimte ertussen
+// (geen bottom-margin op __meta, geen top-margin op .mkcp-dash-card). De
+// tweede selector dekt het geval waarin daartussen nog een (soms lege)
+// "opnieuw bestellen"-statusregel staat. Bewust + i.p.v. de algemene ~
+// sibling-combinator: dat zou ANDERE latere .dash-cards (bv. de producten-
+// kaart erna) ook opnieuw margin-top geven, en daar was de spacing al goed.
+.mkcp-dash-order__meta + .mkcp-dash-card,
+.mkcp-dash-order__meta + .mkcp-account-form-status + .mkcp-dash-card {
+    margin-top: 16px;
 }
 
 .mkcp-dash-order__thumbs {
@@ -1441,7 +1600,11 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     // schuift de rest van de rij-inhoud (nummer/datum/totaal) opzij zodra
     // een bestelling geen productafbeeldingen heeft, en staan alle rijen
     // onderling niet meer netjes uitgelijnd.
-    grid-template-columns: 76px 1fr auto auto auto;
+    // 6de (auto) kolom is voor de optionele retour-badge — blijft leeg als
+    // die er niet is (5 items vullen dan gewoon de eerste 5 kolommen), geen
+    // aparte regel/markup-wijziging nodig zolang de badge als laatste-op-één-
+    // na kind van de rij staat.
+    grid-template-columns: 76px 1fr auto auto auto auto;
     align-items  : center;
     gap          : 14px;
     padding      : 14px 18px;
@@ -1556,6 +1719,16 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     }
 }
 
+// E2: thumbnail/naam linken naar de productpagina — als <a> i.p.v. <span>,
+// zelfde look als voorheen, alleen nu klikbaar.
+a.mkcp-order-item__thumb,
+a.mkcp-order-item__name {
+    color          : inherit;
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+}
+
 // "Retourneren"/"Reviews"-kaarten náást elkaar (account-orders.php, ná
 // Adresgegevens) — twee losse kaarten i.p.v. gestapeld, elk met evenveel
 // ruimte; valt terug naar 1 kolom zodra een kaart smaller dan 260px zou
@@ -1597,11 +1770,92 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     font-size: 0.95em;
 }
 
+// Herbruikbare merk-passende checkbox — vervangt de kale browser-checkbox
+// overal waar 'm nodig is (nieuwsbrief-voorkeur, wishlist-/retour-bulk-
+// selectie). Puur op de <input> zelf via appearance:none, dus geen extra
+// wrapper-markup nodig op de aanroepende plekken.
+.mkcp-checkbox {
+    appearance     : none;
+    -webkit-appearance: none;
+    box-sizing     : border-box;
+    flex-shrink    : 0;
+    flex-grow      : 0;
+    width          : 20px;
+    min-width      : 20px;
+    height         : 20px;
+    padding        : 0;
+    margin         : 0;
+    border         : 1.5px solid var(--mkcp-acc-border);
+    border-radius  : 6px;
+    background     : var(--mkcp-acc-card-bg);
+    cursor         : pointer;
+    position       : relative;
+    transition     : background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+
+    &:hover { border-color: var(--mkcp-accent, #2e7d32); }
+
+    &:checked {
+        background     : var(--mkcp-accent, #2e7d32);
+        border-color   : var(--mkcp-accent, #2e7d32);
+
+        &::after {
+            content      : '';
+            position     : absolute;
+            left         : 6px;
+            top          : 2px;
+            width        : 5px;
+            height       : 10px;
+            border       : solid #fff;
+            border-width : 0 2px 2px 0;
+            transform    : rotate(45deg) scale(1);
+            animation    : mkcp-checkbox-pop 140ms ease;
+        }
+    }
+
+    &:active { transform: scale(0.92); }
+}
+
+@keyframes mkcp-checkbox-pop {
+    from { transform: rotate(45deg) scale(0); }
+    to   { transform: rotate(45deg) scale(1); }
+}
+
+.mkcp-return-item__select {
+    display        : flex;
+    align-items    : center;
+    flex-shrink    : 0;
+
+    input { margin: 0; }
+}
+
+.mkcp-return-bulkbar {
+    flex-basis   : 100%;
+    margin-top   : 0.75em;
+    padding      : 1em 1.25em;
+    border       : 1px solid var(--mkcp-acc-border);
+    border-radius: 12px;
+    background   : var(--mkcp-acc-tint);
+}
+
+.mkcp-return-bulkbar__count {
+    font-size  : 0.85em;
+    font-weight: 600;
+    color      : var(--mkcp-acc-accent-text);
+    margin-bottom: 0.5em;
+}
+
 .mkcp-return-item__actions {
     display    : flex;
     flex-wrap  : wrap;
     align-items: center;
     gap        : 4px 16px;
+}
+
+.mkcp-order-shipping-line {
+    text-align : right;
+    color      : var(--mkcp-acc-muted);
+    font-size  : 0.9em;
+    margin     : 4px 0 0;
 }
 
 .mkcp-order-total {
@@ -1633,15 +1887,6 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
         transition     : background-color 150ms ease;
 
         &:hover { background: var(--mkcp-acc-border); }
-
-        &::before {
-            content            : '';
-            width              : 15px;
-            height             : 15px;
-            background-repeat  : no-repeat;
-            background-position: center;
-            background-image   : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E");
-        }
     }
 }
 
@@ -1771,17 +2016,15 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     top           : 10px;
     left          : 10px;
     z-index       : 2;
-    width         : 22px;
-    height        : 22px;
-    border-radius : 6px;
-    background    : var(--mkcp-acc-card-bg);
-    box-shadow    : 0 1px 4px rgba(0, 0, 0, .15);
     display       : flex;
     align-items   : center;
     justify-content: center;
     cursor        : pointer;
 
-    input { margin: 0; cursor: pointer; }
+    // De .mkcp-checkbox zelf heeft al een eigen achtergrond/rand — hier
+    // alleen een zachte schaduw zodat 'm loskomt van de productfoto
+    // eronder, geen dubbele omkadering meer.
+    input { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .2)); cursor: pointer; }
 }
 
 // Verschijnt zodra er in deze lijst ≥1 item geselecteerd is (zie assets/
@@ -2001,6 +2244,42 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     &:has(input.is-saved) { border-color: #2e7d32; }
 }
 
+.mkcp-wishlist-item__target-price-confirm {
+    display   : block;
+    margin-top: 5px;
+    font-size : 10.5px;
+    color     : var(--mkcp-acc-muted);
+}
+
+// D3: uitleg waarom de "waarschuw mij"-bel uitstaat — geen alarmerende kleur,
+// gewoon een neutrale toelichting.
+.mkcp-wishlist-item__auto-off-note {
+    display   : block;
+    margin-top: 4px;
+    font-size : 10.5px;
+    color     : var(--mkcp-acc-muted);
+    font-style: italic;
+}
+
+.mkcp-wishlist-item__notify-channels {
+    display      : flex;
+    flex-wrap    : wrap;
+    gap          : 10px;
+    margin       : 6px -14px -14px;
+    padding      : 6px 14px 8px;
+    font-size    : 11px;
+    color        : var(--mkcp-acc-muted);
+
+    label {
+        display    : inline-flex;
+        align-items: center;
+        gap        : 4px;
+        cursor     : pointer;
+    }
+
+    input { margin: 0; }
+}
+
 // Ronde iconknoppen — gedeeld met de retour-/notificatie-acties waar tekst-
 // knoppen te veel ruimte kosten op een compacte kaart.
 .mkcp-icon-btn {
@@ -2015,6 +2294,14 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     justify-content: center;
     cursor         : pointer;
     transition     : border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+
+    // D2: 30px is ruim onder Apple/Google's eigen 44×44px-vuistregel voor
+    // "voelt native/prettig aan" — op een telefoon (waar je met een vinger
+    // i.p.v. een muiscursor mikt) merkbaar krapper dan op desktop.
+    @media (max-width: $mkcp-phone) {
+        width : 44px;
+        height: 44px;
+    }
 
     svg { stroke: currentColor; }
 
@@ -2095,6 +2382,208 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
 .mkcp-return-status--rejected {
     background: var(--mkcp-acc-danger-bg);
     color     : var(--mkcp-danger, #d32f2f);
+}
+
+.mkcp-return-status--refunded {
+    background: #e6f0ea;
+    color     : #1f5c3d;
+}
+
+
+/* ── Toast (buiten #mkcp-account-content, overleeft een content-swap) ───────── */
+
+.mkcp-account-toast {
+    position     : fixed;
+    left         : 50%;
+    bottom       : 24px;
+    z-index      : 9999;
+    max-width    : calc(100vw - 32px);
+    padding      : 0.75em 1.25em;
+    border-radius: 999px;
+    background   : var(--mkcp-acc-text);
+    color        : var(--mkcp-acc-card-bg);
+    font-size    : 0.9em;
+    font-weight  : 600;
+    box-shadow   : var(--mkcp-acc-shadow-hover);
+    opacity      : 0;
+    transform    : translate(-50%, 8px);
+    transition   : opacity 200ms ease, transform 200ms ease;
+    pointer-events: none;
+
+    &.is-visible {
+        opacity  : 1;
+        transform: translate(-50%, 0);
+    }
+
+    &.is-error {
+        background: var(--mkcp-danger, #d32f2f);
+        color     : #fff;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-account-toast { transition: opacity 150ms ease; }
+}
+
+
+/* ── Retour-indicator in de bestellingenlijst ────────────────────────────────── */
+
+.mkcp-order-row__return-badge {
+    display      : inline-flex;
+    align-items  : center;
+    gap          : 4px;
+    padding      : 0.15em 0.6em;
+    border-radius: 999px;
+    font-size    : 0.72em;
+    font-weight  : 700;
+    background   : var(--mkcp-acc-tint);
+    color        : var(--mkcp-acc-accent-text);
+    white-space  : nowrap;
+}
+
+
+/* ── Retourneren-overzicht (eigen tabblad) ───────────────────────────────────── */
+
+.mkcp-return-list {
+    display       : flex;
+    flex-direction: column;
+    gap           : 10px;
+}
+
+.mkcp-return-row {
+    display    : flex;
+    flex-wrap  : wrap;
+    align-items: center;
+    gap        : 12px;
+    padding    : 12px 16px;
+    border     : 1px solid var(--mkcp-acc-border);
+    border-radius: 10px;
+    background : var(--mkcp-acc-card-bg);
+    text-decoration: none;
+    color      : inherit;
+    transition : border-color 150ms ease;
+
+    &:hover { border-color: var(--mkcp-acc-accent-text); }
+}
+
+// De stappen-tracker (D3) valt bewust op een eigen, volle regel i.p.v. mee
+// te dringen in de bovenste rij — flex-wrap hierboven maakt dat mogelijk
+// zonder de rest van de rij-layout te breken.
+.mkcp-return-progress {
+    flex-basis: 100%;
+    display   : flex;
+    align-items: center;
+    margin    : 6px 0 2px;
+}
+
+.mkcp-return-progress__step {
+    display       : flex;
+    flex-direction: column;
+    align-items   : center;
+    gap           : 4px;
+    flex          : 0 0 auto;
+}
+
+.mkcp-return-progress__dot {
+    width        : 10px;
+    height       : 10px;
+    border-radius: 50%;
+    border       : 2px solid var(--mkcp-acc-border);
+    background   : transparent;
+}
+
+.mkcp-return-progress__step.is-done .mkcp-return-progress__dot {
+    border-color: var(--mkcp-accent, #2e7d32);
+    background  : var(--mkcp-accent, #2e7d32);
+}
+
+.mkcp-return-progress--rejected .mkcp-return-progress__step.is-rejected .mkcp-return-progress__dot {
+    border-color: var(--mkcp-danger, #d32f2f);
+    background  : var(--mkcp-danger, #d32f2f);
+}
+
+.mkcp-return-progress__label {
+    font-size  : 10.5px;
+    color      : var(--mkcp-acc-muted);
+    white-space: nowrap;
+}
+
+.mkcp-return-progress__step.is-done .mkcp-return-progress__label { color: var(--mkcp-acc-accent-text); }
+.mkcp-return-progress__step.is-current .mkcp-return-progress__label { font-weight: 600; }
+.mkcp-return-progress--rejected .mkcp-return-progress__step.is-rejected .mkcp-return-progress__label { color: var(--mkcp-danger, #d32f2f); }
+
+.mkcp-return-progress__line {
+    flex      : 1;
+    height    : 2px;
+    background: var(--mkcp-acc-border);
+    margin    : 0 2px 14px;
+
+    &.is-filled { background: var(--mkcp-accent, #2e7d32); }
+    &.is-rejected.is-filled { background: var(--mkcp-danger, #d32f2f); }
+}
+
+.mkcp-return-row__thumb {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex-shrink    : 0;
+    width          : 44px;
+    height         : 44px;
+    border-radius  : 8px;
+    overflow       : hidden;
+    background     : var(--mkcp-acc-tint);
+    color          : var(--mkcp-acc-accent-text);
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.mkcp-return-row__main {
+    flex          : 1 1 auto;
+    min-width     : 0;
+    display       : flex;
+    flex-direction: column;
+    gap           : 2px;
+}
+
+.mkcp-return-row__product {
+    font-weight: 600;
+    font-size  : 0.95em;
+}
+
+.mkcp-return-row__meta {
+    font-size: 0.82em;
+    color    : var(--mkcp-acc-muted);
+}
+
+.mkcp-return-row__note {
+    font-size: 0.8em;
+    color    : var(--mkcp-acc-muted);
+    font-style: italic;
+}
+
+// Retourneren-tab had tot nu toe geen enkele mobiele behandeling — de rij
+// zelf (flex-wrap) hield al wel overzicht, maar padding/lettergrootte
+// bleven de volle desktop-maat, en de stappen-tracker-labels konden op een
+// smal scherm samen breder worden dan het scherm.
+@media (max-width: $mkcp-phone) {
+    .mkcp-return-row {
+        padding: 10px 12px;
+        gap    : 10px;
+    }
+
+    .mkcp-return-row__thumb {
+        width : 38px;
+        height: 38px;
+    }
+
+    .mkcp-return-progress__label {
+        font-size: 9.5px;
+        max-width: 4.5em;
+        white-space: normal;
+        text-align : center;
+    }
+
+    .mkcp-return-progress__step { gap: 2px; }
 }
 
 .mkcp-return-form {
@@ -2204,6 +2693,12 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     gap           : 0.5em;
 }
 
+.mkcp-notif-load-more-wrap {
+    display        : flex;
+    justify-content: center;
+    margin-top     : 16px;
+}
+
 .mkcp-notif {
     position     : relative;
     display      : grid;
@@ -2308,10 +2803,89 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
 }
 
 .mkcp-account-confirm__message {
-    margin   : 0 0 18px;
-    color    : var(--mkcp-acc-text);
-    font-size: 14px;
+    margin     : 0 0 18px;
+    color      : var(--mkcp-acc-text);
+    font-size  : 14px;
     line-height: 1.5;
+    white-space: pre-line;
+}
+
+// L1: rode accentrand + waarschuwingsicoon voor onomkeerbare acties (account
+// verwijderen) — via mkcpConfirm(msg, label, danger=true) in assets/account.js.
+.mkcp-account-confirm--danger .mkcp-account-confirm__dialog {
+    border-top: 4px solid var(--mkcp-danger, #d32f2f);
+
+    &::before {
+        content      : '⚠';
+        display      : block;
+        width        : 32px;
+        height       : 32px;
+        margin-bottom: 10px;
+        border-radius: 50%;
+        background   : var(--mkcp-acc-danger-bg);
+        color        : var(--mkcp-danger, #d32f2f);
+        font-size    : 16px;
+        line-height  : 32px;
+        text-align   : center;
+    }
+}
+
+// J5: intro-zin dikker/groter (echte titel-uitstraling i.p.v. gewoon vet
+// tussen de rest van de tekst), + gestylede opsomming i.p.v. platte \n-
+// regels — alleen relevant wanneer mkcpConfirm() een object meekrijgt
+// (account.js, renderConfirmMessage()), andere bevestigingen blijven de
+// simpele tekststijl gebruiken.
+.mkcp-account-confirm__intro {
+    display      : block;
+    margin-bottom: 10px;
+    font-size    : 15px;
+    font-weight  : 700;
+    color        : var(--mkcp-acc-text);
+}
+
+.mkcp-account-confirm__list {
+    margin       : 0 0 12px;
+    padding      : 0;
+    list-style   : none;
+    display      : flex;
+    flex-direction: column;
+    gap          : 6px;
+
+    li {
+        position     : relative;
+        padding-left : 22px;
+        font-size    : 13.5px;
+        color        : var(--mkcp-acc-text);
+
+        &::before {
+            content      : '';
+            position     : absolute;
+            left         : 0;
+            top          : 3px;
+            width        : 14px;
+            height       : 14px;
+            border-radius: 4px;
+            background   : var(--mkcp-acc-danger-bg);
+            box-shadow   : inset 0 0 0 1.5px var(--mkcp-danger, #d32f2f);
+        }
+
+        &::after {
+            content      : '×';
+            position     : absolute;
+            left         : 2.5px;
+            top           : -1px;
+            font-size    : 12px;
+            font-weight  : 700;
+            line-height  : 14px;
+            color        : var(--mkcp-danger, #d32f2f);
+        }
+    }
+}
+
+.mkcp-account-confirm__outro {
+    display   : block;
+    font-size : 12.5px;
+    color     : var(--mkcp-acc-muted);
 }
 
 .mkcp-account-confirm__actions {
@@ -2333,7 +2907,7 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
 // Bento-statistiekenrij (Dashboard).
 .mkcp-dash-stats {
     display              : grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap                  : 10px;
     margin-bottom        : 20px;
 }
@@ -2373,8 +2947,30 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     color    : var(--mkcp-acc-muted);
 }
 
-@media (max-width: 640px) {
-    .mkcp-dash-stats { grid-template-columns: repeat(2, 1fr); }
+// C2: op een echte telefoon (na de 2-koloms-tussenstap die al bij
+// $mkcp-tablet ingaat, zie hierboven) worden de tegels een horizontaal
+// scrollende rij i.p.v. een 2×2-grid — zelfde scroll-idioom als de product-
+// sliders (.mkcp-dash-product-scroller) hierboven, zodat de tegels hun
+// leesbare formaat houden maar minder verticale ruimte innemen.
+@media (max-width: $mkcp-phone) {
+    .mkcp-dash-stats {
+        display           : flex;
+        grid-template-columns: none;
+        gap               : 10px;
+        overflow-x        : auto;
+        scroll-snap-type  : x mandatory;
+        scrollbar-width   : none;
+        -ms-overflow-style: none;
+        padding-bottom    : 2px;
+
+        &::-webkit-scrollbar { display: none; }
+    }
+
+    .mkcp-dash-stat {
+        flex     : 0 0 auto;
+        min-width: 128px;
+        scroll-snap-align: start;
+    }
 }
 
 // Verwachte levering/afhaaldatum op de actieve-bestelling-kaart.
@@ -2464,7 +3060,7 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
 .mkcp-dash-scroller__nav--prev { left : -13px; }
 .mkcp-dash-scroller__nav--next { right: -13px; }
 
-@media (max-width: 460px) {
+@media (max-width: $mkcp-phone) {
     .mkcp-dash-scroller__nav--prev { left : -8px; }
     .mkcp-dash-scroller__nav--next { right: -8px; }
 }
@@ -2574,7 +3170,7 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     .mkcp-order-search.is-searching::after { animation: none; }
 }
 
-@media (max-width: 480px) {
+@media (max-width: $mkcp-phone) {
     .mkcp-order-search input { min-width: 0; width: 100%; }
 }
 
@@ -2700,6 +3296,9 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
         width   : 1px;
         height  : 1px;
     }
+
+    // Laadfeedback tijdens het genereren/opslaan van de deel-link.
+    &.is-loading { opacity: 0.6; pointer-events: none; }
 }
 
 .mkcp-switch__track {
@@ -2959,8 +3558,172 @@ html[data-mkcp-theme="dark"] .mkcp-account-theme-toggle {
     color     : var(--mkcp-danger, #d32f2f);
 }
 
+// J3: info-icoontje bij "Aanbevolen voor jou" — title-attribuut geeft de
+// native browser-tooltip, geen eigen tooltip-component nodig.
+.mkcp-dash-card__info {
+    position   : relative;
+    display    : inline-flex;
+    align-items: center;
+    justify-content: center;
+    width      : 16px;
+    height     : 16px;
+    margin-left: 4px;
+    color      : var(--mkcp-acc-muted);
+    cursor     : help;
+    vertical-align: -2px;
+
+    &:hover, &:focus-visible { color: var(--mkcp-accent, #2e7d32); }
+
+    &:hover .mkcp-dash-card__info-popover,
+    &:focus-visible .mkcp-dash-card__info-popover {
+        opacity   : 1;
+        visibility: visible;
+        transform : translate(-50%, -4px);
+    }
+}
+
+// J3: eigen gestylede popover i.p.v. de kale browser-tooltip (title-
+// attribuut) — zelfde kaart-stijl (achtergrond/rand/schaduw) als de rest van
+// de plugin, verschijnt gecentreerd boven het info-icoontje.
+.mkcp-dash-card__info-popover {
+    position     : absolute;
+    bottom       : 100%;
+    left         : 50%;
+    transform    : translate(-50%, 2px);
+    width        : 240px;
+    margin-bottom: 8px;
+    padding      : 10px 12px;
+    border-radius: 10px;
+    background   : var(--mkcp-acc-card-bg);
+    border       : 1.5px solid var(--mkcp-acc-border);
+    box-shadow   : var(--mkcp-acc-shadow-hover);
+    color        : var(--mkcp-acc-text);
+    font-size    : 11.5px;
+    font-weight  : 400;
+    line-height  : 1.5;
+    text-align   : left;
+    white-space  : normal;
+    opacity      : 0;
+    visibility   : hidden;
+    transition   : opacity 150ms ease, transform 150ms ease, visibility 150ms;
+    z-index      : 5;
+    cursor       : default;
+
+    &::after {
+        content      : '';
+        position     : absolute;
+        top          : 100%;
+        left         : 50%;
+        transform    : translateX(-50%);
+        border       : 5px solid transparent;
+        border-top-color: var(--mkcp-acc-card-bg);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .mkcp-review-form__stars label {
         transition: none;
     }
+} // (bewust NIET aangeraakt — sluit de bestaande regel af)
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBIELE OVERRIDES — bewust HELEMAAL ONDERAAN dit bestand
+   ══════════════════════════════════════════════════════════════════════════
+   Bij gelijke CSS-specificiteit wint de regel die het LAATST in de brontekst
+   staat — niet "de regel binnen een media-query". Deze twee blokken
+   overschrijven eigenschappen van classes waarvan de onvoorwaardelijke
+   desktop-basisregel elders (eerder) in dit bestand staat, dus moeten ze
+   hier, na alles, staan om gegarandeerd te winnen. Eerst het bredere
+   $mkcp-tablet-blok, dan het smallere $mkcp-phone-blok (smaller/later
+   moet winnen op een telefoon, waar beide condities tegelijk matchen). */
+
+@media (max-width: $mkcp-tablet) {
+    .mkcp-account-sidebar { display: none; }
+    .mkcp-account-bottomnav { display: flex; }
+    // Meer lucht dan de bottom-nav zelf hoog is (64px) — anders valt de
+    // laatste content er nog net overheen, zoals gemeld.
+    .mkcp-account-content { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+    .mkcp-dash-quickactions { grid-template-columns: repeat(2, 1fr); }
+    .mkcp-dash-grid { grid-template-columns: 1fr; }
+    .mkcp-dash-product-grid { grid-template-columns: repeat(2, 1fr); }
+    // C2: statistieken-tegels al hier (i.p.v. pas op $mkcp-phone) naar 2
+    // kolommen — was voorheen 640px, waardoor er een zone tussen 641-1023px
+    // bestond waarin de zijbalk al weg was maar de tegels nog 4-koloms-
+    // desktop-breed bleven.
+    .mkcp-dash-stats { grid-template-columns: repeat(2, 1fr); }
+    // C3: kruimelpad is puur oriëntatie — overbodig zodra de bottom-nav er
+    // toch al is en zelf al aangeeft waar je bent.
+    .mkcp-account-topbar__crumb { display: none; }
+}
+
+// Telefoonformaat: minder zijmarge (28px voelt krap-maar-nog-oké op een
+// tablet, maar eet op een 320-375px-scherm te veel bruikbare breedte op) +
+// een paar losse elementen die op deze breedte anders te veel in de verdrukking
+// komen (bestelrij-kolommen, besteltracker-labels).
+@media (max-width: $mkcp-phone) {
+    .mkcp-account-content { padding: 0px 0px 90px 0px; margin: auto!important; width: 95%; }
+    .mkcp-account-topbar  { padding-left: 16px; padding-right: 16px; padding-bottom: 16px; }
+
+    // Bestelling-rij: van 5 kolommen op één regel (thumbs/hoofdinfo/totaal/
+    // status/pijltje) naar 2 regels: thumbs+pijltje blijven over de volle
+    // hoogte staan, totaal en status verhuizen naar een tweede regel onder
+    // de hoofdinfo. grid-area i.p.v. herordenen in de markup — geen PHP-
+    // wijziging nodig. Elke area hier is een geldige rechthoek (thumbs en
+    // chevron beslaan beide rijen in hun kolom, main beslaat 2 kolommen op
+    // rij 1, total/status elk 1 kolom op rij 2).
+    .mkcp-order-row {
+        grid-template-columns: 52px 1fr auto auto;
+        grid-template-areas:
+            "thumbs main   main   chevron"
+            "thumbs total  status chevron"
+            "thumbs return return chevron";
+        row-gap    : 4px;
+        // C4: iets verder verdicht t.o.v. de eerdere reflow — was voor een
+        // "normale" telefoon getekend, mag op $mkcp-phone zelf nog wat
+        // strakker.
+        padding    : 10px 12px;
+    }
+
+    .mkcp-order-badge { font-size: 0.75em; padding: 0.18em 0.65em; }
+
+    .mkcp-order-row__thumbs  { grid-area: thumbs; align-self: center; }
+    .mkcp-order-row__main    { grid-area: main; }
+    .mkcp-order-row__chevron { grid-area: chevron; align-self: center; }
+    .mkcp-order-row__total   { grid-area: total; font-size: 13px; }
+
+    // Scoped tot .mkcp-order-row — .mkcp-order-badge staat ook elders
+    // (order-detailpagina) en mag daar zijn eigen (niet-grid-)layout houden.
+    .mkcp-order-row .mkcp-order-badge { grid-area: status; justify-self: end; }
+
+    // Eigen, derde regel i.p.v. meeliften in de total/status-regel — die
+    // twee staan al naast elkaar en hebben geen ruimte meer over voor een
+    // derde stuk tekst zonder zelf weer af te breken. Ontbreekt de badge
+    // (het gebruikelijke geval), dan blijft deze regel leeg en valt 'm qua
+    // hoogte vanzelf weg (geen content = geen extra ruimte nodig).
+    .mkcp-order-row__return-badge { grid-area: return; justify-self: start; }
+
+    // Besteltracker: labels mogen op dit formaat best 2 regels worden i.p.v.
+    // nowrap (dat kon bij "In behandeling" e.d. de kaart breder duwen dan
+    // het scherm) — een fractie minder strak, maar gegarandeerd geen
+    // overflow meer.
+    .mkcp-order-progress__label {
+        white-space: normal;
+        text-align : center;
+        max-width  : 5.5em;
+    }
+
+    // De minmax(310px, 1fr)-ondergrens van de adressenlijst (bedoeld om
+    // kaarten op desktop lekker breed te houden) is op een 320px-scherm
+    // net te breed voor de beschikbare ruimte na de padding hierboven —
+    // op deze breedte is 1 volle-breedte-kolom sowieso de bedoeling.
+    .mkcp-address-list { grid-template-columns: 1fr; gap: 10px; }
+
+    // C5: kleinere kaart-padding — de desktop-padding (1.15em 1.4em) hield
+    // op smal scherm relatief veel witruimte over t.o.v. de daadwerkelijke
+    // adresinhoud.
+    .mkcp-address-card { padding: 0.9em 1.05em; gap: 10px; }
+
+    // Retourneren-tab (hierboven zelf al met een eigen, correct-geplaatste
+    // @media binnen dezelfde regio als de basisregel — zie .mkcp-return-row
+    // eerder in dit bestand). Niets extra's hier nodig.
 }

@@ -18,16 +18,14 @@
     var CLS_EXCL = 'is-btw-excl';
 
     // Vergrendeling (bv. bij BTW-verlegging na een geldig BTW-nummer, zie
-    // includes/checkout-frontend.php) — de knoppen blijven dan uitgeschakeld
-    // en tonen dus de eigen :disabled-stijl (mk-cart-popup__btw-opt in
-    // cart-popup.scss), ongeacht wat een klik of een AJAX-refresh nog zou
-    // proberen te doen.
+    // includes/checkout-frontend.php) — de toggle blijft dan uitgeschakeld,
+    // ongeacht wat een klik of een AJAX-refresh nog zou proberen te doen.
     var locked        = false;
     var prefBeforeLock = null;
 
     function setButtonsDisabled( disabled ) {
-        document.querySelectorAll( '.js-mkcp-btw' ).forEach( function ( btn ) {
-            btn.disabled = disabled;
+        document.querySelectorAll( '.js-mkcp-btw-toggle' ).forEach( function ( input ) {
+            input.disabled = disabled;
         } );
     }
 
@@ -94,8 +92,8 @@
             BODY.classList.remove( CLS_INCL, CLS_EXCL );
             BODY.classList.add( pref === 'excl' ? CLS_EXCL : CLS_INCL );
 
-            document.querySelectorAll( '.js-mkcp-btw' ).forEach( function ( btn ) {
-                btn.classList.toggle( 'is-active', btn.dataset.pref === pref );
+            document.querySelectorAll( '.js-mkcp-btw-toggle' ).forEach( function ( input ) {
+                input.checked = pref === 'incl';
             } );
 
             if ( animate ) {
@@ -112,12 +110,25 @@
         }
     }
 
-    // Click on BTW pill buttons.
+    // Ripple-effect bij het klikken op de toggle — puur decoratief, los van
+    // de 'change'-handler hieronder (die de eigenlijke stand bijwerkt).
+    // Mirrort de popup-toggle (assets/cart-popup.js) 1-op-1.
     document.addEventListener( 'click', function ( e ) {
+        var input = e.target.closest( '.js-mkcp-btw-toggle' );
+        if ( ! input ) return;
+        var thumb = input.closest( '.mk-cart-popup__btw-toggle' ).querySelector( '.mk-cart-popup__btw-toggle-thumb' );
+        if ( ! thumb ) return;
+        thumb.classList.remove( 'is-rippling' );
+        void thumb.offsetWidth;
+        thumb.classList.add( 'is-rippling' );
+    } );
+
+    // Change on the BTW toggle checkbox.
+    document.addEventListener( 'change', function ( e ) {
         if ( locked ) return;
-        var btn = e.target.closest( '.js-mkcp-btw' );
-        if ( ! btn ) return;
-        setPref( btn.dataset.pref );
+        var input = e.target.closest( '.js-mkcp-btw-toggle' );
+        if ( ! input ) return;
+        setPref( input.checked ? 'incl' : 'excl' );
         applyPref( true );
     } );
 

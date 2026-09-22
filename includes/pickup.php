@@ -8,14 +8,11 @@
  * pickup"-instantie per locatie), met een eigen adres, openingstijden per
  * weekdag en optionele tijdsloten.
  *
- * Fase 2: bezorgdatum en afhalen zijn niet langer wederzijds uitsluitend.
- * Een winkelwagentje kan een pakket in bezorgmodus én een pakket in
- * afhaalmodus tegelijk hebben (bv. een kentekenplaat die alleen af te halen
- * is, naast een gewoon te bezorgen product) — beide widgets renderen dan
- * onafhankelijk van elkaar, elk direct onder de kaartgroep van zijn eigen
- * pakket (zie templates/cart-shipping-choice.php). Rol-gebaseerd, niet per
- * pakket-index: een order heeft nooit meer dan één actieve bezorg-rate en
- * één actieve afhaal-rate tegelijk.
+ * Bezorgdatum en afhalen zijn niet wederzijds uitsluitend: een winkelwagentje
+ * kan een pakket in bezorgmodus én een pakket in afhaalmodus tegelijk hebben.
+ * Beide widgets renderen dan onafhankelijk, elk onder de kaartgroep van zijn
+ * eigen pakket (templates/cart-shipping-choice.php). Rol-gebaseerd, niet per
+ * pakket-index: een order heeft nooit meer dan één actieve rate per rol.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -30,14 +27,10 @@ function mkcp_pickup_feature_enabled(): bool {
 }
 
 /**
- * Alle WooCommerce-verzendmethodes van het type "Local pickup" (rate_id
- * begint met "local_pickup:"), als [ rate_id => label ] — dit is bewust een
- * subset van mkcp_dd_get_shipping_methods() (die ALLE methodes teruggeeft,
- * incl. flat_rate/free_shipping). Een "flat rate"- of "gratis verzending"-
- * methode kan nooit een afhaallocatie zijn, dus die horen niet in deze
- * lijst — anders is het te makkelijk om per ongeluk een gewone verzend-
- * methode als afhaallocatie aan te vinken, waardoor er voor klanten die
- * gewoon willen laten bezorgen ineens geen bezorgdatum meer verschijnt.
+ * WooCommerce-verzendmethodes van het type "Local pickup" (rate_id begint
+ * met "local_pickup:"), als [ rate_id => label ] — bewust een subset van
+ * mkcp_dd_get_shipping_methods(), anders is het te makkelijk om per ongeluk
+ * een gewone verzendmethode als afhaallocatie aan te vinken.
  */
 function mkcp_pickup_get_locations_methods(): array {
     $methods = function_exists( 'mkcp_dd_get_shipping_methods' ) ? mkcp_dd_get_shipping_methods() : [];
@@ -66,11 +59,9 @@ function mkcp_pickup_location_for_rate( ?string $rate_id ): ?array {
     $methods = function_exists( 'mkcp_dd_get_shipping_methods' ) ? mkcp_dd_get_shipping_methods() : [];
     $loc['method_label'] = $methods[ $rate_id ] ?? $rate_id;
 
-    // Klantgerichte weergavenaam (admin-instelbaar per locatie, bv. "Afhaallocatie
-    // Buitengebied") i.p.v. de technische WooCommerce-verzendmethodenaam, die vaak
-    // interne jargon bevat ("Lokaal afhalen — Buitengebied (verse bloemen)") dat de
-    // klant niks zegt. method_label blijft ongewijzigd staan (order-meta/admin/e-mail
-    // blijven de echte verzendmethodenaam tonen, handig om locaties te onderscheiden).
+    // Klantgerichte weergavenaam i.p.v. de technische verzendmethodenaam (die
+    // vaak interne jargon bevat). method_label blijft ongewijzigd staan voor
+    // order-meta/admin/e-mail, handig om locaties te onderscheiden.
     $display_name = trim( (string) ( $loc['display_name'] ?? '' ) );
     $loc['location_label'] = $display_name !== '' ? $display_name : 'Afhaallocatie';
 
@@ -88,11 +79,9 @@ function mkcp_pickup_active_location( ?string $rate_id = null ): ?array {
 }
 
 /**
- * Fase 2: zoekt binnen $_POST['shipping_method'] (over ALLE verzendpakketten
- * heen) de eerste rate die daadwerkelijk een afhaallocatie is — i.p.v. de
- * oude "eerste niet-lege rate, ongeacht rol"-aanname, die bij een gemengd
- * winkelwagentje net zo goed het bezorg-pakket kon teruggeven. Delegeert aan
- * de gedeelde mkcp_dd_role_rate_id_from_post() (delivery-date.php).
+ * Zoekt binnen $_POST['shipping_method'] (alle pakketten) de eerste rate die
+ * daadwerkelijk een afhaallocatie is. Delegeert aan de gedeelde
+ * mkcp_dd_role_rate_id_from_post() (delivery-date.php).
  */
 function mkcp_pickup_rate_id_from_post(): ?string {
     return function_exists( 'mkcp_dd_role_rate_id_from_post' ) ? mkcp_dd_role_rate_id_from_post( 'pickup' ) : null;
@@ -211,14 +200,12 @@ function mkcp_pickup_localize_data( array $loc ): array {
 
 
 // ── Checkout veld renderen ─────────────────────────────────────────────────────
-// Fase 2: aangeroepen vanuit templates/cart-shipping-choice.php, direct onder
-// de "Zelf afhalen"-kaartgroep van het pakket waarvoor $loc is opgezocht —
-// niet meer via delegatie vanuit delivery-date.php, zodat een gemengd
-// winkelwagentje deze widget en de bezorgdatum-widget (mkcp_dd_render_
-// delivery_field() in delivery-date.php) tegelijk kan tonen. Eigen id-
-// namespace (mkcp-pu-*, i.p.v. mkcp-dd-*) om te voorkomen dat de twee
-// widgets elkaars elementen raken zodra ze gelijktijdig in de DOM staan —
-// de CSS-classes (mkcp-dd-*) blijven wél gedeeld, puur voor de opmaak.
+// Aangeroepen vanuit templates/cart-shipping-choice.php, direct onder de
+// "Zelf afhalen"-kaartgroep van het pakket waarvoor $loc is opgezocht, zodat
+// een gemengd winkelwagentje deze widget en de bezorgdatum-widget
+// (mkcp_dd_render_delivery_field() in delivery-date.php) tegelijk kan tonen.
+// Eigen id-namespace (mkcp-pu-* i.p.v. mkcp-dd-*) zodat de twee widgets
+// elkaars elementen niet raken; de CSS-classes (mkcp-dd-*) blijven gedeeld.
 function mkcp_pickup_render_field( array $loc ) {
     $dates = mkcp_pickup_available_dates( $loc );
 
@@ -227,14 +214,10 @@ function mkcp_pickup_render_field( array $loc ) {
         return;
     }
 
-    $chips      = array_slice( $dates, 0, 6 );
-    $days_short = [ 'Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za' ];
     ?>
     <div class="mkcp-dd-wrap mkcp-pu-wrap" id="mkcp-pu-wrap">
 
-        <?php // Zelfde statische, altijd-aanwezige foutmeld-container als de
-              // bezorgdatum-variant (includes/delivery-date.php) — delivery-date.js
-              // vult 'm bij beide rollen op dezelfde manier. ?>
+        <?php // Zelfde statische foutmeld-container als de bezorgdatum-variant. ?>
         <div id="mkcp-pu-error" class="mkcp-dd-error" role="alert" hidden></div>
 
         <div class="mkcp-dd-header">
@@ -243,43 +226,17 @@ function mkcp_pickup_render_field( array $loc ) {
             </span>
         </div>
 
-        <?php // Zelfde inklap-mechanisme als de bezorgdatum-variant (zie
-              // delivery-date.php/delivery-date.js) — na een geldige keuze
-              // blijft alleen de header + .mkcp-dd-summary zichtbaar. ?>
+        <?php // Zelfde inklap-mechanisme als de bezorgdatum-variant. ?>
         <div class="mkcp-dd-body" id="mkcp-pu-body">
         <div class="mkcp-dd-body-inner">
 
         <p class="mkcp-dd-microcopy" id="mkcp-pu-microcopy" aria-hidden="true"></p>
 
-        <div class="mkcp-dd-chips-row" id="mkcp-pu-chips" role="group" aria-label="Kies een afhaaldatum"
-             aria-describedby="mkcp-pu-error">
-            <?php foreach ( $chips as $ymd ) :
-                $ts  = strtotime( $ymd );
-                $dow = (int) date( 'w', $ts );
-                $day = (int) date( 'j', $ts );
-            ?>
-            <button type="button" class="mkcp-dd-chip" data-date="<?php echo esc_attr( $ymd ); ?>">
-                <span class="mkcp-dd-chip-day"><?php echo esc_html( $days_short[ $dow ] ); ?></span>
-                <span class="mkcp-dd-chip-num"><?php echo $day; ?></span>
-            </button>
-            <?php endforeach; ?>
-
-            <button type="button" class="mkcp-dd-chip mkcp-dd-chip--cal" id="mkcp-pu-cal-btn"
-                    aria-label="Kalender openen" aria-haspopup="dialog" aria-expanded="false">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8"  y1="2" x2="8"  y2="6"/>
-                    <line x1="3"  y1="10" x2="21" y2="10"/>
-                </svg>
-            </button>
-        </div>
-
         <div class="mkcp-dd-track" id="mkcp-pu-track">
             <button type="button" class="mkcp-dd-nav mkcp-dd-nav--prev" id="mkcp-pu-nav-prev" aria-label="Vorige data">&#8249;</button>
             <div class="mkcp-dd-cards-viewport" id="mkcp-pu-cards-viewport">
-                <div class="mkcp-dd-cards-list" id="mkcp-pu-cards"></div>
+                <div class="mkcp-dd-cards-list" id="mkcp-pu-cards" role="group" aria-label="Kies een afhaaldatum"
+                     aria-describedby="mkcp-pu-error"></div>
             </div>
             <button type="button" class="mkcp-dd-nav mkcp-dd-nav--next" id="mkcp-pu-nav-next" aria-label="Volgende data">&#8250;</button>
         </div>
@@ -310,10 +267,8 @@ function mkcp_pickup_render_field( array $loc ) {
 
         <input type="hidden" name="mkcp_pickup_date" id="mkcp_pickup_date" class="mkcp-pu-date-field" value="">
 
-        <?php // Eigen dom_id ('mkcp-pu-data' i.p.v. het delivery-widget's
-              // 'mkcp-dd-data') zodat beide widgets, indien gelijktijdig
-              // gerenderd, elk hun eigen databron hebben — zie
-              // mkcp_dd_data_div_html() in includes/delivery-date.php. ?>
+        <?php // Eigen dom_id ('mkcp-pu-data') zodat beide widgets, indien
+              // gelijktijdig gerenderd, elk hun eigen databron hebben. ?>
         <?php echo mkcp_dd_data_div_html( $loc['rate_id'], 'mkcp-pu-data' ); ?>
 
         <div class="mkcp-dd-calendar" id="mkcp-pu-calendar" role="dialog" aria-label="Kies een datum" aria-hidden="true">
@@ -391,28 +346,21 @@ add_action( 'woocommerce_checkout_process', function() {
             wc_add_notice( __( 'Dit tijdstip zit helaas vol, kies een ander tijdstip.', 'mk-cart-popup' ), 'error' );
         }
     }
-}, 9 ); // Fase 2: bezorgdatum- en afhaal-validatie draaien nu altijd allebei
-        // (niet meer mutueel uitsluitend) — elk resolvet zijn eigen rol via
-        // mkcp_dd_role_rate_id_from_post() en leest zijn eigen POST-velden,
-        // dus zonder onderlinge interactie. Prioriteit blijft puur voor een
-        // voorspelbare volgorde in de foutmeldingen.
+}, 9 ); // Bezorgdatum- en afhaal-validatie draaien altijd allebei (niet meer
+        // mutueel uitsluitend), elk resolvet zijn eigen rol zonder onderlinge
+        // interactie. Prioriteit is puur voor een voorspelbare volgorde.
 
 
 // ── Checkout: telefoon altijd verplicht ─────────────────────────────────────────
-// Voorheen alleen verplicht bij afhalen (op basis van de gekozen verzendmethode),
-// maar die voorwaarde bleek onbetrouwbaar: een klant die van afhalen terugschakelde
-// naar bezorgen kon de melding "Telefoon is een vereist veld" krijgen terwijl het
-// veld zelf al als optioneel werd getoond, omdat de op dat moment gekozen
-// verzendmethode via meerdere, niet altijd synchrone routes (sessie, $_POST,
-// live DOM-status) werd afgeleid. Simpeler en betrouwbaarder: telefoon gewoon
-// altijd verplicht, ongeacht afhalen/bezorgen — dan klopt de melding altijd.
+// Voorheen alleen verplicht bij afhalen, maar dat bleek onbetrouwbaar: welke
+// verzendmethode "actief" was werd via meerdere, niet altijd synchrone routes
+// (sessie, $_POST, live DOM) afgeleid, waardoor de melding soms niet klopte
+// met het getoonde veld. Simpeler: telefoon altijd verplicht, ongeacht modus.
 //
-// Twee plekken nodig, niet één: deze filter regelt de EERSTE server-gerenderde
-// HTML. Maar WooCommerce's eigen wc-address-i18n.js herstelt bij élke land-
-// wissel het veld naar verplicht/optioneel op basis van de globale instelling
-// woocommerce_checkout_phone_field ('optional' hier) — die data staat los van
-// get_checkout_fields()/deze filter, dus zonder de option zelf aan te passen
-// zou het label na een landwissel alsnog terugspringen naar "optioneel".
+// Twee plekken nodig: deze filter regelt de eerste server-gerenderde HTML,
+// maar WooCommerce's wc-address-i18n.js herstelt bij élke landwissel het veld
+// o.b.v. de globale optie woocommerce_checkout_phone_field — zonder die optie
+// aan te passen zou het label na een landwissel terugspringen naar "optioneel".
 add_filter( 'woocommerce_billing_fields', function( $fields ) {
     if ( isset( $fields['billing_phone'] ) ) {
         $fields['billing_phone']['required'] = true;

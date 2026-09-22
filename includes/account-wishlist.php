@@ -1,22 +1,18 @@
 <?php
 /**
- * MK Cart Popup — Account: Wishlist (Fase 1, stap 5)
+ * MK Cart Popup — Account: Wishlist
  *
- * Los bestand, zelfde reden als account-profile.php/account-orders.php (zie
- * feedback-god-files-memory). Bevat de "Wishlist"-view (meerdere lijsten,
- * delen via publieke link) + het bijbehorende publieke, niet-ingelogde
- * leesvenster voor gedeelde lijsten.
+ * Bevat de "Wishlist"-view (meerdere lijsten, delen via publieke link) + het
+ * bijbehorende publieke, niet-ingelogde leesvenster voor gedeelde lijsten.
  *
  * Prijsdaling-/voorraadmeldingen: dagelijkse cron (prijs) + realtime
  * voorraad-hook, helemaal onderaan dit bestand — leunt op mkcp_account_
  * add_notification() uit account-notifications.php.
  *
- * NIET in deze stap (bewust uitgesteld, zie Account-plan sectie 16):
- * - Het hart-icoon op productpagina's/archieven zelf — dat is sitebrede
- *   frontend-integratie los van de Account-omgeving (journey 2.7) en wordt
- *   apart opgepakt; deze stap levert wel de herbruikbare AJAX-bouwsteen
- *   (mkcp_account_wishlist_item_add) die zo'n hart-icoon straks kan
- *   aanroepen.
+ * Levert twee AJAX-bouwstenen die ook buiten de Account-tab gebruikt worden:
+ * mkcp_account_wishlist_item_add (voegt altijd toe) en mkcp_account_wishlist_
+ * toggle (aan/uit op de standaardlijst) — die laatste voedt het hart-icoon op
+ * product-/archiefpagina's, zie includes/wishlist-icon.php + assets/.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -83,12 +79,7 @@ function mkcp_account_get_wishlist_items( int $wishlist_id ): array {
     ) );
 }
 
-/**
- * Alle product-ID's die deze klant ergens in een van zijn lijsten heeft
- * bewaard — één query per request (object-cache-baar), zodat het hartje-
- * icoon op een archiefpagina met tientallen producten niet N keer los hoeft
- * te bevragen (Account-plan, sectie 14).
- */
+/** Alle product-ID's die deze klant heeft bewaard — één query per request (object-cache-baar), zodat een hartje-icoon op een archiefpagina niet N keer los hoeft te bevragen. */
 function mkcp_account_get_wishlisted_product_ids( int $user_id ): array {
     static $cache = [];
     if ( isset( $cache[ $user_id ] ) ) return $cache[ $user_id ];
@@ -133,30 +124,57 @@ function mkcp_account_get_owned_wishlist_item( int $item_id, int $user_id ) {
 // ── Fragment: Wishlist ────────────────────────────────────────────────────────
 
 /**
- * Kaart-layout (afbeelding boven, naam/prijs eronder, iconknoppen als eigen
- * rij) i.p.v. de eerdere platte rij — zelfde "shop"-gevoel als de
- * productkaarten op het Dashboard (mkcp_account_render_product_card_compact),
- * met hier twee extra, interactieve knoppen (naar winkelwagen/verwijderen)
- * die niet in een <a> genest kunnen worden — vandaar een aparte link
- * (afbeelding+naam+prijs) plús een losse actie-rij, i.p.v. de hele kaart één
- * link te maken.
+ * Kaart-layout (afbeelding boven, naam/prijs eronder, iconknoppen als eigen rij),
+ * zelfde "shop"-gevoel als de Dashboard-productkaarten. De twee interactieve
+ * knoppen (winkelwagen/verwijderen) kunnen niet in een <a> genest worden — vandaar
+ * een aparte link (afbeelding+naam+prijs) plús een losse actie-rij.
  */
+/** Expliciete bevestigingszin van de ingestelde streefprijs (i.p.v. alleen het bedrag in het veld) — bij laden en live na opslaan (assets/account.js). */
+function mkcp_account_wishlist_target_price_confirm_text( string $email, $target_price, bool $in_stock = true ): string {
+    // Uitverkocht: prijs-georiënteerde tekst is verwarrend, dus aparte tekst
+    // (de meldingslogica zelf stuurt sowieso al een losse voorraad-melding,
+    // zie mkcp_account_wishlist_notify_back_in_stock()).
+    if ( ! $in_stock ) {
+        return sprintf(
+            /* translators: %s: e-mailadres */
+            __( 'Je krijgt een melding op %s zodra dit product weer op voorraad is.', 'mk-cart-popup' ),
+            $email
+        );
+    }
+    if ( $target_price === null || $target_price === '' ) {
+        return sprintf(
+            /* translators: %s: e-mailadres */
+            __( 'Je krijgt een melding op %s bij elke prijsdaling.', 'mk-cart-popup' ),
+            $email
+        );
+    }
+    return sprintf(
+        /* translators: 1: e-mailadres, 2: ingestelde prijs */
+        __( 'Je krijgt een melding op %1$s zodra de prijs %2$s of lager is.', 'mk-cart-popup' ),
+        $email,
+        // wc_price() geeft HTML-entities terug (&euro;, &nbsp;); esc_html() (PHP)
+        // en .textContent (JS) decoderen die niet — zonder html_entity_decode()
+        // zou de klant letterlijk "&euro;" zien i.p.v. "€".
+        html_entity_decode( wp_strip_all_tags( wc_price( (float) $target_price ) ), ENT_QUOTES, 'UTF-8' )
+    );
+}
+
 function mkcp_account_render_wishlist_item( $item ): string {
     $product   = wc_get_product( $item->variation_id ?: $item->product_id );
     $can_buy   = $product && $product->is_purchasable() && $product->is_in_stock();
     // Eén "waarschuw mij"-bel i.p.v. twee losse toggles voor prijsdaling vs.
-    // weer-op-voorraad — voor de klant is dat onderscheid niet iets om apart
-    // te hoeven aanvinken, hij wil gewoon "laat het me weten". Zet beide
-    // kolommen tegelijk aan/uit (includes/account-wishlist.php-AJAX-handler
-    // hieronder), de dagelijkse prijs-cron/voorraad-hook kijkt zelf welke
-    // van de twee daadwerkelijk van toepassing is.
+    // weer-op-voorraad (de klant wil gewoon "laat het me weten") — de AJAX-handler
+    // hieronder zet beide kolommen tegelijk aan/uit, de cron/hook kijkt zelf welke van toepassing is.
     $notify_on = ! empty( $item->notify_price_drop ) || ! empty( $item->notify_back_in_stock );
+
+    // Uitstaand + al eerder verstuurd = automatisch uitgeschakeld (niet de klant zelf) — dat kort uitleggen.
+    $notify_was_auto_disabled = ! $notify_on && ( ! empty( $item->last_notified_price_at ) || ! empty( $item->last_notified_stock_at ) );
 
     ob_start();
     ?>
     <div class="mkcp-wishlist-item" data-item-id="<?php echo esc_attr( $item->id ); ?>">
         <label class="mkcp-wishlist-item__select">
-            <input type="checkbox" class="js-mkcp-wishlist-select" value="<?php echo esc_attr( $item->id ); ?>" aria-label="<?php esc_attr_e( 'Selecteren', 'mk-cart-popup' ); ?>">
+            <input type="checkbox" class="mkcp-checkbox js-mkcp-wishlist-select" value="<?php echo esc_attr( $item->id ); ?>" aria-label="<?php esc_attr_e( 'Selecteren', 'mk-cart-popup' ); ?>">
         </label>
         <a class="mkcp-wishlist-item__link" href="<?php echo $product ? esc_url( get_permalink( $product->get_id() ) ) : '#'; ?>">
             <span class="mkcp-wishlist-item__thumb">
@@ -170,10 +188,8 @@ function mkcp_account_render_wishlist_item( $item ): string {
             <span class="mkcp-wishlist-item__name"><?php echo $product ? esc_html( $product->get_name() ) : esc_html__( 'Product niet meer beschikbaar', 'mk-cart-popup' ); ?></span>
             <?php if ( $product ) : ?><span class="mkcp-wishlist-item__price"><?php echo wp_kses_post( $product->get_price_html() ); ?></span><?php endif; ?>
             <?php
-            // Altijd zichtbare voorraadstatus (i.p.v. alleen een badge óver de
-            // afbeelding bij uitverkocht) — zo is in één oogopslag te zien
-            // welke wishlist-producten wel/niet leverbaar zijn, zonder dat de
-            // klant per item hoeft door te klikken.
+            // Altijd zichtbare voorraadstatus (i.p.v. alleen een badge over de afbeelding) —
+            // in één oogopslag zichtbaar welke items wel/niet leverbaar zijn.
             if ( $product ) :
                 if ( $can_buy ) :
                     ?><span class="mkcp-wishlist-item__stock mkcp-wishlist-item__stock--in"><span class="mkcp-wishlist-item__stock-dot" aria-hidden="true"></span><?php esc_html_e( 'Op voorraad', 'mk-cart-popup' ); ?></span><?php
@@ -192,8 +208,21 @@ function mkcp_account_render_wishlist_item( $item ): string {
                 </button>
             <?php endif; ?>
             <?php
-            $notify_off_text = __( 'Melding aanzetten: je krijgt een e-mail zodra de prijs van dit product daalt, of zodra het weer op voorraad is.', 'mk-cart-popup' );
-            $notify_on_text  = __( 'Melding staat aan (prijsdaling en weer-op-voorraad) — klik om uit te zetten.', 'mk-cart-popup' );
+            // Expliciet het e-mailadres vermelden (i.p.v. alleen "je krijgt een e-mail")
+            // — relevant bij meerdere e-mailadressen of twijfel over het account.
+            $notify_email = wp_get_current_user()->user_email;
+            $notify_off_text = sprintf(
+                /* translators: %s: e-mailadres van de klant */
+                $notify_was_auto_disabled
+                    ? __( 'Melding is automatisch uitgezet nadat je hierover al een melding kreeg. Klik om opnieuw aan te zetten.', 'mk-cart-popup' )
+                    : __( 'Melding aanzetten: je krijgt een e-mail op %s zodra de prijs van dit product daalt, of zodra het weer op voorraad is.', 'mk-cart-popup' ),
+                $notify_email
+            );
+            $notify_on_text  = sprintf(
+                /* translators: %s: e-mailadres van de klant */
+                __( 'Melding staat aan — je krijgt bericht op %s bij een prijsdaling of als het weer op voorraad is. Klik om uit te zetten.', 'mk-cart-popup' ),
+                $notify_email
+            );
             ?>
             <button type="button" class="mkcp-icon-btn js-mkcp-wishlist-notify<?php echo $notify_on ? ' is-active' : ''; ?>" aria-label="<?php echo esc_attr( $notify_on ? $notify_on_text : $notify_off_text ); ?>" title="<?php echo esc_attr( $notify_on ? $notify_on_text : $notify_off_text ); ?>" aria-pressed="<?php echo $notify_on ? 'true' : 'false'; ?>">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="<?php echo $notify_on ? 'currentColor' : 'none'; ?>" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/></svg>
@@ -202,20 +231,18 @@ function mkcp_account_render_wishlist_item( $item ): string {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
             </button>
         </span>
+        <?php if ( $notify_was_auto_disabled ) : ?>
+            <small class="mkcp-wishlist-item__auto-off-note"><?php esc_html_e( 'Melding is automatisch uitgezet nadat je hierover een melding kreeg — zet de bel opnieuw aan om weer gewaarschuwd te worden.', 'mk-cart-popup' ); ?></small>
+        <?php endif; ?>
         <?php if ( $notify_on && $product ) :
-            // Optioneel: een eigen gewenste-prijsgrens i.p.v. alleen "waarschuw
-            // bij elke daling" (het lege-veld-gedrag t.o.v. price_at_add). Leeg
-            // laten/wissen = terug naar "elke daling", geen verplichte keuze.
+            // Optioneel: eigen gewenste-prijsgrens i.p.v. "waarschuw bij elke daling"
+            // (leeg = terug naar "elke daling" t.o.v. price_at_add).
             //
-            // Bewust type="text" i.p.v. type="number": een natief number-veld
-            // accepteert in de meeste browsers alleen een punt als decimaal-
-            // scheidingsteken (een Nederlandse komma wordt genegeerd/maakt de
-            // waarde ongeldig — precies de "blijft op centen hangen"-klacht),
-            // én reageert op scrollen met het muiswiel door de waarde stilletjes
-            // te wijzigen als het veld toevallig focus heeft. inputmode="decimal"
-            // geeft op mobiel alsnog een numeriek toetsenbord; de komma/punt-
-            // normalisatie gebeurt in assets/account.js en (nogmaals, want een
-            // client-check is geen beveiliging) server-side.
+            // Bewust type="text" i.p.v. type="number": een natief number-veld accepteert
+            // meestal alleen een punt als decimaalteken (NL-komma wordt ongeldig — de
+            // "blijft op centen hangen"-klacht) en reageert op muiswiel-scroll door de
+            // waarde stilletjes te wijzigen bij focus. inputmode="decimal" geeft op mobiel
+            // alsnog een numeriek toetsenbord; komma/punt-normalisatie in account.js én server-side.
             $target_value = ( $item->target_price !== null && $item->target_price !== '' )
                 ? number_format( (float) $item->target_price, 2, ',', '' )
                 : '';
@@ -238,6 +265,19 @@ function mkcp_account_render_wishlist_item( $item ): string {
                         >
                     </span>
                 </label>
+                <small class="mkcp-wishlist-item__target-price-confirm js-mkcp-wishlist-target-price-confirm" data-email="<?php echo esc_attr( $notify_email ); ?>">
+                    <?php echo esc_html( mkcp_account_wishlist_target_price_confirm_text( $notify_email, $item->target_price, $can_buy ) ); ?>
+                </small>
+            </span>
+            <span class="mkcp-wishlist-item__notify-channels">
+                <label>
+                    <input type="checkbox" class="mkcp-checkbox js-mkcp-wishlist-notify-channel" data-item-id="<?php echo esc_attr( $item->id ); ?>" data-channel="email" <?php checked( ! empty( $item->notify_via_email ) ); ?>>
+                    <?php esc_html_e( 'E-mail', 'mk-cart-popup' ); ?>
+                </label>
+                <label>
+                    <input type="checkbox" class="mkcp-checkbox js-mkcp-wishlist-notify-channel" data-item-id="<?php echo esc_attr( $item->id ); ?>" data-channel="dashboard" <?php checked( ! empty( $item->notify_via_dashboard ) ); ?>>
+                    <?php esc_html_e( 'Melding in dashboard', 'mk-cart-popup' ); ?>
+                </label>
             </span>
         <?php endif; ?>
     </div>
@@ -245,13 +285,7 @@ function mkcp_account_render_wishlist_item( $item ): string {
     return ob_get_clean();
 }
 
-/**
- * $all_wishlists (alle lijsten van de klant, inclusief deze) is optioneel —
- * alleen nodig om de "Verplaatsen naar"-bulk-actie te kunnen tonen met de
- * ANDERE lijsten als keuze. Zonder dit argument (bv. bestaande aanroepen die
- * nog niet zijn bijgewerkt) verschijnt simpelweg geen verplaats-optie, geen
- * fatal error.
- */
+/** $all_wishlists is optioneel — alleen nodig voor de "Verplaatsen naar"-bulk-actie; zonder verschijnt simpelweg geen verplaats-optie. */
 function mkcp_account_render_wishlist_list( $wishlist, array $items, array $all_wishlists = [] ): string {
     $share_url = $wishlist->visibility === 'shared' && $wishlist->share_token
         ? add_query_arg( 'mkcp_wishlist', $wishlist->share_token, home_url( '/' ) )
@@ -273,6 +307,9 @@ function mkcp_account_render_wishlist_list( $wishlist, array $items, array $all_
                 ?></span>
             </h2>
             <div class="mkcp-wishlist-list__actions">
+                <?php if ( ! empty( $items ) ) : ?>
+                    <button type="button" class="mkcp-btn mkcp-btn--text js-mkcp-wishlist-select-all" data-wishlist-id="<?php echo esc_attr( $wishlist->id ); ?>"><?php esc_html_e( 'Alles selecteren', 'mk-cart-popup' ); ?></button>
+                <?php endif; ?>
                 <label class="mkcp-switch">
                     <input type="checkbox" class="js-mkcp-wishlist-share-toggle" <?php checked( $wishlist->visibility, 'shared' ); ?>>
                     <span class="mkcp-switch__track" aria-hidden="true"></span>
@@ -299,11 +336,7 @@ function mkcp_account_render_wishlist_list( $wishlist, array $items, array $all_
         <?php endif; ?>
 
         <?php if ( ! empty( $items ) ) : ?>
-            <?php
-            // Verborgen totdat er via de checkboxes op de kaarten hieronder
-            // iets geselecteerd is (assets/account.js) — geen aparte "bulk-
-            // modus"-schakelaar nodig, selecteren IS de trigger.
-            ?>
+            <?php // Verborgen tot iets geselecteerd is via de checkboxes hieronder (account.js) — selecteren IS de trigger. ?>
             <div class="mkcp-wishlist-bulkbar" id="mkcp-wishlist-bulkbar-<?php echo esc_attr( $wishlist->id ); ?>" data-wishlist-id="<?php echo esc_attr( $wishlist->id ); ?>" hidden>
                 <span class="mkcp-wishlist-bulkbar__count"><span class="js-mkcp-wishlist-bulk-count">0</span> <?php esc_html_e( 'geselecteerd', 'mk-cart-popup' ); ?></span>
                 <span class="mkcp-wishlist-bulkbar__actions">
@@ -456,9 +489,8 @@ add_action( 'wp_ajax_mkcp_account_wishlist_share_toggle', function() {
 
 // ── AJAX: item toevoegen ───────────────────────────────────────────────────────
 //
-// Herbruikbare bouwsteen — bedoeld om straks ook door een hart-icoon op
-// product-/archiefpagina's aangeroepen te worden (Account-plan, journey 2.7),
-// niet alleen vanuit de Account-omgeving zelf.
+// Herbruikbare bouwsteen: voegt altijd toe (het aan/uit-schakelen dat het
+// hart-icoon nodig heeft zit in mkcp_account_wishlist_toggle hieronder).
 
 add_action( 'wp_ajax_mkcp_account_wishlist_item_add', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
@@ -471,6 +503,13 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_add', function() {
 
     $product = wc_get_product( $variation_id ?: $product_id );
     if ( ! $product ) wp_send_json_error( [ 'code' => 'invalid_product' ], 400 );
+
+    // Variatie moet ook echt bij dit hoofdproduct horen — anders belandt er een
+    // inconsistente rij in de tabel die later nergens meer fatsoenlijk te
+    // renderen is (product X met een variatie van product Y).
+    if ( $variation_id && ( ! $product->is_type( 'variation' ) || (int) $product->get_parent_id() !== $product_id ) ) {
+        wp_send_json_error( [ 'code' => 'invalid_variation' ], 400 );
+    }
 
     $wishlist = $wishlist_id ? mkcp_account_get_owned_wishlist( $wishlist_id, $user_id ) : null;
     if ( ! $wishlist ) $wishlist = mkcp_account_get_or_create_default_wishlist( $user_id );
@@ -491,11 +530,9 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_add', function() {
 
 // ── AJAX: hart-icoon aan/uit (product-/archiefpagina's) ─────────────────────────
 //
-// Los van mkcp_account_wishlist_item_add: die voegt altijd toe (idempotent),
-// dit schakelt — precies wat een hart-icoon nodig heeft (één klik, geen
-// aparte verwijder-actie zichtbaar). Werkt altijd op de standaardlijst; wie
-// een item in een specifieke andere lijst wil, doet dat via de Wishlist-tab
-// zelf (Account-plan, journey 2.7 — dit is bewust de simpele variant).
+// Los van mkcp_account_wishlist_item_add (voegt altijd toe): dit schakelt — wat
+// een hart-icoon nodig heeft. Werkt altijd op de standaardlijst; een andere lijst
+// kiezen kan alleen via de Wishlist-tab zelf (bewust de simpele variant).
 
 add_action( 'wp_ajax_mkcp_account_wishlist_toggle', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
@@ -574,19 +611,34 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_notify_toggle', function() {
         [ '%d' ]
     );
 
+    // Ook een melding in het meldingencentrum, niet alleen de bevestigingstekst op de pagina zelf.
+    if ( $enable && function_exists( 'mkcp_account_add_notification' ) ) {
+        $product = wc_get_product( $item->variation_id ?: $item->product_id );
+        mkcp_account_add_notification(
+            $user_id,
+            'wishlist',
+            __( 'Melding ingesteld', 'mk-cart-popup' ),
+            sprintf(
+                /* translators: %s: productnaam */
+                __( 'Je krijgt voortaan bericht over "%s" bij een prijsdaling of als het weer op voorraad is.', 'mk-cart-popup' ),
+                $product ? $product->get_name() : __( 'dit product', 'mk-cart-popup' )
+            ),
+            '#/wishlist',
+            'product',
+            $product ? $product->get_id() : 0
+        );
+    }
+
     wp_send_json_success( [ 'html' => mkcp_account_render_fragment_wishlist() ] );
 } );
 
 
 // ── AJAX: gewenste prijsgrens instellen ───────────────────────────────────────
 //
-// Los van de aan/uit-toggle hierboven: dit is de optionele verfijning
-// "waarschuw me pas vanaf déze prijs" i.p.v. bij elke willekeurige daling.
-// Leeg (of een niet-numerieke waarde) betekent "geen grens" — de prijs-cron
-// valt dan terug op zijn oorspronkelijke gedrag (elke daling t.o.v.
-// price_at_add). Geen volledige fragment-herrender als response (zou de
-// focus uit het invoerveld halen terwijl de klant nog aan het typen kan
-// zijn) — alleen de opgeslagen waarde terug, zie account.js.
+// Optionele verfijning op de aan/uit-toggle hierboven: "waarschuw pas vanaf déze
+// prijs" i.p.v. elke daling. Leeg/niet-numeriek = "geen grens" (cron valt terug op
+// elke daling t.o.v. price_at_add). Geen volledige fragment-herrender als response
+// (zou focus uit het invoerveld halen) — alleen de opgeslagen waarde terug, zie account.js.
 
 add_action( 'wp_ajax_mkcp_account_wishlist_item_target_price', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
@@ -601,13 +653,20 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_target_price', function() {
     $raw = isset( $_POST['target_price'] ) ? sanitize_text_field( wp_unslash( $_POST['target_price'] ) ) : '';
     $raw = str_replace( ',', '.', $raw );
 
+    $user_email = wp_get_current_user()->user_email;
+    $product    = wc_get_product( $item->variation_id ?: $item->product_id );
+    $in_stock   = $product && $product->is_purchasable() && $product->is_in_stock();
+
     global $wpdb;
     if ( $raw === '' || ! is_numeric( $raw ) ) {
         $wpdb->query( $wpdb->prepare(
             "UPDATE {$wpdb->prefix}mkcp_wishlist_items SET target_price = NULL WHERE id = %d",
             $item->id
         ) );
-        wp_send_json_success( [ 'target_price' => null ] );
+        wp_send_json_success( [
+            'target_price'    => null,
+            'confirm_text'    => mkcp_account_wishlist_target_price_confirm_text( $user_email, null, $in_stock ),
+        ] );
         return;
     }
 
@@ -622,14 +681,51 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_target_price', function() {
 
     wp_send_json_success( [
         'target_price'         => $target_price,
-        // Kant-en-klaar met komma opgemaakt — assets/account.js zet dit
-        // direct in het veld terug, geen losse client-side formattering nodig.
+        // Kant-en-klaar met komma opgemaakt — account.js zet dit direct in het veld terug.
         'target_price_display' => number_format( $target_price, 2, ',', '' ),
+        // Bevestigingszin live bijwerken zonder de hele kaart te herrenderen (focus zou verloren gaan).
+        'confirm_text'          => mkcp_account_wishlist_target_price_confirm_text( $user_email, $target_price, $in_stock ),
     ] );
 } );
 
 
+// ── AJAX: e-mail- vs. dashboardmelding los in-/uitschakelen ───────────
+
+add_action( 'wp_ajax_mkcp_account_wishlist_item_notify_channel', function() {
+    if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
+    if ( ! mkcp_account_is_active() ) wp_send_json_error( [ 'code' => 'not_available' ], 403 );
+
+    $user_id = get_current_user_id();
+    $item_id = isset( $_POST['item_id'] ) ? absint( $_POST['item_id'] ) : 0;
+    $item    = $item_id ? mkcp_account_get_owned_wishlist_item( $item_id, $user_id ) : null;
+    if ( ! $item ) wp_send_json_error( [ 'code' => 'not_found' ], 404 );
+
+    $channel = isset( $_POST['channel'] ) ? sanitize_key( wp_unslash( $_POST['channel'] ) ) : '';
+    $column  = [ 'email' => 'notify_via_email', 'dashboard' => 'notify_via_dashboard' ][ $channel ] ?? '';
+    if ( ! $column ) wp_send_json_error( [ 'code' => 'invalid_channel' ], 400 );
+
+    $enabled = ! empty( $_POST['enabled'] ) ? 1 : 0;
+
+    global $wpdb;
+    $wpdb->update(
+        $wpdb->prefix . 'mkcp_wishlist_items',
+        [ $column => $enabled ],
+        [ 'id' => $item->id ],
+        [ '%d' ],
+        [ '%d' ]
+    );
+
+    wp_send_json_success( [ 'channel' => $channel, 'enabled' => (bool) $enabled ] );
+} );
+
+
 // ── AJAX: naar winkelwagen ───────────────────────────────────────────────────────
+
+/** Dunne wikkel om de gedeelde "Elke"-attributen-helper uit mk-cart-popup.php: [] = niets te fixen, false = klant moet zelf kiezen. */
+function mkcp_account_wishlist_variation_attributes( int $variation_id ) {
+    if ( ! $variation_id || ! function_exists( 'mkcp_resolve_any_attribute_variation' ) ) return [];
+    return mkcp_resolve_any_attribute_variation( $variation_id );
+}
 
 add_action( 'wp_ajax_mkcp_account_wishlist_item_to_cart', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
@@ -641,7 +737,6 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_to_cart', function() {
 
     if ( ! $item ) wp_send_json_error( [ 'code' => 'not_found' ], 404 );
 
-    $product_id   = $item->variation_id ? 0 : $item->product_id;
     $variation_id = (int) $item->variation_id;
     if ( $variation_id ) {
         $variation_product = wc_get_product( $variation_id );
@@ -650,7 +745,16 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_to_cart', function() {
         $product_id = (int) $item->product_id;
     }
 
-    $added = WC()->cart->add_to_cart( $product_id, 1, $variation_id ?: 0 );
+    // Zelfde "Elke"-attributen-fix als bij het normale add-to-cart-formulier:
+    // zonder expliciete waarden weigert WC_Cart::add_to_cart() zo'n variatie.
+    // In de wishlist is alleen de variatie bewaard, geen keuzes — vandaar de
+    // terugval op de standaardattributen van het hoofdproduct in de helper.
+    $variation = mkcp_account_wishlist_variation_attributes( $variation_id );
+    if ( false === $variation ) {
+        wp_send_json_error( [ 'code' => 'options_required', 'message' => __( 'Kies eerst de opties voor dit product op de productpagina.', 'mk-cart-popup' ) ], 400 );
+    }
+
+    $added = WC()->cart->add_to_cart( $product_id, 1, $variation_id ?: 0, $variation );
     if ( ! $added ) {
         wp_send_json_error( [ 'code' => 'add_to_cart_failed', 'message' => __( 'Kon niet worden toegevoegd (niet meer beschikbaar).', 'mk-cart-popup' ) ], 400 );
     }
@@ -664,15 +768,29 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_to_cart', function() {
 
 // ── AJAX: bulk-acties (meerdere geselecteerde items tegelijk) ────────────────
 //
-// Alle drie herhalen dezelfde eigendomscheck PER item (nooit een gepost
-// item_id blind vertrouwen, ook niet als 'ie tussen andere, wél-eigen ID's
-// in een array staat) — zelfde discipline als de losse single-item-acties
-// hierboven, alleen nu in een lus.
+// Alle drie doen dezelfde eigendomscheck (nooit een gepost item_id blind
+// vertrouwen), maar gebatcht: één query die de geposte ID's terugbrengt tot de
+// items die écht van deze klant zijn, daarna één schrijfquery over die
+// gevalideerde subset i.p.v. twee queries per item.
 
 function mkcp_account_wishlist_bulk_item_ids(): array {
     $raw = isset( $_POST['item_ids'] ) ? (array) wp_unslash( $_POST['item_ids'] ) : [];
     $ids = array_values( array_unique( array_filter( array_map( 'absint', $raw ) ) ) );
     return array_slice( $ids, 0, 50 ); // zelfde soort praktisch plafond als het adresboek — geen onbeperkte lus op een geposte array.
+}
+
+/** Gebatchte variant van mkcp_account_get_owned_wishlist_item(): alleen de items uit $item_ids die van deze klant zijn. */
+function mkcp_account_get_owned_wishlist_items( array $item_ids, int $user_id ): array {
+    if ( ! $item_ids ) return [];
+
+    global $wpdb;
+    $placeholders = implode( ',', array_fill( 0, count( $item_ids ), '%d' ) );
+    return $wpdb->get_results( $wpdb->prepare(
+        "SELECT i.* FROM {$wpdb->prefix}mkcp_wishlist_items i
+         INNER JOIN {$wpdb->prefix}mkcp_wishlists w ON w.id = i.wishlist_id
+         WHERE i.id IN ({$placeholders}) AND w.user_id = %d",
+        array_merge( $item_ids, [ $user_id ] )
+    ) );
 }
 
 add_action( 'wp_ajax_mkcp_account_wishlist_bulk_delete', function() {
@@ -684,12 +802,14 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_delete', function() {
     if ( ! $item_ids ) wp_send_json_error( [ 'code' => 'no_items' ], 400 );
 
     global $wpdb;
-    $deleted = 0;
-    foreach ( $item_ids as $item_id ) {
-        $item = mkcp_account_get_owned_wishlist_item( $item_id, $user_id );
-        if ( ! $item ) continue;
-        $wpdb->delete( $wpdb->prefix . 'mkcp_wishlist_items', [ 'id' => $item->id ], [ '%d' ] );
-        $deleted++;
+    $owned_ids = array_map( 'intval', wp_list_pluck( mkcp_account_get_owned_wishlist_items( $item_ids, $user_id ), 'id' ) );
+    $deleted   = count( $owned_ids );
+    if ( $owned_ids ) {
+        $placeholders = implode( ',', array_fill( 0, count( $owned_ids ), '%d' ) );
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->prefix}mkcp_wishlist_items WHERE id IN ({$placeholders})",
+            $owned_ids
+        ) );
     }
 
     mkcp_account_wishlist_clear_product_cache( $user_id );
@@ -710,25 +830,41 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_move', function() {
     if ( ! $item_ids || ! $target ) wp_send_json_error( [ 'code' => 'invalid_request' ], 400 );
 
     global $wpdb;
-    $moved = 0;
-    foreach ( $item_ids as $item_id ) {
-        $item = mkcp_account_get_owned_wishlist_item( $item_id, $user_id );
-        if ( ! $item || (int) $item->wishlist_id === (int) $target->id ) continue;
+    $table = $wpdb->prefix . 'mkcp_wishlist_items';
 
-        // De doellijst kan hetzelfde product al bevatten (UNIQUE KEY
-        // wishlist_id+product_id+variation_id) — dan is "verplaatsen" in de
-        // praktijk gewoon "hier weghalen, daar stond het al", geen fout.
-        $exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$wpdb->prefix}mkcp_wishlist_items WHERE wishlist_id = %d AND product_id = %d AND variation_id = %d",
-            $target->id, $item->product_id, $item->variation_id
-        ) );
-        if ( $exists ) {
-            $wpdb->delete( $wpdb->prefix . 'mkcp_wishlist_items', [ 'id' => $item->id ], [ '%d' ] );
-        } else {
-            $wpdb->update( $wpdb->prefix . 'mkcp_wishlist_items', [ 'wishlist_id' => $target->id ], [ 'id' => $item->id ], [ '%d' ], [ '%d' ] );
-        }
-        $moved++;
+    // De doellijst kan hetzelfde product al bevatten (UNIQUE KEY wishlist_id+
+    // product_id+variation_id) — dan is "verplaatsen" in de praktijk gewoon
+    // "hier weghalen, daar stond het al", geen fout. Eén keer de inhoud van de
+    // doellijst ophalen volstaat om dat voor de hele selectie te bepalen.
+    $in_target = [];
+    foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT product_id, variation_id FROM {$table} WHERE wishlist_id = %d", $target->id ) ) as $row ) {
+        $in_target[ $row->product_id . ':' . $row->variation_id ] = true;
     }
+
+    $to_move   = [];
+    $duplicate = [];
+    foreach ( mkcp_account_get_owned_wishlist_items( $item_ids, $user_id ) as $item ) {
+        if ( (int) $item->wishlist_id === (int) $target->id ) continue;
+        if ( isset( $in_target[ $item->product_id . ':' . $item->variation_id ] ) ) {
+            $duplicate[] = (int) $item->id;
+        } else {
+            $to_move[] = (int) $item->id;
+        }
+    }
+
+    if ( $to_move ) {
+        $placeholders = implode( ',', array_fill( 0, count( $to_move ), '%d' ) );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$table} SET wishlist_id = %d WHERE id IN ({$placeholders})",
+            array_merge( [ $target->id ], $to_move )
+        ) );
+    }
+    if ( $duplicate ) {
+        $placeholders = implode( ',', array_fill( 0, count( $duplicate ), '%d' ) );
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE id IN ({$placeholders})", $duplicate ) );
+    }
+
+    $moved = count( $to_move ) + count( $duplicate );
 
     if ( function_exists( 'mkcp_account_clear_dashboard_stats_cache' ) ) mkcp_account_clear_dashboard_stats_cache( $user_id );
 
@@ -743,12 +879,11 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_to_cart', function() {
     $item_ids = mkcp_account_wishlist_bulk_item_ids();
     if ( ! $item_ids ) wp_send_json_error( [ 'code' => 'no_items' ], 400 );
 
-    $added = 0;
-    $failed = 0;
-    foreach ( $item_ids as $item_id ) {
-        $item = mkcp_account_get_owned_wishlist_item( $item_id, $user_id );
-        if ( ! $item ) { $failed++; continue; }
+    $owned = mkcp_account_get_owned_wishlist_items( $item_ids, $user_id );
 
+    $added  = 0;
+    $failed = count( $item_ids ) - count( $owned );
+    foreach ( $owned as $item ) {
         $variation_id = (int) $item->variation_id;
         if ( $variation_id ) {
             $variation_product = wc_get_product( $variation_id );
@@ -757,7 +892,11 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_to_cart', function() {
             $product_id = (int) $item->product_id;
         }
 
-        if ( $product_id && WC()->cart->add_to_cart( $product_id, 1, $variation_id ?: 0 ) ) {
+        // Zelfde "Elke"-attributen-fix als bij het normale add-to-cart-formulier.
+        $variation = mkcp_account_wishlist_variation_attributes( $variation_id );
+        if ( false === $variation ) { $failed++; continue; }
+
+        if ( $product_id && WC()->cart->add_to_cart( $product_id, 1, $variation_id ?: 0, $variation ) ) {
             $added++;
         } else {
             $failed++;
@@ -776,9 +915,7 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_to_cart', function() {
 // ── Publieke, niet-ingelogde weergave van een gedeelde lijst ────────────────────
 //
 // Geen rewrite-endpoint/flush_rewrite_rules nodig — een simpele querystring-
-// parameter op de homepage-URL volstaat voor deze MVP-versie (Account-plan,
-// sectie 12: dezelfde "geen server-side routing-registratie"-voorkeur als
-// de hash-routing binnen Account zelf).
+// parameter op de homepage-URL volstaat, zelfde voorkeur als de hash-routing binnen Account zelf.
 
 add_action( 'template_redirect', function() {
     if ( ! isset( $_GET['mkcp_wishlist'] ) ) return;
@@ -837,9 +974,8 @@ add_action( 'template_redirect', function() {
                     <?php endif; ?>
                 </span>
                 <span>
-                    <?php if ( $product->is_purchasable() && $product->is_in_stock() ) : ?>
-                        <a href="<?php echo esc_url( $product->add_to_cart_url() ); ?>"><?php esc_html_e( 'Bekijk product', 'mk-cart-popup' ); ?></a>
-                    <?php endif; ?>
+                    <?php // add_to_cart_url() is voor AJAX-knoppen (?add-to-cart=ID), geen werkende link op zichzelf — hier de echte productpagina. ?>
+                    <a href="<?php echo esc_url( get_permalink( $product->get_id() ) ); ?>"><?php esc_html_e( 'Bekijk product', 'mk-cart-popup' ); ?></a>
                 </span>
             </div>
         <?php endforeach; ?>
@@ -854,13 +990,9 @@ add_action( 'template_redirect', function() {
 
 // ── Prijsdaling-/voorraadmeldingen ───────────────────────────────────────────
 //
-// Twee aparte mechanismen, elk passend bij hun eigen aard:
-// - Prijs verandert niemand "even" — een dagelijkse cron die alle
-//   notify_price_drop=1-items met de huidige prijs vergelijkt is ruim
-//   voldoende en veel goedkoper dan op elke prijswijziging te haken.
-// - Voorraad moet wél meteen gemeld worden (een klant die "laat het me
-//   weten zodra het er weer is" heeft aangevinkt, wil dat niet een dag
-//   later horen) — vandaar de directe woocommerce_(variation_)set_stock-hook.
+// Twee aparte mechanismen: prijs verandert niet "even", dus een dagelijkse cron
+// (goedkoper dan op elke prijswijziging haken); voorraad moet wél meteen gemeld
+// worden, vandaar de directe woocommerce_(variation_)set_stock-hook.
 
 add_action( 'init', function() {
     if ( ! wp_next_scheduled( 'mkcp_account_wishlist_price_check' ) ) {
@@ -869,29 +1001,21 @@ add_action( 'init', function() {
 } );
 
 /**
- * Zelfde opzet als mkcp_pu_ready_send_email() (includes/pickup-ready.php) /
- * mkcp_ac_send_email() (abandoned-cart.php): inline-HTML wrap, wp_mail_
- * content_type via een named callback (i.v.m. remove_filter — anonieme
- * functies zijn niet verwijderbaar). Voorheen kreeg een klant bij prijs-
- * daling/weer-op-voorraad alleen een in-app melding — die ziet hij pas als
- * hij toevallig inlogt en naar Meldingen gaat, terwijl het hele punt van
- * "waarschuw mij" is dat je het NIET zelf hoeft te blijven checken.
+ * Zelfde opzet als mkcp_pu_ready_send_email()/mkcp_ac_send_email(): inline-HTML
+ * wrap, wp_mail_content_type via een named callback (remove_filter werkt niet op
+ * anonieme functies). Naast de in-app melding, want die zie je pas bij toevallig inloggen.
  */
 function mkcp_account_wishlist_send_notify_email( int $user_id, string $subject, string $body_text, string $cta_url = '' ): bool {
-    // Losse schakelaar (admin/views/settings-page.php, "Onderdelen"-kaart)
-    // — bewust niet gekoppeld aan account_notifications_enabled, dat is het
-    // hele in-app meldingencentrum-tabblad. Een winkelier kan zo het
-    // meldingencentrum aan laten staan maar de e-mails uitzetten, of
-    // andersom.
+    // Losse schakelaar, bewust niet gekoppeld aan account_notifications_enabled
+    // (het hele meldingencentrum-tabblad) — winkelier kan meldingencentrum en
+    // e-mails onafhankelijk van elkaar aan/uit zetten.
     if ( ! mkcp_account_module_enabled( 'wishlist_emails' ) ) return false;
 
     $user = get_userdata( $user_id );
     if ( ! $user || ! is_email( $user->user_email ) ) return false;
 
-    // 'raw' i.p.v. de standaard 'display'-context: get_bloginfo('name')
-    // zonder filter-argument levert al HTML-geëscapete tekst (bv. "&amp;"
-    // i.p.v. "&"), en esc_html() hieronder zou dat dan nogmaals escapen —
-    // een winkelnaam met een "&" zou anders letterlijk "&amp;" tonen.
+    // 'raw' i.p.v. 'display': zonder filter-argument levert get_bloginfo() al
+    // HTML-geëscapete tekst, en esc_html() hieronder zou dat dubbel escapen.
     $site_name = get_bloginfo( 'name', 'raw' );
     $html  = '<!DOCTYPE html><html><body style="font-family:sans-serif;color:#111;max-width:560px;margin:0 auto;padding:32px 16px">';
     $html .= '<h2 style="margin-bottom:8px">' . esc_html( $site_name ) . '</h2>';
@@ -917,12 +1041,7 @@ function mkcp_account_wishlist_url(): string {
     return $base . '#/wishlist';
 }
 
-/**
- * Plaatshouders voor de instelbare wishlist-e-mailsjablonen (admin/views/
- * settings-page.php) — zelfde {accolade}-conventie als overal elders in de
- * plugin (zie mkcp_pu_ready_placeholders() in pickup-ready.php). $order_
- * price/$old_price blijven leeg voor de voorraad-mail, die kent geen prijs.
- */
+/** Plaatshouders voor de instelbare wishlist-e-mailsjablonen — zelfde {accolade}-conventie als mkcp_pu_ready_placeholders(). $new_price/$old_price blijven leeg voor de voorraad-mail, die kent geen prijs. */
 function mkcp_account_wishlist_email_placeholders( WP_User $user, WC_Product $product, string $new_price = '', string $old_price = '' ): array {
     return [
         '{voornaam}'     => $user->first_name ?: __( 'daar', 'mk-cart-popup' ),
@@ -930,8 +1049,7 @@ function mkcp_account_wishlist_email_placeholders( WP_User $user, WC_Product $pr
         '{product_naam}' => $product->get_name(),
         '{nieuwe_prijs}' => $new_price,
         '{oude_prijs}'   => $old_price,
-        // 'raw': zie de toelichting bij mkcp_account_wishlist_send_notify_
-        // email() — voorkomt dubbel-escapen van bv. een "&" in de winkelnaam.
+        // 'raw': zie mkcp_account_wishlist_send_notify_email() — voorkomt dubbel-escapen.
         '{winkel_naam}'  => get_bloginfo( 'name', 'raw' ),
         '{wishlist_url}' => mkcp_account_wishlist_url(),
     ];
@@ -952,10 +1070,8 @@ add_action( 'mkcp_account_wishlist_price_check', function() {
         $current_price = (float) $product->get_price();
         if ( $current_price <= 0 ) continue;
 
-        // Met een ingestelde gewenste prijs (target_price) waarschuwen we pas
-        // zodra de huidige prijs die grens bereikt/onderschrijdt. Zonder
-        // gewenste prijs blijft het oorspronkelijke gedrag gelden: elke daling
-        // t.o.v. price_at_add.
+        // Met target_price: pas waarschuwen zodra de prijs die grens bereikt/onderschrijdt.
+        // Zonder: elke daling t.o.v. price_at_add.
         $has_target = $item->target_price !== null && $item->target_price !== '';
         if ( $has_target ) {
             if ( $current_price > (float) $item->target_price ) continue;
@@ -972,7 +1088,7 @@ add_action( 'mkcp_account_wishlist_price_check', function() {
             wp_strip_all_tags( wc_price( $item->price_at_add ) )
         );
 
-        if ( function_exists( 'mkcp_account_add_notification' ) ) {
+        if ( ! empty( $item->notify_via_dashboard ) && function_exists( 'mkcp_account_add_notification' ) ) {
             mkcp_account_add_notification(
                 (int) $item->user_id,
                 'price_drop',
@@ -984,11 +1100,9 @@ add_action( 'mkcp_account_wishlist_price_check', function() {
             );
         }
 
-        // E-mail via het instelbare sjabloon (admin/views/settings-page.php)
-        // i.p.v. de vaste in-app-teksten hierboven — een winkelier kan de
-        // e-mailtekst zelf schrijven, de in-app melding blijft altijd kort
-        // en consistent.
-        $email_user = get_userdata( (int) $item->user_id );
+        // E-mail via het instelbare sjabloon i.p.v. de vaste in-app-tekst hierboven —
+        // winkelier schrijft zelf de e-mailtekst, in-app blijft kort/consistent. Los instelbaar per item.
+        $email_user = ! empty( $item->notify_via_email ) ? get_userdata( (int) $item->user_id ) : null;
         if ( $email_user ) {
             $email_cfg    = mkcp_account_config();
             $placeholders = mkcp_account_wishlist_email_placeholders(
@@ -1005,28 +1119,19 @@ add_action( 'mkcp_account_wishlist_price_check', function() {
             );
         }
 
-        if ( $has_target ) {
-            // Doel bereikt — eenmalige melding, zelfde eenmalige-aanpak als
-            // back-in-stock hieronder. De klant kan de melding + een nieuwe
-            // gewenste prijs gewoon opnieuw aanzetten als hij dat wil.
-            $wpdb->update(
-                $wpdb->prefix . 'mkcp_wishlist_items',
-                [ 'notify_price_drop' => 0, 'last_notified_price_at' => current_time( 'mysql' ) ],
-                [ 'id' => $item->id ],
-                [ '%d', '%s' ],
-                [ '%d' ]
-            );
-            continue;
-        }
-
-        // Geen gewenste prijs ingesteld: price_at_add bijwerken naar de
-        // nieuwe (lagere) prijs — anders zou deze cron bij een prijs die nog
-        // een paar dagen laag blijft elke dag opnieuw dezelfde melding sturen.
+        // Eén "waarschuw mij"-bel voor prijs én voorraad samen, dus na een verstuurde
+        // melding gaat die bel in zijn geheel weer uit (niet alleen de trigger-reden).
+        // price_at_add blijft bijgewerkt zodat heractivering weer vanaf de huidige prijs telt.
         $wpdb->update(
             $wpdb->prefix . 'mkcp_wishlist_items',
-            [ 'price_at_add' => $current_price, 'last_notified_price_at' => current_time( 'mysql' ) ],
+            [
+                'price_at_add'           => $current_price,
+                'notify_price_drop'      => 0,
+                'notify_back_in_stock'   => 0,
+                'last_notified_price_at' => current_time( 'mysql' ),
+            ],
             [ 'id' => $item->id ],
-            [ '%f', '%s' ],
+            [ '%f', '%d', '%d', '%s' ],
             [ '%d' ]
         );
     }
@@ -1053,7 +1158,7 @@ function mkcp_account_wishlist_notify_back_in_stock( $product ) {
             $product->get_name()
         );
 
-        if ( function_exists( 'mkcp_account_add_notification' ) ) {
+        if ( ! empty( $item->notify_via_dashboard ) && function_exists( 'mkcp_account_add_notification' ) ) {
             mkcp_account_add_notification(
                 (int) $item->user_id,
                 'back_in_stock',
@@ -1065,9 +1170,8 @@ function mkcp_account_wishlist_notify_back_in_stock( $product ) {
             );
         }
 
-        // E-mail via het instelbare sjabloon — zie dezelfde toelichting bij
-        // de prijsdaling-cron hierboven.
-        $email_user = get_userdata( (int) $item->user_id );
+        // E-mail via het instelbare sjabloon, zie de prijsdaling-cron hierboven. Los instelbaar per item.
+        $email_user = ! empty( $item->notify_via_email ) ? get_userdata( (int) $item->user_id ) : null;
         if ( $email_user ) {
             $email_cfg    = mkcp_account_config();
             $placeholders = mkcp_account_wishlist_email_placeholders( $email_user, $product );
@@ -1078,10 +1182,15 @@ function mkcp_account_wishlist_notify_back_in_stock( $product ) {
                 mkcp_account_wishlist_url()
             );
         }
-        // Eenmalige melding — anders zou elke voorraad-mutatie hierna
-        // (bv. -1 bij een volgende bestelling, dan weer bijgevuld) opnieuw
-        // een melding sturen voor een verzoek dat de klant al kreeg beantwoord.
-        $wpdb->update( $wpdb->prefix . 'mkcp_wishlist_items', [ 'notify_back_in_stock' => 0 ], [ 'id' => $item->id ], [ '%d' ], [ '%d' ] );
+        // Eenmalige melding — anders zou elke volgende voorraad-mutatie opnieuw melden.
+        // Beide vlaggen uit (niet alleen notify_back_in_stock), zelfde "één bel, één keer klaar"-gedrag als de prijs-cron.
+        $wpdb->update(
+            $wpdb->prefix . 'mkcp_wishlist_items',
+            [ 'notify_back_in_stock' => 0, 'notify_price_drop' => 0, 'last_notified_stock_at' => current_time( 'mysql' ) ],
+            [ 'id' => $item->id ],
+            [ '%d', '%d', '%s' ],
+            [ '%d' ]
+        );
     }
 }
 add_action( 'woocommerce_product_set_stock', 'mkcp_account_wishlist_notify_back_in_stock' );

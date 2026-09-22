@@ -92,9 +92,8 @@ function mkcp_pu_ready_log_add( int $order_id, string $channel, array $result ):
 
 
 // ── E-mail versturen ──────────────────────────────────────────────────────────
-// Zelfde opzet als mkcp_ac_send_email() (includes/abandoned-cart.php): strtr()-
-// placeholders, inline-HTML wrap, wp_mail_content_type via een named callback
-// (i.v.m. remove_filter — anonieme functies zijn niet verwijderbaar).
+// Zelfde opzet als mkcp_ac_send_email(): wp_mail_content_type via een named
+// callback (anonieme functies zijn niet verwijderbaar met remove_filter).
 
 function mkcp_pu_ready_send_email( ?WC_Order $order, string $override_to = '' ): bool {
     $cfg = mkcp_pu_ready_config();
@@ -121,9 +120,8 @@ function mkcp_pu_ready_send_email( ?WC_Order $order, string $override_to = '' ):
 
 
 // ── Telefoonnummer normaliseren ──────────────────────────────────────────────
-// Pure functie, geen WP-afhankelijkheden — zet 06.../+31 6.../0031... allemaal
-// om naar cijfers-zonder-plus ("31612345678"), het formaat dat SMS-gateways
-// als Spryng/MessageBird verwachten.
+// Zet 06.../+31 6.../0031... om naar cijfers-zonder-plus ("31612345678"),
+// het formaat dat SMS-gateways als Spryng/MessageBird verwachten.
 
 function mkcp_pu_normalize_phone( string $raw, string $default_country_prefix = '31' ): string {
     $digits = preg_replace( '/\D+/', '', $raw );
@@ -140,10 +138,8 @@ function mkcp_pu_normalize_phone( string $raw, string $default_country_prefix = 
 
 
 // ── SMS versturen ─────────────────────────────────────────────────────────────
-// Provider-agnostisch: JSON-payload met configureerbare veldnamen (defaults
-// zijn letterlijk Spryng's/MessageBird's veldnamen), verstuurd via
-// wp_remote_post(). Testmodus (standaard aan) logt de payload i.p.v. 'm te
-// versturen — zo te testen zonder sms-account.
+// Provider-agnostisch: JSON-payload met configureerbare veldnamen (defaults =
+// Spryng's/MessageBird's velden). Testmodus logt de payload i.p.v. te versturen.
 
 function mkcp_pu_ready_send_sms( ?WC_Order $order, string $override_phone = '' ): array {
     $cfg = mkcp_pu_ready_config();

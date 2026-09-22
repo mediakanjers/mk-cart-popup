@@ -19,15 +19,9 @@ function mkcp_dd_enabled(): bool {
 }
 
 /**
- * Zoekt de rate-ID (bv. "flat_rate:2") van de op dit moment door de klant
- * gekozen verzendmethode op.
- *
- * LET OP — beperking bij meerdere verzendpakketten (split-verzending, bv.
- * een deel van de order als abonnement): er is in deze plugin maar één
- * bezorgdatum per order, niet per pakket. We pakken daarom de eerst gekozen
- * methode over alle pakketten heen (meestal package 0; de fallback dekt het
- * geval dat pakket 0 toevallig nog geen keuze heeft). Wil je écht een eigen
- * datum per pakket, dan is dat een aparte, grotere uitbreiding.
+ * Zoekt de rate-ID (bv. "flat_rate:2") van de op dit moment gekozen
+ * verzendmethode. LET OP: er is maar één bezorgdatum per order, niet per
+ * pakket — bij split-verzending pakken we de eerst gekozen methode.
  */
 function mkcp_dd_current_rate_id(): ?string {
     if ( ! function_exists( 'WC' ) || ! WC()->session ) return null;
@@ -36,10 +30,8 @@ function mkcp_dd_current_rate_id(): ?string {
 }
 
 /**
- * Geeft de eerste niet-lege rate-ID uit een lijst gekozen verzendmethodes
- * (session-array of $_POST['shipping_method']) — gedeelde logica zodat
- * session- en POST-gebaseerde lookups hetzelfde (multi-package-bestendige)
- * gedrag hebben.
+ * Eerste niet-lege rate-ID uit een lijst gekozen verzendmethodes — gedeelde
+ * logica zodat session- en POST-gebaseerde lookups hetzelfde gedrag hebben.
  */
 function mkcp_dd_first_rate_id( array $methods ): ?string {
     foreach ( $methods as $rate ) {
@@ -49,17 +41,12 @@ function mkcp_dd_first_rate_id( array $methods ): ?string {
 }
 
 /**
- * Fase 2: zoekt binnen $_POST['shipping_method'] (over ALLE verzendpakketten
- * heen, niet alleen pakket 0) de eerste rate die bij de gevraagde rol hoort —
- * 'delivery' (alles wat niet met "local_pickup:" begint) of 'pickup'. Rol-
- * gebaseerd i.p.v. generiek per-pakket: een order heeft nooit meer dan één
- * actieve bezorg-rate en één actieve afhaal-rate tegelijk (zie
- * project-memory over de Fase 2-scope-beslissing), dus dit is voldoende om
- * de validatie/opslag van bezorgdatum.php en pickup.php onafhankelijk van
- * elkaar te laten werken, ongeacht welke pakket-index welke rol heeft.
- *
- * Vervangt de oude "$_POST['shipping_method'][0]"-aanname, die altijd
- * package 0 als "de" gekozen methode behandelde.
+ * Zoekt binnen $_POST['shipping_method'] (alle pakketten) de eerste rate die
+ * bij de gevraagde rol hoort: 'delivery' (niet "local_pickup:") of 'pickup'.
+ * Rol-gebaseerd i.p.v. per-pakket-index, omdat een order nooit meer dan één
+ * actieve bezorg- en één actieve afhaal-rate tegelijk heeft — zo werken de
+ * validatie/opslag van dit bestand en pickup.php onafhankelijk van elkaar,
+ * ongeacht welke pakket-index welke rol heeft.
  */
 function mkcp_dd_role_rate_id_from_post( string $role ): ?string {
     $posted = array_map( 'sanitize_text_field', wp_unslash( (array) ( $_POST['shipping_method'] ?? [] ) ) );
@@ -74,14 +61,20 @@ function mkcp_dd_role_rate_id_from_post( string $role ): ?string {
 }
 
 /**
- * Alle verzendmethodes (over alle zones + "rest van de wereld") als
- * [ rate_id => leesbaar label ], voor gebruik in de admin-UI en om
- * $rate_id-input te valideren. rate_id = "{method_id}:{instance_id}",
- * exact hetzelfde formaat als WooCommerce gebruikt in chosen_shipping_methods
- * en $_POST['shipping_method'].
+ * Alle verzendmethodes (alle zones + "rest van de wereld") als
+ * [ rate_id => leesbaar label ]. rate_id = "{method_id}:{instance_id}",
+ * zelfde formaat als WooCommerce in chosen_shipping_methods/$_POST gebruikt.
  */
 function mkcp_dd_get_shipping_methods(): array {
-    if ( ! class_exists( 'WC_Shipping_Zones' ) ) return [];
+    // Zonder deze cache herhaalde één checkout-flow deze dure enumeratie
+    // (elke zone + een nieuwe WC_Shipping_Zone-instantie + get_shipping_
+    // methods() per zone, elk met eigen get_option()-aanroepen) tot 4+ keer
+    // voor exact dezelfde, binnen één request onveranderlijke data — de
+    // zones/methodes wijzigen niet terwijl een klant aan het afrekenen is.
+    static $cache = null;
+    if ( $cache !== null ) return $cache;
+
+    if ( ! class_exists( 'WC_Shipping_Zones' ) ) return $cache = [];
 
     $out      = [];
     $zone_ids = array_keys( WC_Shipping_Zones::get_zones() );
@@ -97,77 +90,113 @@ function mkcp_dd_get_shipping_methods(): array {
             $out[ $rate_id ] = sprintf( '%s — %s', $method->get_title(), $zone_name );
         }
     }
-    return $out;
+    return $cache = $out;
 }
 
 /**
- * Telt hoeveel (niet-geannuleerde/mislukte) bestellingen al gekoppeld zijn
- * aan een bezorgdatum. Gebruikt wc_get_orders() (WC_Order_Query) i.p.v.
- * rechtstreekse SQL, zodat dit ook op HPOS-installaties (High-Performance
- * Order Storage) blijft werken.
+ * Order-aantallen per bezorgdatum voor een heel venster in ÉÉN gegroepeerde
+ * query. Voorheen deed de capaciteitscheck per kandidaat-dag een aparte
+ * wc_get_orders( limit -1 ) — bij een venster van ~90 dagen dus ~90 queries
+ * die ook nog eens volledige ID-lijsten ophaalden puur om ze te tellen.
  *
- * Twee caching-lagen:
- *   1. Per-request (static array) — voorkomt dubbele queries binnen één
- *      beschikbaarheidsberekening (die per datum wordt aangeroepen).
- *   2. Transient, 45s — bij de capaciteitslimiet wordt deze functie bij elke
- *      checkout-AJAX-refresh opnieuw aangeroepen voor alle zichtbare datums;
- *      zonder deze laag zou elke klant die de checkout ververst (adres/
- *      verzendmethode wijzigt) een verse databasequery per datum triggeren.
- *      45s is ruim genoeg om de load te dempen, maar kort genoeg dat de
- *      capaciteitslimiet niet merkbaar "achterloopt". Wordt bovendien direct
- *      geleegd zodra een order met die datum wordt opgeslagen (zie
- *      woocommerce_checkout_update_order_meta hieronder).
+ * Bewust directe SQL i.p.v. wc_get_orders(): alleen zo kan de database zelf
+ * per datum tellen (GROUP BY) zonder de order-ID's naar PHP te halen. Beide
+ * opslagvormen worden ondersteund — HPOS (wc_orders + wc_orders_meta) en de
+ * klassieke posts/postmeta-tabellen — zodat het gedrag identiek blijft aan de
+ * oude wc_get_orders()-versie.
+ *
+ * Twee caching-lagen: per-request (static, tegen dubbele queries binnen één
+ * beschikbaarheidsberekening) en één transient van 45s met de hele map
+ * (tegen een verse query bij elke checkout-AJAX-refresh; kort genoeg dat de
+ * capaciteitslimiet niet merkbaar achterloopt, en wordt direct geleegd zodra
+ * een order met een bezorgdatum wordt opgeslagen, zie verderop).
+ *
+ * @return array<string,int> Y-m-d => aantal (alleen datums met minstens 1 order)
  */
-function mkcp_dd_orders_count_for_date( string $ymd ): int {
-    if ( ! function_exists( 'wc_get_orders' ) ) return 0;
+function mkcp_dd_orders_counts_in_range( string $from, string $to ): array {
+    if ( ! function_exists( 'wc_get_order_statuses' ) ) return [];
 
     static $cache = [];
-    if ( isset( $cache[ $ymd ] ) ) return $cache[ $ymd ];
+    $cache_key = $from . '|' . $to;
+    if ( isset( $cache[ $cache_key ] ) ) return $cache[ $cache_key ];
 
-    $transient_key = 'mkcp_dd_count_' . $ymd;
-    $cached        = get_transient( $transient_key );
-    if ( $cached !== false ) {
-        $cache[ $ymd ] = (int) $cached;
-        return $cache[ $ymd ];
+    // Eén transient voor de hele map: een ruimer eerder opgehaald venster mag
+    // een smaller venster bedienen, zodat AJAX-refreshes met een iets
+    // verschoven startdatum niet alsnog opnieuw queryen.
+    $stored = get_transient( 'mkcp_dd_counts_map' );
+    if ( is_array( $stored ) && isset( $stored['from'], $stored['to'], $stored['counts'] )
+         && $stored['from'] <= $from && $stored['to'] >= $to ) {
+        $counts = [];
+        foreach ( (array) $stored['counts'] as $ymd => $count ) {
+            if ( $ymd >= $from && $ymd <= $to ) $counts[ $ymd ] = (int) $count;
+        }
+        $cache[ $cache_key ] = $counts;
+        return $counts;
     }
 
     $excluded = [ 'wc-cancelled', 'wc-failed', 'wc-trash' ];
     $statuses = array_values( array_diff( array_keys( wc_get_order_statuses() ), $excluded ) );
+    if ( empty( $statuses ) ) return [];
 
-    $ids = wc_get_orders( [
-        'limit'      => -1,
-        'return'     => 'ids',
-        'status'     => $statuses,
-        'meta_key'   => '_mkcp_delivery_date',
-        'meta_value' => $ymd,
-    ] );
+    global $wpdb;
+    $status_placeholders = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
 
-    $count = is_array( $ids ) ? count( $ids ) : 0;
-    set_transient( $transient_key, $count, 45 );
+    if ( class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' )
+         && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ) {
+        $sql = $wpdb->prepare(
+            "SELECT om.meta_value AS ymd, COUNT(*) AS total
+             FROM {$wpdb->prefix}wc_orders_meta om
+             INNER JOIN {$wpdb->prefix}wc_orders o ON o.id = om.order_id
+             WHERE om.meta_key = '_mkcp_delivery_date'
+               AND om.meta_value BETWEEN %s AND %s
+               AND o.status IN ( {$status_placeholders} )
+             GROUP BY om.meta_value",
+            array_merge( [ $from, $to ], $statuses )
+        );
+    } else {
+        $sql = $wpdb->prepare(
+            "SELECT pm.meta_value AS ymd, COUNT(*) AS total
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE pm.meta_key = '_mkcp_delivery_date'
+               AND pm.meta_value BETWEEN %s AND %s
+               AND p.post_type = 'shop_order'
+               AND p.post_status IN ( {$status_placeholders} )
+             GROUP BY pm.meta_value",
+            array_merge( [ $from, $to ], $statuses )
+        );
+    }
 
-    $cache[ $ymd ] = $count;
-    return $cache[ $ymd ];
+    $counts = [];
+    foreach ( (array) $wpdb->get_results( $sql ) as $row ) {
+        $counts[ (string) $row->ymd ] = (int) $row->total;
+    }
+
+    set_transient( 'mkcp_dd_counts_map', [ 'from' => $from, 'to' => $to, 'counts' => $counts ], 45 );
+
+    $cache[ $cache_key ] = $counts;
+    return $counts;
 }
 
 /**
- * Berekent welke Y-m-d datums beschikbaar zijn, rekening houdend met:
- *   – cutoff-tijd (voor die tijd = zelfde dag verstuurd, daarna +1 dag)
- *   – lead days (minimale aanlooptijd in dagen)
- *   – verzenddagen (weekdagen waarop er verstuurd wordt)
- *   – geblokkeerde datums
- *   – optionele eigen regels per verzendmethode ($rate_id)
- *   – optionele capaciteitslimiet (max. bestellingen per dag)
- *
- * @param string|null $rate_id Rate-ID van de gekozen verzendmethode
- *                              (bv. "flat_rate:2"). Null = geen methode
- *                              bekend, dan gelden altijd de algemene regels.
+ * Telt niet-geannuleerde/mislukte bestellingen op één bezorgdatum. Blijft
+ * bestaan als losse helper (o.a. voor thema-code die op deze naam leunt);
+ * intern gewoon een venster van één dag.
+ */
+function mkcp_dd_orders_count_for_date( string $ymd ): int {
+    return mkcp_dd_orders_counts_in_range( $ymd, $ymd )[ $ymd ] ?? 0;
+}
+
+/**
+ * mkcp_dd_available_dates() berekent welke Y-m-d datums beschikbaar zijn
+ * o.b.v. cutoff-tijd, lead days, verzenddagen, geblokkeerde datums,
+ * eventuele per-verzendmethode-regels en een optionele capaciteitslimiet.
  */
 /**
  * Lost de effectieve regels op voor een verzendmethode: eigen regels
  * (indien de admin die voor deze $rate_id heeft ingeschakeld) overschrijven
- * de algemene instellingen. Losgetrokken uit mkcp_dd_available_dates() zodat
- * de front-end (voor de "waarom niet beschikbaar"-tooltip) dezelfde
- * verzenddagen/geblokkeerde-datums te zien krijgt als de server gebruikt.
+ * de algemene instellingen. Losgetrokken zodat de front-end (voor de
+ * "waarom niet beschikbaar"-tooltip) dezelfde regels ziet als de server.
  */
 function mkcp_dd_effective_rule( ?string $rate_id, array $cfg ): array {
     $rule = null;
@@ -183,11 +212,9 @@ function mkcp_dd_effective_rule( ?string $rate_id, array $cfg ): array {
         'lead_days'     => max( 0, (int) ( $rule['lead_days']  ?? $cfg['delivery_date_lead_days']       ?? 1  ) ),
         'shipping_days' => array_map( 'intval', (array) ( $rule['shipping_days'] ?? $cfg['delivery_date_shipping_days'] ?? [ 1, 2, 3, 4, 5, 6 ] ) ),
         'blackout_dates'=> (array) ( $cfg['delivery_date_blackout_dates'] ?? [] ),
-        // Bezorg-tijdsloten: uitsluitend een per-verzendmethode override (zie
-        // mkcp_sanitize_dd_shipping_rules()) — er is bewust geen algemene
-        // aan/uit-instelling, want alleen methodes waarbij de shop zelf
-        // rondbrengt (niet een vervoerder als PostNL) kunnen een tijdstip
-        // beloven. Geen ingeschakelde regel voor dit rate_id? Dan altijd uit.
+        // Bewust geen algemene aan/uit-instelling voor tijdsloten: alleen
+        // methodes waarbij de shop zelf rondbrengt kunnen een tijdstip
+        // beloven, dus alleen per-verzendmethode-regels kunnen dit aanzetten.
         'slots_enabled' => ! empty( $rule['slots_enabled'] ),
         'window_start'  => (string) ( $rule['window_start'] ?? '09:00' ),
         'window_end'    => (string) ( $rule['window_end']   ?? '17:00' ),
@@ -198,10 +225,9 @@ function mkcp_dd_effective_rule( ?string $rate_id, array $cfg ): array {
 }
 
 /**
- * Tijdsloten voor een bezorgmethode, als lijst starttijden "HH:MM" — één vast
- * venster per methode (niet per weekdag zoals bij afhalen: welke dagen er
- * bezorgd wordt, bepaalt 'shipping_days' al; het bezorgvenster zelf is meestal
- * elke bezorgdag hetzelfde, dus geen aparte openingstijden-grid nodig).
+ * Tijdsloten voor een bezorgmethode als lijst starttijden "HH:MM" — één vast
+ * venster per methode (niet per weekdag zoals bij afhalen, want welke dagen
+ * bezorgd wordt bepaalt 'shipping_days' al).
  */
 function mkcp_dd_slots_for_rule( array $rule ): array {
     if ( empty( $rule['slots_enabled'] ) ) return [];
@@ -209,9 +235,8 @@ function mkcp_dd_slots_for_rule( array $rule ): array {
 }
 
 /**
- * Zelfde vorm als mkcp_pickup_slots_by_dow() (alle 7 dagen gevuld, ook al is
- * het venster identiek voor elke dag) — assets/delivery-date.js verwacht deze
- * structuur ongeacht welke modus (afhalen/bezorgen) actief is.
+ * Zelfde vorm als mkcp_pickup_slots_by_dow() (alle 7 dagen gevuld) —
+ * delivery-date.js verwacht deze structuur ongeacht de actieve modus.
  */
 function mkcp_dd_slots_by_dow( array $rule ): array {
     $slots = mkcp_dd_slots_for_rule( $rule );
@@ -225,15 +250,11 @@ function mkcp_dd_slot_count( string $ymd, string $slot, string $rate_id ): int {
 }
 
 /**
- * Geeft het cutoff-moment van vandaag terug als epoch-milliseconden (UTC-
- * gebaseerd, dus tijdzone-onafhankelijk te vergelijken met JS' Date.now()).
- *
- * De front-end mag dit NIET zelf herberekenen met de lokale browser-tijdzone
- * (new Date().setHours(...)) — als de sitetijdzone (wp_timezone_string())
- * afwijkt van de tijdzone van de bezoeker, zou dat "cutoff verstreken" op een
- * ander moment laten zien dan de server daadwerkelijk hanteert, waardoor de
- * datumlijst nooit ververst (de vergelijking in refreshDatesFromFragment ziet
- * dan geen verschil t.o.v. de al bekende datums). Eén bron van waarheid: PHP.
+ * Cutoff-moment van vandaag als epoch-milliseconden (tijdzone-onafhankelijk
+ * te vergelijken met JS' Date.now()). De front-end mag dit NIET zelf
+ * herberekenen met de lokale browser-tijdzone: wijkt die af van de
+ * sitetijdzone, dan ziet "cutoff verstreken" er anders uit dan de server
+ * hanteert en ververst de datumlijst nooit. Eén bron van waarheid: PHP.
  */
 function mkcp_dd_cutoff_timestamp( string $cutoff_time, DateTimeZone $tz, ?DateTime $now = null ): int {
     $now = $now ?? new DateTime( 'now', $tz );
@@ -278,12 +299,17 @@ function mkcp_dd_available_dates( ?string $rate_id = null ): array {
     // datums te vinden.
     $end->modify( '+' . ( $range + 30 ) . ' days' );
 
+    // Eén gegroepeerde query voor het hele venster i.p.v. een telling per dag.
+    $counts = $capacity_on
+        ? mkcp_dd_orders_counts_in_range( $start->format( 'Y-m-d' ), $end->format( 'Y-m-d' ) )
+        : [];
+
     $cursor = clone $start;
     while ( $cursor <= $end && count( $available ) < $range ) {
         $dow = (int) $cursor->format( 'w' ); // 0 = zondag, 6 = zaterdag
         $ymd = $cursor->format( 'Y-m-d' );
         if ( in_array( $dow, $ship_dow, true ) && ! in_array( $ymd, $blackout, true ) ) {
-            if ( ! $capacity_on || mkcp_dd_orders_count_for_date( $ymd ) < $capacity_max ) {
+            if ( ! $capacity_on || ( $counts[ $ymd ] ?? 0 ) < $capacity_max ) {
                 $available[] = $ymd;
             }
         }
@@ -291,24 +317,13 @@ function mkcp_dd_available_dates( ?string $rate_id = null ): array {
     }
 
     /**
-     * Filter: mkcp_dd_available_dates
-     *
-     * Laat externe code (thema of andere plugin) de lijst met beschikbare
-     * bezorgdatums verder aanpassen — bijvoorbeeld datums uitsluiten op
-     * basis van voorraad, een externe feestdagen-/vakantie-API, of
-     * carrier-capaciteit die niet via de admin-instellingen te sturen is.
-     * De admin-instelling "Geblokkeerde datums" dekt alleen een statische
-     * lijst; deze hook is voor dynamische/programmatische uitsluitingen.
-     *
-     * Voorbeeld (in een thema's functions.php):
-     *
-     *     add_filter( 'mkcp_dd_available_dates', function( $dates, $rate_id ) {
-     *         return array_values( array_diff( $dates, [ '2026-12-24' ] ) );
-     *     }, 10, 2 );
+     * Filter: mkcp_dd_available_dates — laat thema/plugin de lijst verder
+     * aanpassen (bv. voorraad, feestdagen-API, carrier-capaciteit). De
+     * admin-instelling "Geblokkeerde datums" dekt alleen een statische
+     * lijst; deze hook is voor dynamische uitsluitingen.
      *
      * @param string[]    $available Beschikbare datums, Y-m-d, gesorteerd.
-     * @param string|null $rate_id   Rate-ID van de gekozen verzendmethode
-     *                                (bv. "flat_rate:2"), of null.
+     * @param string|null $rate_id   Rate-ID van de gekozen verzendmethode.
      */
     return apply_filters( 'mkcp_dd_available_dates', $available, $rate_id );
 }
@@ -335,13 +350,11 @@ function mkcp_dd_format_date( string $ymd ): string {
 
 // ── Assets op checkout pagina ──────────────────────────────────────────────────
 
-// Fase 2: geen wp_localize_script meer — met twee mogelijk-gelijktijdige
-// widgets (bezorgen + afhalen) zou dat een aparte "welke rol(len) zijn actief"-
-// administratie vereisen die al bestaat, namelijk: staat het bijbehorende
-// data-eilandje (#mkcp-dd-data resp. #mkcp-pu-data) in de DOM? assets/
-// delivery-date.js leest daarom zijn volledige config rechtstreeks uit dat
-// element (zie mkcp_dd_data_div_html()), zowel bij de eerste paginalaad als
-// na elke AJAX-refresh — dezelfde bron, geen aparte synchronisatie nodig.
+// Geen wp_localize_script: met twee mogelijk-gelijktijdige widgets (bezorgen
+// + afhalen) leest assets/delivery-date.js zijn config rechtstreeks uit het
+// data-eilandje (#mkcp-dd-data resp. #mkcp-pu-data, zie mkcp_dd_data_div_html())
+// — aanwezigheid in de DOM bepaalt welke rol(len) actief zijn, zowel bij de
+// eerste paginalaad als na elke AJAX-refresh.
 add_action( 'wp_enqueue_scripts', function() {
     if ( ! is_checkout() ) return;
     if ( ! mkcp_dd_enabled() && ! ( function_exists( 'mkcp_pickup_feature_enabled' ) && mkcp_pickup_feature_enabled() ) ) return;
@@ -362,14 +375,10 @@ add_action( 'wp_enqueue_scripts', function() {
     );
 } );
 
-// Leeg, JS-gevuld eindsamenvattingsblok direct boven de bestelknop —
-// bundelt de bezorg- én afhaal-samenvatting op één plek zodat je niet terug
-// hoeft te scrollen naar de losse pakket-widgets om je hele keuze te
-// checken. delivery-date.js vult/toont 'm alleen zodra er daadwerkelijk 2
-// widgets tegelijk actief zijn (bij 1 widget is de eigen samenvattingsregel
-// er vlak boven al genoeg, dat zou dubbelop zijn). Prioriteit 20: ná de
-// eventuele betaalmethode-content die op de standaardprioriteit hangt, dus
-// vlak boven de knop.
+// Leeg, JS-gevuld eindsamenvattingsblok boven de bestelknop — bundelt bezorg-
+// én afhaal-samenvatting zodat je niet terug hoeft te scrollen. JS toont 'm
+// alleen bij 2 widgets tegelijk (bij 1 widget is de eigen samenvattingsregel
+// al genoeg). Prioriteit 20: ná de betaalmethode-content, vlak boven de knop.
 add_action( 'woocommerce_review_order_before_submit', function() {
     if ( ! is_checkout() ) return;
     if ( ! mkcp_dd_enabled() && ! ( function_exists( 'mkcp_pickup_feature_enabled' ) && mkcp_pickup_feature_enabled() ) ) return;
@@ -379,28 +388,21 @@ add_action( 'woocommerce_review_order_before_submit', function() {
 
 // ── Databron voor de kiezer(s) ──────────────────────────────────────────────────
 //
-// Fase 2: geen aparte woocommerce_update_order_review_fragments-filter meer
-// die alleen het #mkcp-dd-data-eilandje ververst. Sinds de kiezer(s) per
-// pakket rechtstreeks binnen templates/cart-shipping-choice.php renderen
-// (mkcp_dd_render_delivery_field()/mkcp_pickup_render_field(), zie hieronder),
-// wordt de VOLLEDIGE widget (inclusief dit data-element) al bij elke AJAX-
-// refresh vers meegerenderd via de bestaande fragment-mechanismen van
-// shipping-choice.php (het normale #order_review-fragment, of het losse
-// #shipping-choice-ajax-anchor-fragment bij de 3-blokken layout) — een aparte
-// registratie hier zou een tweede, overlappend ververs-mechanisme zijn.
-// assets/delivery-date.js leest dit element puur uit als databron (geen apart
-// wp_localize_script-object meer nodig): elke instantie (bezorgen/afhalen)
-// zoekt zijn EIGEN, vaste dom_id op ('mkcp-dd-data' resp. 'mkcp-pu-data') en
-// bestaat pas als dat element ook echt in de DOM staat — zo weet de JS vanzelf
-// welke van de twee rollen op dit moment relevant zijn, zonder een aparte
-// aanwezigheids-vlag te hoeven bijhouden.
+// Geen aparte fragment-filter die alleen #mkcp-dd-data ververst: de kiezer(s)
+// renderen per pakket binnen templates/cart-shipping-choice.php, dus de VOLLE
+// widget (incl. dit data-element) wordt al bij elke AJAX-refresh meegerenderd
+// via shipping-choice.php's eigen fragment-mechanismen — een aparte
+// registratie zou een tweede, overlappend ververs-mechanisme zijn.
+// assets/delivery-date.js leest dit element puur als databron: elke instantie
+// zoekt zijn eigen vaste dom_id op ('mkcp-dd-data' resp. 'mkcp-pu-data') en
+// bestaat pas als dat element in de DOM staat — zo weet de JS welke rol(len)
+// actief zijn zonder aparte aanwezigheids-vlag.
 
 /**
- * Bouwt het volledige data-element (alle data-* attributen: dates, cutoff,
- * sloten, pickup-modus, afhaallocatie, label — niet alleen dates/rate-id)
- * voor een gegeven rate_id. $dom_id onderscheidt de twee rollen: 'mkcp-dd-data'
- * (bezorgen, default) vanuit mkcp_dd_render_delivery_field(), 'mkcp-pu-data'
- * (afhalen) vanuit mkcp_pickup_render_field() in includes/pickup.php.
+ * Bouwt het volledige data-element (dates, cutoff, sloten, pickup-modus,
+ * afhaallocatie, label) voor een gegeven rate_id. $dom_id onderscheidt de
+ * twee rollen: 'mkcp-dd-data' (bezorgen) of 'mkcp-pu-data' (afhalen, zie
+ * mkcp_pickup_render_field() in includes/pickup.php).
  */
 function mkcp_dd_data_div_html( ?string $rate_id, string $dom_id = 'mkcp-dd-data' ): string {
     $pickup_loc = function_exists( 'mkcp_pickup_location_for_rate' ) ? mkcp_pickup_location_for_rate( $rate_id ) : null;
@@ -454,13 +456,10 @@ function mkcp_dd_data_div_html( ?string $rate_id, string $dom_id = 'mkcp-dd-data
 
 // ── Checkout veld renderen ─────────────────────────────────────────────────────
 //
-// Fase 2: geen eigen hook meer op woocommerce_review_order_before_submit — dat
-// vuurde precies één keer per checkout-render, ongeacht hoeveel verzendpakketten
-// er zijn. De kiezer wordt nu per pakket aangeroepen vanuit
-// templates/cart-shipping-choice.php, direct onder de kaartgroep van dát
-// pakket (net als mkcp_pickup_render_field() hieronder) — zo kan een gemengd
-// winkelwagentje (een pakket in bezorgmodus, een ander in afhaalmodus) beide
-// tegelijk tonen i.p.v. altijd maar één widget voor de hele checkout.
+// Geen eigen hook meer op woocommerce_review_order_before_submit (die vuurde
+// maar één keer, ongeacht het aantal verzendpakketten). De kiezer wordt nu
+// per pakket aangeroepen vanuit templates/cart-shipping-choice.php, zodat een
+// gemengd winkelwagentje (bezorgen + afhalen) beide tegelijk kan tonen.
 //
 // @param ?string $rate_id De (bezorg-)rate van het pakket waarvoor gerenderd wordt.
 function mkcp_dd_render_delivery_field( ?string $rate_id ) {
@@ -478,17 +477,12 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
         return;
     }
 
-    $chips       = array_slice( $dates, 0, 6 );
-    $days_short  = [ 'Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za' ];
     ?>
     <div class="mkcp-dd-wrap" id="mkcp-dd-wrap">
 
-        <?php // Statisch en leeg neergezet (i.p.v. pas bij de eerste fout door JS
-              // aangemaakt), zelfde patroon als de aria-live-containers in de
-              // cart-drawer (templates/cart-popup.php) — zo kan #mkcp-dd-chips/
-              // #mkcp-dd-slots hieronder er altijd al naar verwijzen via
-              // aria-describedby, en hoeft delivery-date.js alleen nog tekst te
-              // zetten en hidden te wisselen. ?>
+        <?php // Statisch en leeg neergezet i.p.v. pas bij de eerste fout door JS
+              // aangemaakt (zelfde patroon als cart-popup.php) — zo kan
+              // #mkcp-dd-slots er al naar verwijzen via aria-describedby. ?>
         <div id="mkcp-dd-error" class="mkcp-dd-error" role="alert" hidden></div>
 
         <div class="mkcp-dd-header">
@@ -498,12 +492,9 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
             </span>
         </div>
 
-        <?php // Alles wat na een geldige keuze niet meer nodig is om te tónen
-              // klapt hierbinnen samen dicht (zie delivery-date.js: collapseIfComplete()/
-              // expand()) — alleen de header en de .mkcp-dd-summary hieronder blijven
-              // dan zichtbaar. Voorkomt dat de checkout torenhoog wordt zodra zowel
-              // een bezorg- als een afhaalwidget tegelijk (allebei al ingevuld)
-              // op de pagina staan. ?>
+        <?php // Klapt na een geldige keuze samen (zie delivery-date.js:
+              // collapseIfComplete()/expand()) — voorkomt dat de checkout
+              // torenhoog wordt bij zowel een bezorg- als afhaalwidget. ?>
         <div class="mkcp-dd-body" id="mkcp-dd-body">
         <div class="mkcp-dd-body-inner">
 
@@ -514,46 +505,72 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
         <p class="mkcp-dd-disclaimer"><?php echo esc_html( $disclaimer ); ?></p>
         <?php endif; ?>
 
-        <div class="mkcp-dd-chips-row" id="mkcp-dd-chips" role="group"
-             aria-label="<?php esc_attr_e( 'Kies een bezorgdatum', 'mk-cart-popup' ); ?>"
-             aria-describedby="mkcp-dd-error">
-            <?php foreach ( $chips as $ymd ) :
-                $ts  = strtotime( $ymd );
-                $dow = (int) date( 'w', $ts );
-                $day = (int) date( 'j', $ts );
-            ?>
-            <button type="button" class="mkcp-dd-chip" data-date="<?php echo esc_attr( $ymd ); ?>">
-                <span class="mkcp-dd-chip-day"><?php echo esc_html( $days_short[ $dow ] ); ?></span>
-                <span class="mkcp-dd-chip-num"><?php echo $day; ?></span>
-            </button>
-            <?php endforeach; ?>
-
-            <button type="button" class="mkcp-dd-chip mkcp-dd-chip--cal" id="mkcp-dd-cal-btn"
-                    aria-label="<?php esc_attr_e( 'Kalender openen', 'mk-cart-popup' ); ?>"
-                    aria-haspopup="dialog" aria-expanded="false">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8"  y1="2" x2="8"  y2="6"/>
-                    <line x1="3"  y1="10" x2="21" y2="10"/>
-                </svg>
-            </button>
-        </div>
-
         <div class="mkcp-dd-track" id="mkcp-dd-track">
             <button type="button" class="mkcp-dd-nav mkcp-dd-nav--prev" id="mkcp-dd-nav-prev"
                     aria-label="<?php esc_attr_e( 'Vorige data', 'mk-cart-popup' ); ?>">&#8249;</button>
             <div class="mkcp-dd-cards-viewport" id="mkcp-dd-cards-viewport">
-                <div class="mkcp-dd-cards-list" id="mkcp-dd-cards"></div>
+                <div class="mkcp-dd-cards-list" id="mkcp-dd-cards" role="group"
+                     aria-label="<?php esc_attr_e( 'Kies een bezorgdatum', 'mk-cart-popup' ); ?>"
+                     aria-describedby="mkcp-dd-error"></div>
             </div>
             <button type="button" class="mkcp-dd-nav mkcp-dd-nav--next" id="mkcp-dd-nav-next"
                     aria-label="<?php esc_attr_e( 'Volgende data', 'mk-cart-popup' ); ?>">&#8250;</button>
         </div>
 
-        <?php /* Bevestiging voor datums die niet als grote kaart zichtbaar zijn
-                 (gekozen via chip 5/6 of via de kalender) — de eerste 4 datums
-                 hebben al hun eigen "geselecteerd"-weergave op de kaart zelf. */ ?>
+        <?php
+        // Bezorgadres-overzicht — zelfde infoboxje (.mkcp-pu-location) als de
+        // afhaallocatie, maar met het ingevulde verzendadres. WC()->customer
+        // is hier al bijgewerkt met de zojuist ingevulde velden (WooCommerce
+        // past dit toe vóórdat deze hook vuurt), dus toont altijd de actuele
+        // invoer. Alleen tonen als er ook echt iets ingevuld is.
+        $mkcp_dd_customer = WC()->customer;
+        $mkcp_dd_addr_lines = [];
+        if ( $mkcp_dd_customer ) {
+            $mkcp_dd_addr1 = trim( $mkcp_dd_customer->get_shipping_address() );
+            $mkcp_dd_addr2 = trim( $mkcp_dd_customer->get_shipping_address_2() );
+            $mkcp_dd_city  = trim( $mkcp_dd_customer->get_shipping_city() );
+            $mkcp_dd_pc    = trim( $mkcp_dd_customer->get_shipping_postcode() );
+            $mkcp_dd_group = 'shipping';
+
+            // Fallback naar het factuuradres als er geen apart verzendadres
+            // is ingevuld (gebruikelijk geval): WooCommerce laat shipping_*
+            // in de sessie leeg totdat de bestelling echt wordt aangemaakt.
+            if ( $mkcp_dd_addr1 === '' && $mkcp_dd_city === '' && $mkcp_dd_pc === '' ) {
+                $mkcp_dd_group = 'billing';
+                $mkcp_dd_addr1 = trim( $mkcp_dd_customer->get_billing_address() );
+                $mkcp_dd_addr2 = trim( $mkcp_dd_customer->get_billing_address_2() );
+                $mkcp_dd_city  = trim( $mkcp_dd_customer->get_billing_city() );
+                $mkcp_dd_pc    = trim( $mkcp_dd_customer->get_billing_postcode() );
+            }
+
+            // WP Overnight NL Postcode Checker slaat straat+huisnummer niet in
+            // address_1 op maar in eigen velden — die overschrijven hier
+            // address_1/2 alsnog, anders blijft alleen postcode/plaats over.
+            if ( function_exists( 'mkcp_postcode_checker_active' ) && mkcp_postcode_checker_active() && WC()->checkout() ) {
+                $mkcp_dd_street = trim( (string) WC()->checkout()->get_value( $mkcp_dd_group . '_street_name' ) );
+                if ( $mkcp_dd_street !== '' ) {
+                    $mkcp_dd_nr     = trim( (string) WC()->checkout()->get_value( $mkcp_dd_group . '_house_number' ) );
+                    $mkcp_dd_nr_sfx = trim( (string) WC()->checkout()->get_value( $mkcp_dd_group . '_house_number_suffix' ) );
+                    $mkcp_dd_addr1  = trim( $mkcp_dd_street . ' ' . $mkcp_dd_nr . $mkcp_dd_nr_sfx );
+                    $mkcp_dd_addr2  = '';
+                }
+            }
+
+            if ( $mkcp_dd_addr1 !== '' ) $mkcp_dd_addr_lines[] = $mkcp_dd_addr1;
+            if ( $mkcp_dd_addr2 !== '' ) $mkcp_dd_addr_lines[] = $mkcp_dd_addr2;
+            $mkcp_dd_cityline = trim( $mkcp_dd_pc . ' ' . $mkcp_dd_city );
+            if ( $mkcp_dd_cityline !== '' ) $mkcp_dd_addr_lines[] = $mkcp_dd_cityline;
+        }
+        ?>
+        <?php if ( ! empty( $mkcp_dd_addr_lines ) ) : ?>
+        <div class="mkcp-pu-location" id="mkcp-dd-address">
+            <strong><?php esc_html_e( 'Bezorglocatie:', 'mk-cart-popup' ); ?></strong>
+            <p><?php echo nl2br( esc_html( implode( "\n", $mkcp_dd_addr_lines ) ) ); ?></p>
+        </div>
+        <?php endif; ?>
+
+        <?php /* Bevestiging voor datums gekozen via chip 5/6 of de kalender —
+                 de eerste 4 datums hebben al een eigen kaart-weergave. */ ?>
         <div class="mkcp-dd-confirm" id="mkcp-dd-confirm" hidden></div>
 
         <?php if ( ! empty( $rule['slots_enabled'] ) ) : ?>
@@ -564,19 +581,14 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
             <div class="mkcp-pu-slots-row" id="mkcp-dd-slots-row"></div>
         </div>
         <?php /* class="mkcp-dd-*-field" (gedeeld met pickup.php) is wat
-                 delivery-date.js gebruikt om dit veld te vinden — niet de naam/id.
-                 Zie het commentaar bij pickup.php's versie van dit veld voor de
-                 volledige toelichting (AJAX ververst nooit dit input-veld zelf,
-                 alleen #mkcp-dd-data, dus JS moet naam/id zelf bijwerken bij een
-                 modus-wissel). */ ?>
+                 delivery-date.js gebruikt om dit veld te vinden — niet naam/id.
+                 Zie pickup.php voor de volledige toelichting. */ ?>
         <input type="hidden" name="mkcp_time_slot" id="mkcp_time_slot" class="mkcp-dd-slot-field" value="">
         <?php endif; ?>
 
         <input type="hidden" name="mkcp_delivery_date" id="mkcp_delivery_date" class="mkcp-dd-date-field" value="">
 
-        <?php // Volledige attributenset (niet alleen dates/rate-id) — zie
-              // mkcp_dd_data_div_html() voor waarom dit moet matchen met wat
-              // de AJAX-fragment-filter verderop in dit bestand bouwt. ?>
+        <?php // Zie mkcp_dd_data_div_html() voor de volledige attributenset. ?>
         <?php echo mkcp_dd_data_div_html( $rate_id ); ?>
 
         <div class="mkcp-dd-calendar" id="mkcp-dd-calendar" role="dialog"
@@ -608,10 +620,8 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
         </div><?php // /.mkcp-dd-body-inner ?>
         </div><?php // /.mkcp-dd-body ?>
 
-        <?php // Rendert hier als kind van de wrap (i.p.v. los op
-              // woocommerce_review_order_before_payment) zodat 'm meeleeft met
-              // dezelfde ververscyclus als de rest van de wrap — zie de
-              // toelichting bij .mkcp-dd-summary in delivery-date.scss. ?>
+        <?php // Kind van de wrap zodat 'm meeleeft met dezelfde ververscyclus —
+              // zie toelichting bij .mkcp-dd-summary in delivery-date.scss. ?>
         <div class="mkcp-dd-summary" id="mkcp-dd-summary" hidden></div>
 
     </div>
@@ -619,10 +629,9 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
 }
 
 /**
- * Nette lege staat wanneer er (tijdelijk) geen enkele bezorgdatum
- * beschikbaar is — bv. alle verzenddagen geblokkeerd, of een filter/
- * capaciteitslimiet heeft alles weggefilterd. Voorheen verdween het veld
- * hier stilzwijgend; nu krijgt de klant altijd een duidelijke melding.
+ * Nette lege staat wanneer er geen enkele bezorgdatum beschikbaar is (bv.
+ * alle verzenddagen geblokkeerd of weggefilterd door capaciteitslimiet).
+ * Voorheen verdween het veld stilzwijgend; nu krijgt de klant een melding.
  */
 function mkcp_dd_render_empty_state( string $label, bool $required, string $wrap_id = 'mkcp-dd-wrap' ) {
     ?>
@@ -652,11 +661,8 @@ function mkcp_dd_render_empty_state( string $label, bool $required, string $wrap
 // ── Mini-samenvatting bij de bezorgdatum-kiezer ─────────────────────────────────
 //
 // Bevestigt de gekozen bezorgdatum nogmaals, direct onder de kalender in
-// dezelfde wrap (zie mkcp_dd_render_delivery_field()/mkcp_pickup_render_field()
-// in includes/pickup.php) — rendert als kind van de wrap zodat 'm meeleeft
-// met dezelfde ververscyclus (de hele wrap wordt bij elke AJAX-refresh vers
-// meegerenderd, zie de docblock bovenaan dit bestand). JS vult 'm en houdt
-// 'm in sync.
+// dezelfde wrap. Rendert als kind van de wrap zodat 'm meeleeft met dezelfde
+// ververscyclus; JS vult 'm en houdt 'm in sync.
 
 
 // ── Validatie ──────────────────────────────────────────────────────────────────
@@ -664,10 +670,9 @@ function mkcp_dd_render_empty_state( string $label, bool $required, string $wrap
 add_action( 'woocommerce_checkout_process', function() {
     if ( ! mkcp_dd_enabled() ) return;
 
-    // Fase 2: scant ALLE geposte verzendpakketten op de bezorg-rol i.p.v. de
-    // oude "pickup actief? dan skippen, anders pakket 0"-aanname — zo werkt
-    // dit onafhankelijk van pickup.php's eigen validatie (zie daar), ook als
-    // deze order BEIDE rollen tegelijk heeft (een gemengd winkelwagentje).
+    // Scant alle geposte verzendpakketten op de bezorg-rol, zodat dit
+    // onafhankelijk van pickup.php's validatie werkt, ook bij een gemengd
+    // winkelwagentje (beide rollen tegelijk).
     $rate_id = mkcp_dd_role_rate_id_from_post( 'delivery' );
     if ( ! $rate_id ) return; // geen bezorg-pakket in deze order — niets te valideren
 
@@ -755,7 +760,7 @@ add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {
 
     // Capaciteitstelling voor deze datum(+slot) is nu direct verouderd — leeg
     // de transient-cache zodat de volgende klant meteen de juiste stand ziet.
-    delete_transient( 'mkcp_dd_count_' . $date );
+    delete_transient( 'mkcp_dd_counts_map' );
     if ( $slot !== '' && ! empty( $rule['slot_capacity'] ) ) {
         delete_transient( 'mkcp_slotcnt_' . md5( '_mkcp_delivery_date' . $rate_id ) . '_' . $date . '_' . str_replace( ':', '', $slot ) );
     }
@@ -806,22 +811,16 @@ add_filter( 'woocommerce_email_order_meta_fields', function( $fields, $sent_to_a
 
 // ── PDF (WP Overnight — woocommerce-pdf-invoices-packing-slips) ───────────────
 
-// wpo_wcpdf_after_order_data vuurt binnen de order-data-tabel, direct ná de
-// "Betaalmethode"-rij (zie templates/Simple/invoice.php) — vandaar een <tr>
-// die dezelfde <th>/<td>-opmaak volgt als de omliggende rijen, i.p.v. de
-// eerder gebruikte <div> (die hoorde bij wpo_wcpdf_after_order_details, dat
-// pas ná de hele tabel vuurt, dus buiten elke <table> — een kale <div> daar
-// was geldige HTML, een <tr> zou dat niet zijn geweest: DOMPDF (dat de PDF
-// daadwerkelijk opbouwt) gooit dan "Parent table not found for table cell"
-// en de factuur genereert niet meer).
+// wpo_wcpdf_after_order_data vuurt binnen de order-data-tabel (ná
+// "Betaalmethode"), dus <tr> i.p.v. <div> — een <tr> buiten een <table> (zoals
+// bij wpo_wcpdf_after_order_details, dat ná de hele tabel vuurt) laat DOMPDF
+// stuklopen met "Parent table not found for table cell".
 add_action( 'wpo_wcpdf_after_order_data', function( $document_type, $order ) {
     if ( ! $order ) return;
     $date = $order->get_meta( '_mkcp_delivery_date' );
     if ( ! $date ) return;
     $slot = $order->get_meta( '_mkcp_delivery_slot' );
-    // <strong>: het factuursjabloon zet th (net als de andere rijen hierboven)
-    // bewust op font-weight:normal (zie style.css), dus zonder dit blijft het
-    // label net zo dun als de rest i.p.v. dikgedrukt zoals gevraagd.
+    // <strong>: het factuursjabloon zet th bewust op font-weight:normal.
     echo '<tr class="mkcp-delivery-date"><th><strong>' . esc_html__( 'Gewenste bezorgdatum', 'mk-cart-popup' ) . '</strong></th><td>'
         . esc_html( mkcp_dd_format_date( $date ) . ( $slot ? ', ' . $slot : '' ) ) . '</td></tr>';
 }, 10, 2 );
@@ -829,10 +828,8 @@ add_action( 'wpo_wcpdf_after_order_data', function( $document_type, $order ) {
 
 // ── Admin orderlijst: bezorgdatum-kolom + filter ────────────────────────────────
 //
-// Werkt zowel op de klassieke (CPT-based) als de HPOS (High-Performance
-// Order Storage) orderlijst — WooCommerce's eigen aanbevolen manier om beide
-// te ondersteunen is losse hooks voor elk scherm die naar dezelfde callbacks
-// wijzen. Handig voor het magazijn om per bezorgdag te kunnen picken.
+// Werkt zowel op de klassieke (CPT) als de HPOS-orderlijst — losse hooks per
+// scherm naar dezelfde callbacks, WooCommerce's aanbevolen aanpak.
 
 add_filter( 'manage_edit-shop_order_columns',          'mkcp_dd_add_order_column' );
 add_filter( 'manage_woocommerce_page_wc-orders_columns', 'mkcp_dd_add_order_column' );

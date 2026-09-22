@@ -232,26 +232,50 @@
         var $popup      = $( POPUP );
         var $priceAreas = $popup.find( '.mk-cart-popup__item-col-price, .mk-cart-popup__item-price, .mk-cart-popup__totals-value' );
 
-        function apply() {
-            $popup.removeClass( 'is-btw-incl is-btw-excl' ).addClass( 'is-btw-' + pref );
-            $popup.find( '.js-mkcp-btw' ).each( function () {
-                $( this ).toggleClass( 'is-active', $( this ).data( 'pref' ) === pref );
-            } );
-            if ( animate ) {
-                $priceAreas.css( 'opacity', '' ); // remove inline, CSS transition fades in
-            }
-        }
+        // Snelheids-fix: de schakelaar zelf (klasse + duimpje) wisselt nu
+        // altijd DIRECT — voorheen zat die wissel ook achter dezelfde 130ms-
+        // vertraging als de prijzen-fade, waardoor de knop op elke klik
+        // "traag"/"reageert niet" aanvoelde terwijl de prijzen zelf (via
+        // dezelfde klasse, puur CSS-gestuurd) eigenlijk precies even snel
+        // meeveranderden — het was dus geen verschil in snelheid, maar de
+        // gecombineerde vertraging viel bij de schakelaar meer op. Alleen de
+        // prijzen-tekst krijgt nog een korte (en kortere: 90ms i.p.v. 130ms)
+        // fade, puur cosmetisch, niet meer bepalend voor de eigenlijke wissel.
+        $popup.removeClass( 'is-btw-incl is-btw-excl' ).addClass( 'is-btw-' + pref );
+        $popup.find( '.js-mkcp-btw' ).each( function () {
+            $( this ).toggleClass( 'is-active', $( this ).data( 'pref' ) === pref );
+        } );
+        // Nieuwe checkbox-toggle in de popup (los van de .js-mkcp-btw-pillen
+        // hierboven, die blijven voor checkout bestaan) — checked = incl.
+        $popup.find( '.js-mkcp-btw-toggle' ).prop( 'checked', pref === 'incl' );
 
         if ( animate ) {
             $priceAreas.css( 'opacity', '0' );
-            setTimeout( apply, 130 );
-        } else {
-            apply();
+            setTimeout( function () {
+                $priceAreas.css( 'opacity', '' );
+            }, 90 );
         }
     }
 
     $( document ).on( 'click', '.js-mkcp-btw', function () {
         localStorage.setItem( 'mkcp_btw_pref', $( this ).data( 'pref' ) );
+        syncBtw( true );
+    } );
+
+    // Ripple-effect bij het klikken op de BTW-toggle — puur decoratief, los
+    // van de 'change'-handler hieronder (die de eigenlijke stand bijwerkt).
+    // Klasse-toggle met een geforceerde reflow ertussen zodat de animatie
+    // ook bij snel achter elkaar klikken telkens opnieuw begint i.p.v. de
+    // vorige, nog lopende animatie gewoon te laten doorlopen.
+    $( document ).on( 'click', '.js-mkcp-btw-toggle', function () {
+        var $thumb = $( this ).closest( '.mk-cart-popup__btw-toggle' ).find( '.mk-cart-popup__btw-toggle-thumb' );
+        $thumb.removeClass( 'is-rippling' );
+        void $thumb[ 0 ].offsetWidth;
+        $thumb.addClass( 'is-rippling' );
+    } );
+
+    $( document ).on( 'change', '.js-mkcp-btw-toggle', function () {
+        localStorage.setItem( 'mkcp_btw_pref', this.checked ? 'incl' : 'excl' );
         syncBtw( true );
     } );
 
@@ -300,6 +324,15 @@
         if ( ! $drawer.attr( 'tabindex' ) ) $drawer.attr( 'tabindex', '-1' );
         $drawer.trigger( 'focus' );
 
+        // K1: aria-valuenow/-min/-max van de sleepgreep meteen bij openen
+        // synchroniseren met de daadwerkelijke (winkelier-ingestelde)
+        // breedte — anders zou een screenreader tot de eerste sleep-/
+        // toetsenbord-actie nog de statische waarde uit de template tonen.
+        var $resizeHandle = $( POPUP ).find( '.js-mkcp-resize-handle' );
+        if ( $resizeHandle.length ) {
+            mkcpSyncResizeAria( $resizeHandle, $drawer[ 0 ].getBoundingClientRect().width );
+        }
+
         fireEvent( 'view_cart', { items: allItems() } );
 
         if ( wcStats && shippingThreshold > 0 ) {
@@ -312,6 +345,16 @@
         $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', 'false' );
         $( 'html' ).removeClass( BODY_CLS );
         $( 'body' ).removeClass( BODY_CLS );
+
+        // K1: net als .is-expanded hierboven is een gesleepte breedte een
+        // tijdelijke weergavekeuze — begint bij elke nieuwe keer openen weer
+        // bij de door de winkelier ingestelde standaardbreedte. Op de root
+        // gezet (i.p.v. alleen de drawer): de sleepgreep zelf is sinds de
+        // overflow-clip-fix een SIBLING van de drawer, geen kind meer, en
+        // leest --mkcp-width voor zijn eigen positionering (cart-popup.scss)
+        // — moet 'm dus ook via de gedeelde voorouder meekrijgen.
+        $( POPUP ).css( '--mkcp-width', '' );
+        widthBeforeRefresh = '';
 
         // Focus terug naar de trigger — met een contains()-check, want die kan
         // intussen door een WooCommerce-fragment-refresh uit de DOM verdwenen zijn.
@@ -373,6 +416,14 @@
     // ELKE ververs-bron, niet alleen onze eigen add-to-cart-flow.
     var wasExpandedBeforeRefresh = false;
 
+    // K1: idem voor een door de klant gesleepte breedte — die leeft als inline
+    // --mkcp-width op de popup-root, dus óók op het element dat door de
+    // replaceWith hieronder verdwijnt. Zonder herstel sprong de drawer bij elke
+    // fragment-refresh (bv. een qty-wijziging) terug naar de winkelier-
+    // standaardbreedte, midden in het gebruik. Leeg = geen custom breedte, dan
+    // is er ook niets te herstellen.
+    var widthBeforeRefresh = '';
+
     $( document.body ).on( 'wc_fragments_refreshed', function () {
         if ( $( 'body' ).hasClass( BODY_CLS ) ) {
             // #mk-cart-popup is zojuist (door wie dan ook) vervangen, en de
@@ -385,6 +436,22 @@
                 $( POPUP ).addClass( 'is-expanded' );
                 $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', 'true' );
                 pulseTotals();
+            } else if ( widthBeforeRefresh ) {
+                // Alleen in de niet-uitgeklapte stand relevant: is-expanded
+                // negeert --mkcp-width sowieso (100vw), en de sleeplogica wist
+                // de twee standen wederzijds uit — nooit allebei tegelijk.
+                $( POPUP ).css( '--mkcp-width', widthBeforeRefresh );
+            }
+
+            // De sleepgreep is na de replaceWith een ander DOM-element dan het
+            // element waarop de aria-waarden stonden — zonder deze hersync
+            // meldt een screenreader vanaf dat moment weer de statische
+            // template-waarden i.p.v. de werkelijke breedte. Ná het herstellen
+            // van de breedte hierboven, zodat de gemeten breedte klopt.
+            var $freshHandle = $( POPUP ).find( '.js-mkcp-resize-handle' );
+            var $freshDrawer = $( POPUP ).find( '.mk-cart-popup__drawer' );
+            if ( $freshHandle.length && $freshDrawer.length ) {
+                mkcpSyncResizeAria( $freshHandle, $freshDrawer[ 0 ].getBoundingClientRect().width );
             }
         }
     } );
@@ -399,6 +466,14 @@
         // vóór de vervanging (leeft op het element zelf, i.t.t. is-open dat
         // op <body> staat en dus wél de vervanging overleeft).
         wasExpandedBeforeRefresh = $( POPUP ).hasClass( 'is-expanded' );
+
+        // Zelfde reden, maar dan voor de gesleepte breedte: de inline
+        // --mkcp-width staat op de popup-root die hieronder wordt vervangen.
+        // Altijd (her)zetten, ook als er niets is ingesteld ('' = winkelier-
+        // standaardbreedte), zodat er nooit een waarde uit een vórige refresh
+        // blijft hangen.
+        var popupEl = document.querySelector( POPUP );
+        widthBeforeRefresh = popupEl ? popupEl.style.getPropertyValue( '--mkcp-width' ) : '';
 
         // De verse drawer-HTML komt niet onder zijn eigen '#mk-cart-popup'-
         // sleutel binnen, maar onder de neutrale '#mkcp-popup-refresh' (zie
@@ -775,7 +850,12 @@
     $( document ).on( 'click', '.js-mkcp-expand-toggle', function () {
         var $popup   = $( POPUP );
         var expanded = $popup.toggleClass( 'is-expanded' ).hasClass( 'is-expanded' );
-        $( this ).attr( 'aria-pressed', expanded ? 'true' : 'false' );
+        // Er zijn twee knoppen die dezelfde stand aan/uit zetten (de header-knop
+        // en die in de sleepgreep-capsule) — met alleen $(this) bleef de ándere
+        // knop op zijn oude aria-pressed staan, en meldde een screenreader dus
+        // het tegenovergestelde van wat er te zien was. Zelfde globale selector
+        // als de sleep- en toetsenbord-logica hieronder, die dit al zo doen.
+        $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', expanded ? 'true' : 'false' );
 
         if ( expanded ) {
             // Gestaggerde infade van de 3 kolommen (transition-delay per kolom,
@@ -795,6 +875,242 @@
     } );
 
 
+    // ── K1: breedte-schuifmechanisme (desktop) ───────────────────────────────
+    //
+    // Bovenop de al bestaande .is-expanded aan/uit-knop hierboven: een
+    // sleepgreep op de linkerrand van de drawer waarmee de klant de breedte
+    // vrij kan schuiven tussen de door de winkelier ingestelde standaardbreedte
+    // en een magnetische drempel — voorbij die drempel schakelt automatisch
+    // dezelfde .is-expanded volledige-breedte-modus in (geen nieuwe CSS nodig,
+    // hergebruikt wat hierboven al staat). Terugschuiven onder de drempel
+    // schakelt 'm weer uit. Alleen relevant op brede schermen; op mobiel
+    // bestaat de handgreep niet in de HTML (zie templates/cart-popup.php).
+    //
+    // De ondergrens staat NIET hier hardgecodeerd: hij komt uit de PHP-
+    // constante MKCP_RESIZE_MIN_WIDTH (mk-cart-popup.php), die ook de
+    // winkelier-instelling (admin/settings.php) en de clamp in config.php
+    // voedt, en die de template als data-min-width op de greep zelf meegeeft.
+    // Eén bron van waarheid dus, i.p.v. dezelfde 360 op vier plekken los.
+    // De 360 hieronder is puur een vangnet voor het geval het attribuut
+    // ontbreekt (oude, gecachete drawer-HTML na een update).
+    function mkcpResizeMin( $handle ) {
+        var el = ( $handle && $handle.length )
+            ? $handle[ 0 ]
+            : document.querySelector( '.js-mkcp-resize-handle' );
+        var min = el ? parseInt( el.getAttribute( 'data-min-width' ), 10 ) : NaN;
+        return isNaN( min ) ? 360 : min;
+    }
+
+    // Duur van de "snap"-animatie naar/uit volledige breedte — apart van de
+    // constante uit config.php (--mkcp-anim, meestal ~250ms voor open/dicht),
+    // iets trager zodat de sprong naar 100vw ook echt als vloeiende beweging
+    // leesbaar is i.p.v. een flits.
+    var MKCP_SNAP_MS = 340;
+
+    // Stapgrootte per pijltjestoets-druk (toetsenbord-bediening hieronder).
+    var MKCP_RESIZE_STEP = 24;
+
+    // Voorbij dit punt (in px) klapt de drawer automatisch volledig open.
+    // Bewust een flink stuk verder dan "de helft" (was 55%/700px, voelde te
+    // gevoelig aan — je hoefde maar een klein stukje te slepen) — nu moet je
+    // écht bijna de volle breedte naderen voor 'm vanzelf doorklapt, met een
+    // hoger plafond voor brede monitoren. Gedeeld tussen slepen én
+    // toetsenbord (End-toets), vandaar een losse functie i.p.v. inline.
+    function mkcpSnapThreshold() {
+        return Math.min( window.innerWidth * 0.85, 1100 );
+    }
+
+    // Toetsenbord-toegankelijkheid: houdt de slider's aria-waarden in sync
+    // met de daadwerkelijke breedte — aangeroepen vanuit zowel de sleep- als
+    // de toetsenbord-interactie hieronder, en bij het openen van de popup.
+    function mkcpSyncResizeAria( $handle, width ) {
+        var rounded = Math.round( width );
+        $handle.attr( {
+            'aria-valuemin' : mkcpResizeMin( $handle ),
+            'aria-valuemax' : Math.round( mkcpSnapThreshold() ),
+            'aria-valuenow' : rounded,
+            'aria-valuetext': rounded + 'px'
+        } );
+    }
+
+    $( document ).on( 'mousedown touchstart', '.js-mkcp-resize-handle', function ( e ) {
+        // Combi-variant: het losse volledig-scherm-knopje zit ín de greep —
+        // een klik daarop mag geen sleep-actie starten, anders "sleep" je per
+        // ongeluk terwijl je alleen het knopje probeerde in te drukken.
+        if ( $( e.target ).closest( '.js-mkcp-expand-toggle' ).length ) return;
+
+        var $popup  = $( POPUP );
+        var $drawer = $popup.find( '.mk-cart-popup__drawer' );
+        var $handle = $( this );
+        if ( ! $drawer.length ) return;
+
+        var startX      = e.touches ? e.touches[ 0 ].clientX : e.clientX;
+        var startWidth  = $drawer[ 0 ].getBoundingClientRect().width;
+        var lastWidth   = startWidth;
+        var resizeMin     = mkcpResizeMin( $handle );
+        var snapThreshold = mkcpSnapThreshold();
+        var snapTimer      = null;
+
+        // Even een korte transition aanzetten (overschrijft de inline-
+        // prioriteit boven .mkcp-cart-resizing's transition:none hieronder)
+        // zodat de sprong naar/uit .is-expanded soepel geanimeerd wordt i.p.v.
+        // instant — nog steeds zonder de doorlopende sleepbeweging zelf te
+        // vertragen (die blijft transition-loos, anders "sleept" 'm achter de
+        // muis aan). cubic-bezier met lichte overshoot (i.p.v. een vlakke
+        // ease-out) voor een "magnetisch aangetrokken"-gevoel — de drawer
+        // schiet net iets voorbij de eindbreedte en veert terug.
+        //
+        // BUGFIX: zette hier eerst de hele `transition`-shorthand op alleen
+        // "width, max-width" — dat verving (i.p.v. aanvulde) de basis-
+        // transitie van .mk-cart-popup__drawer, die ook transform/opacity
+        // bevat (de open/dicht-slide!). Sloot je de winkelwagen binnen dat
+        // venster (~360ms na een sleep-snap), dan miste de drawer dus zijn
+        // transform/opacity-transitie en klapte 'm instant dicht i.p.v. uit
+        // te schuiven. Nu alleen transition-duration/-timing-function
+        // overschreven (longhand) — die laten transition-property (uit de
+        // stylesheet, incl. transform/opacity) intact staan. Zelfde
+        // redenering voor $handle: de basis-transitie is alléén "opacity",
+        // dus links/rechts moeten hier wél expliciet worden toegevoegd, maar
+        // opacity moet in diezelfde declaratie blijven staan i.p.v. verdwijnen.
+        function animateSnap( apply ) {
+            var t = MKCP_SNAP_MS + 'ms cubic-bezier(.34,1.56,.64,1)';
+            $drawer.css( { 'transition-duration': MKCP_SNAP_MS + 'ms', 'transition-timing-function': 'cubic-bezier(.34,1.56,.64,1)' } );
+            $handle.css( 'transition', 'opacity ' + t + ', left ' + t + ', right ' + t );
+            apply();
+            clearTimeout( snapTimer );
+            snapTimer = setTimeout( function () {
+                $drawer.css( { 'transition-duration': '', 'transition-timing-function': '' } );
+                $handle.css( 'transition', '' );
+            }, MKCP_SNAP_MS + 20 );
+        }
+
+        $( 'body' ).addClass( 'mkcp-cart-resizing' );
+
+        function onMove( ev ) {
+            var x = ev.touches ? ev.touches[ 0 ].clientX : ev.clientX;
+            // De drawer zit rechts vastgeplakt — naar links slepen (kleinere
+            // x) moet 'm dus breder maken.
+            var delta = startX - x;
+            var raw   = startWidth + delta;
+            var newWidth;
+
+            // Elastisch: voorbij het minimum niet hard clampen maar met
+            // toenemende weerstand meegeven (rubber-band, 30% van de
+            // "overtreding" volgt de muis nog) — voelt als tegen een rand
+            // duwen i.p.v. een harde stop, zelfde idioom als iOS-overscroll.
+            // Veert bij loslaten (onUp hieronder) terug naar het echte
+            // minimum met een lichte overshoot.
+            if ( raw < resizeMin ) {
+                newWidth = resizeMin - ( resizeMin - raw ) * 0.3;
+            } else {
+                newWidth = raw;
+            }
+            lastWidth = newWidth;
+
+            if ( newWidth >= snapThreshold ) {
+                mkcpSyncResizeAria( $handle, snapThreshold );
+                if ( ! $popup.hasClass( 'is-expanded' ) ) {
+                    animateSnap( function () {
+                        $popup.addClass( 'is-expanded' );
+                        $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', 'true' );
+                    } );
+                }
+                return;
+            }
+            if ( $popup.hasClass( 'is-expanded' ) ) {
+                animateSnap( function () {
+                    $popup.removeClass( 'is-expanded' );
+                    $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', 'false' );
+                    $popup.css( '--mkcp-width', newWidth + 'px' );
+                } );
+                mkcpSyncResizeAria( $handle, newWidth );
+                return;
+            }
+            // Op $popup (gedeelde voorouder) i.p.v. $drawer: de sleepgreep is
+            // een sibling van de drawer, geen kind meer (overflow-clip-fix) —
+            // moet --mkcp-width dus via de gemeenschappelijke ouder meekrijgen
+            // om zijn eigen positie te kunnen berekenen.
+            $popup.css( '--mkcp-width', newWidth + 'px' );
+            mkcpSyncResizeAria( $handle, Math.max( newWidth, resizeMin ) );
+        }
+
+        function onUp() {
+            $( 'body' ).removeClass( 'mkcp-cart-resizing' );
+            $( document ).off( 'mousemove.mkcpResize touchmove.mkcpResize' );
+            $( document ).off( 'mouseup.mkcpResize touchend.mkcpResize' );
+
+            // Elastisch terugveren: als er tijdens het slepen voorbij het
+            // minimum "geduwd" is, veert de breedte nu met een lichte
+            // overshoot terug naar het echte minimum — voelt als het
+            // loslaten van een elastiekje i.p.v. een vlakke correctie.
+            if ( lastWidth < resizeMin ) {
+                // Zelfde longhand-aanpak als animateSnap() hierboven — anders
+                // verdwijnt de transform/opacity-transitie van de drawer weer
+                // als iemand de popup sluit terwijl deze terugveer-animatie
+                // nog loopt.
+                clearTimeout( snapTimer );
+                $drawer.css( { 'transition-duration': MKCP_SNAP_MS + 'ms', 'transition-timing-function': 'cubic-bezier(.34,1.56,.64,1)' } );
+                $popup.css( '--mkcp-width', resizeMin + 'px' );
+                snapTimer = setTimeout( function () {
+                    $drawer.css( { 'transition-duration': '', 'transition-timing-function': '' } );
+                }, MKCP_SNAP_MS + 20 );
+                mkcpSyncResizeAria( $handle, resizeMin );
+                return;
+            }
+            clearTimeout( snapTimer );
+        }
+
+        $( document ).on( 'mousemove.mkcpResize touchmove.mkcpResize', onMove );
+        $( document ).on( 'mouseup.mkcpResize touchend.mkcpResize', onUp );
+        e.preventDefault();
+    } );
+
+    // Toetsenbord-bediening: role="slider" (templates/cart-popup.php) is
+    // pas echt bruikbaar mét toetsenbord-input. Pijl-links/rechts = ±stap,
+    // Home/End = min/max — dezelfde mkcpResizeMin()/mkcpSnapThreshold() als
+    // de sleeplogica hierboven, dus consistent gedrag. Breedte-wijzigingen
+    // animeren vanzelf soepel mee via .mk-cart-popup__drawer's eigen
+    // transition (cart-popup.scss) — geen aparte animateSnap-timing nodig
+    // zoals bij het slepen, want hier is er geen doorlopende beweging die
+    // die transition juist in de weg zou zitten.
+    $( document ).on( 'keydown', '.js-mkcp-resize-handle', function ( e ) {
+        if ( e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End' ) return;
+
+        var $handle = $( this );
+        var $popup  = $( POPUP );
+        var $drawer = $popup.find( '.mk-cart-popup__drawer' );
+        if ( ! $drawer.length ) return;
+
+        e.preventDefault();
+
+        var currentWidth  = $drawer[ 0 ].getBoundingClientRect().width;
+        var resizeMin     = mkcpResizeMin( $handle );
+        var snapThreshold = mkcpSnapThreshold();
+        var newWidth;
+
+        switch ( e.key ) {
+            case 'ArrowLeft':  newWidth = currentWidth + MKCP_RESIZE_STEP; break;
+            case 'ArrowRight': newWidth = currentWidth - MKCP_RESIZE_STEP; break;
+            case 'Home':       newWidth = resizeMin; break;
+            case 'End':        newWidth = snapThreshold; break;
+        }
+        newWidth = Math.max( resizeMin, newWidth );
+
+        if ( newWidth >= snapThreshold ) {
+            $popup.addClass( 'is-expanded' );
+            $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', 'true' );
+            mkcpSyncResizeAria( $handle, snapThreshold );
+            return;
+        }
+        if ( $popup.hasClass( 'is-expanded' ) ) {
+            $popup.removeClass( 'is-expanded' );
+            $( '.js-mkcp-expand-toggle' ).attr( 'aria-pressed', 'false' );
+        }
+        $popup.css( '--mkcp-width', newWidth + 'px' );
+        mkcpSyncResizeAria( $handle, newWidth );
+    } );
+
+
     // ── Close triggers ────────────────────────────────────────────────────────
 
     $( document ).on( 'click', '.mk-cart-popup__backdrop, .mk-cart-popup__close, .js-mk-cart-close', closePopup );
@@ -809,8 +1125,14 @@
         // toetsenbordgebruiker niet "wegtabt" naar de achterliggende pagina.
         if ( e.key !== 'Tab' || ! $( POPUP ).hasClass( OPEN_CLS ) ) return;
 
-        var $drawer    = $( POPUP ).find( '.mk-cart-popup__drawer' );
-        var $focusable = $drawer.find( FOCUSABLE_SELECTOR ).filter( ':visible' );
+        // $popup (de hele #mk-cart-popup-root) i.p.v. alleen $drawer: de
+        // sleepgreep (role="slider") is sinds de overflow-clip-fix een
+        // sibling van de drawer, geen kind meer — met alleen $drawer.find()
+        // zou de trap 'm overslaan en Tab vanuit de greep de dialoog uit
+        // laten "lekken" naar de achterliggende pagina.
+        var $popup     = $( POPUP );
+        var $drawer    = $popup.find( '.mk-cart-popup__drawer' );
+        var $focusable = $popup.find( FOCUSABLE_SELECTOR ).filter( ':visible' );
         if ( ! $focusable.length ) return;
 
         var first  = $focusable[ 0 ];

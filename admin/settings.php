@@ -39,14 +39,11 @@ add_action( 'admin_menu', function() {
     unset( $item );
 }, 999 );
 
-// ── Donkere modus voor de admin-UI zelf — persoonlijke voorkeur per gebruiker ──
-//
-// Los van de bezoekers-dark-mode van de popup (mk-cart-popup.php): settings.css
-// is standaard al donker en schakelt via prefers-color-scheme automatisch naar
-// licht (zie :root vs. @media (prefers-color-scheme: light) daar). Deze klasse
-// forceert een keuze ongeacht het systeem — 'auto' (geen meta opgeslagen) laat
-// dat gedrag intact. Als body class toegevoegd vóórdat de pagina rendert, dus
-// geen flits van het verkeerde thema bij het laden.
+// Donkere modus voor de admin-UI zelf (los van de bezoekers-dark-mode van de
+// popup). settings.css is standaard donker en schakelt via prefers-color-
+// scheme automatisch naar licht; deze klasse forceert een keuze ongeacht het
+// systeem — 'auto' laat dat gedrag intact. Als body class toegevoegd vóór de
+// page render, dus geen flits van het verkeerde thema bij het laden.
 add_filter( 'admin_body_class', function( $classes ) {
     $page = sanitize_key( $_GET['page'] ?? '' );
     if ( ! in_array( $page, [ 'mkcp-settings', 'mkcp-docs' ], true ) ) return $classes;
@@ -92,9 +89,7 @@ add_action( 'admin_head', function() {
 } );
 
 
-// ── Plugin-rij links (Plugins-pagina) ────────────────────────────────────────
-//
-// Volgorde: Instellingen | Documentatie | [Deactiveren — door WordPress]
+// Plugin-rij links: Instellingen | Documentatie | [Deactiveren — door WordPress]
 
 add_filter( 'plugin_action_links_' . plugin_basename( MKCP_PATH . 'mk-cart-popup.php' ), function( $links ) {
     $custom = [
@@ -116,7 +111,7 @@ add_action( 'admin_init', function() {
 
     $post = $_POST;
 
-    // License key is always saved first so users can always update or clear it.
+    // Licentiesleutel altijd eerst opslaan, zodat updaten/wissen altijd lukt.
     if ( isset( $post['mkcp_license_key'] ) ) {
         $new_key = sanitize_text_field( wp_unslash( $post['mkcp_license_key'] ) );
         $old_key = (string) get_option( 'mkcp_license_key', '' );
@@ -126,8 +121,8 @@ add_action( 'admin_init', function() {
         }
     }
 
-    // Checkout settings — always save unconditionally, regardless of license tier.
-    // The premium gate is enforced on the frontend (checkout-frontend.php).
+    // Checkout settings altijd onvoorwaardelijk opslaan; de premium-gate wordt
+    // afgedwongen op het frontend (checkout-frontend.php).
     $raw_steps_labels = (array) ( $post['mkcp_checkout_steps_labels'] ?? [] );
     $checkout = [
         'checkout_enabled'      => ! empty( $post['mkcp_checkout_enabled'] ),
@@ -142,6 +137,8 @@ add_action( 'admin_init', function() {
         'ssl_badge_enabled'     => ! empty( $post['mkcp_checkout_ssl_badge_enabled'] ),
         'ssl_badge_text'        => sanitize_text_field( $post['mkcp_checkout_ssl_badge_text'] ?? 'SSL-versleuteling' ),
         'payment_icons_enabled' => ! empty( $post['mkcp_checkout_payment_icons_enabled'] ),
+        'checkout_crosssell_enabled'   => ! empty( $post['mkcp_co_crosssell_enabled'] ),
+        'checkout_crosssell_title'     => sanitize_text_field( $post['mkcp_co_crosssell_title'] ?? '' ),
         'dequeue_theme_css'     => ! empty( $post['mkcp_checkout_dequeue_theme_css'] ),
         'dequeue_theme_hooks'   => ! empty( $post['mkcp_checkout_dequeue_theme_hooks'] ),
         'dequeue_theme_js'      => ! empty( $post['mkcp_checkout_dequeue_theme_js'] ),
@@ -212,6 +209,8 @@ add_action( 'admin_init', function() {
         'thankyou_trust_contact_text' => sanitize_text_field( $post['mkcp_ty_trust_contact_text'] ?? '' ),
 
         'hide_paid_delivery_if_free' => ! empty( $post['mkcp_hide_paid_delivery'] ),
+        'shipping_choice_labels'     => mkcp_sanitize_shipping_choice_labels( $post ),
+        'loading_messages'           => sanitize_textarea_field( wp_unslash( $post['mkcp_loading_messages'] ?? '' ) ),
     ];
     update_option( 'mkcp_checkout_settings', $checkout );
 
@@ -230,30 +229,36 @@ add_action( 'admin_init', function() {
         'account_returns_enabled'         => ! empty( $post['mkcp_account_returns_enabled'] ),
         'account_notifications_enabled'   => ! empty( $post['mkcp_account_notifications_enabled'] ),
         'account_rewards_enabled'         => ! empty( $post['mkcp_account_rewards_enabled'] ),
+        'account_reviews_enabled'         => ! empty( $post['mkcp_account_reviews_enabled'] ),
+        'account_newsletter_enabled'      => ! empty( $post['mkcp_account_newsletter_enabled'] ),
         'account_wishlist_emails_enabled' => ! empty( $post['mkcp_account_wishlist_emails_enabled'] ),
-        // Elke numerieke instelling hieronder wordt hier nogmaals hard
-        // geclampt — het admin-invoerveld dwingt hetzelfde al client-side af
-        // (min/max-attributen), maar dat is UX, geen beveiliging.
+        // Server-side geclampt — het min/max op het invoerveld is UX, geen beveiliging.
         'account_return_window_days'      => max( 1, min( 90, $account_return_window ?: 14 ) ),
+        'account_return_process_text'     => isset( $post['mkcp_account_return_process_text'] ) ? sanitize_textarea_field( wp_unslash( $post['mkcp_account_return_process_text'] ) ) : '',
         'account_max_addresses'           => max( 1, min( 200, $account_max_addresses ?: 20 ) ),
         'account_orders_per_page'         => max( 1, min( 100, $account_orders_per_page ?: 10 ) ),
         'account_notification_retention_days' => min( 3650, $account_notif_retention ),
         'account_rewards_tier_silver_threshold' => max( 1, $account_tier_silver ?: 100 ),
         'account_rewards_tier_gold_threshold'   => max( 1, $account_tier_gold ?: 500 ),
 
-        // E-mailsjablonen — vrije tekst, geen kleur-/getalvalidatie nodig,
-        // wel sanitize_textarea_field (behoudt regeleindes, in
-        // tegenstelling tot sanitize_text_field) zodat de {placeholder}-
-        // opmaak met eigen regels intact blijft.
+        // E-mailsjablonen: sanitize_textarea_field (behoudt regeleindes, i.t.t.
+        // sanitize_text_field) zodat {placeholder}-opmaak met eigen regels blijft.
         'account_wishlist_price_email_subject' => sanitize_text_field( $post['mkcp_account_wishlist_price_email_subject'] ?? '' ),
         'account_wishlist_price_email_body'    => sanitize_textarea_field( $post['mkcp_account_wishlist_price_email_body'] ?? '' ),
         'account_wishlist_stock_email_subject' => sanitize_text_field( $post['mkcp_account_wishlist_stock_email_subject'] ?? '' ),
         'account_wishlist_stock_email_body'    => sanitize_textarea_field( $post['mkcp_account_wishlist_stock_email_body'] ?? '' ),
+        'account_login_bg_image_id'            => absint( $post['mkcp_account_login_bg_image_id'] ?? 0 ),
+        'account_login_logo_image_id'          => absint( $post['mkcp_account_login_logo_image_id'] ?? 0 ),
+        'account_login_subtitle_text'          => sanitize_text_field( $post['mkcp_account_login_subtitle_text'] ?? '' ),
+        'account_login_panel_title'            => sanitize_text_field( $post['mkcp_account_login_panel_title'] ?? '' ),
+        'account_login_usp_1'                  => sanitize_text_field( $post['mkcp_account_login_usp_1'] ?? '' ),
+        'account_login_usp_2'                  => sanitize_text_field( $post['mkcp_account_login_usp_2'] ?? '' ),
+        'account_login_usp_3'                  => sanitize_text_field( $post['mkcp_account_login_usp_3'] ?? '' ),
     ];
     update_option( 'mkcp_account_settings', $account );
     if ( function_exists( 'mkcp_account_admin_clear_stats_cache' ) ) mkcp_account_admin_clear_stats_cache();
 
-    // Block saving popup settings when no valid license is active.
+    // Popup-instellingen niet opslaan zonder geldige licentie.
     $license_tier = mkcp_license_tier();
     if ( $license_tier === 'none' ) {
         $tab     = sanitize_key( $post['mkcp_active_tab']     ?? 'licentie' );
@@ -290,13 +295,16 @@ add_action( 'admin_init', function() {
         'empty_heading'           => sanitize_text_field( $post['mkcp_empty_heading']           ?? '' ),
         'empty_button'            => sanitize_text_field( $post['mkcp_empty_button']            ?? '' ),
         'free_shipping_bar'       => ! empty( $post['mkcp_free_shipping_bar'] ),
-        'free_shipping_threshold' => floatval( $post['mkcp_free_shipping_threshold']            ?? 0 ),
+        // Ondergrens 0: een negatief drempelbedrag heeft geen betekenis en zou
+        // de gratis-verzendbalk permanent op "gehaald" zetten.
+        'free_shipping_threshold' => max( 0, floatval( $post['mkcp_free_shipping_threshold']    ?? 0 ) ),
         'shipping_note'           => sanitize_text_field( $post['mkcp_shipping_note']           ?? '' ),
         'free_shipping_note'      => sanitize_text_field( $post['mkcp_free_shipping_note']      ?? '' ),
         'redirect_cart'           => ! empty( $post['mkcp_redirect_cart'] ),
         'redirect_cart_url'       => esc_url_raw( $post['mkcp_redirect_cart_url']              ?? '' ),
         'usps'                    => $usps,
-        'min_order_amount'        => floatval( $post['mkcp_min_order_amount'] ?? 0 ),
+        // Idem: een negatief minimumbedrag is betekenisloos (0 = geen minimum).
+        'min_order_amount'        => max( 0, floatval( $post['mkcp_min_order_amount'] ?? 0 ) ),
         'show_coupon'             => ! empty( $post['mkcp_show_coupon'] ),
         'payment_icons'           => $payment_icons,
         'delivery_preview_enabled' => ! empty( $post['mkcp_delivery_preview_enabled'] ),
@@ -304,7 +312,7 @@ add_action( 'admin_init', function() {
         'cart_count_badge_selector' => sanitize_text_field( wp_unslash( $post['mkcp_cart_count_badge_selector'] ?? '' ) ),
         'cart_count_badge_position' => in_array( $post['mkcp_cart_count_badge_position'] ?? '', [ 'top-right', 'top-left', 'bottom-right', 'bottom-left' ], true ) ? $post['mkcp_cart_count_badge_position'] : 'top-right',
 
-        // ── Premium fields — only updated when tier is premium, otherwise keep existing ──
+        // Premium velden — alleen bijgewerkt bij premium tier, anders bestaande waarde behouden.
         'btw_split'               => $is_premium ? ! empty( $post['mkcp_btw_split'] )                                                          : (bool) ( $existing['btw_split'] ?? false ),
         'label_excl_tax'          => $is_premium ? sanitize_text_field( $post['mkcp_label_excl_tax']          ?? '' )                          : (string) ( $existing['label_excl_tax'] ?? '' ),
         'label_incl_tax'          => $is_premium ? sanitize_text_field( $post['mkcp_label_incl_tax']          ?? '' )                          : (string) ( $existing['label_incl_tax'] ?? '' ),
@@ -321,6 +329,7 @@ add_action( 'admin_init', function() {
         'save_cart_expiry_days'   => $is_premium ? max( 1, min( 30, intval( $post['mkcp_save_cart_expiry_days'] ?? 7 ) ) )                      : (int) ( $existing['save_cart_expiry_days'] ?? 7 ),
         'abandoned_cart_enabled'  => $is_premium ? ! empty( $post['mkcp_abandoned_cart_enabled'] )                                             : (bool) ( $existing['abandoned_cart_enabled'] ?? false ),
         'abandoned_cart_delay'    => $is_premium ? max( 30, intval( $post['mkcp_abandoned_cart_delay'] ?? 60 ) )                                 : (int) ( $existing['abandoned_cart_delay'] ?? 60 ),
+        'abandoned_cart_cooldown_days' => $is_premium ? max( 0, min( 90, intval( $post['mkcp_abandoned_cart_cooldown_days'] ?? 7 ) ) )            : (int) ( $existing['abandoned_cart_cooldown_days'] ?? 7 ),
         'abandoned_cart_subject'  => $is_premium ? sanitize_text_field( $post['mkcp_abandoned_cart_subject'] ?? '' )                             : (string) ( $existing['abandoned_cart_subject'] ?? '' ),
         'abandoned_cart_body'     => $is_premium ? sanitize_textarea_field( wp_unslash( $post['mkcp_abandoned_cart_body'] ?? '' ) )               : (string) ( $existing['abandoned_cart_body'] ?? '' ),
         'stock_indicator'         => $is_premium ? ! empty( $post['mkcp_stock_indicator'] )                                                     : (bool) ( $existing['stock_indicator'] ?? false ),
@@ -336,12 +345,19 @@ add_action( 'admin_init', function() {
         'style_btn_text'          => $is_premium ? ( sanitize_hex_color( $post['mkcp_style_btn_text']  ?? '' ) ?: '#ffffff' ) : (string) ( $existing['style_btn_text'] ?? '#ffffff' ),
         'style_border'            => $is_premium ? ( sanitize_hex_color( $post['mkcp_style_border']   ?? '' ) ?: '#cccccc' ) : (string) ( $existing['style_border']   ?? '#cccccc' ),
         'style_danger'            => $is_premium ? ( sanitize_hex_color( $post['mkcp_style_danger']   ?? '' ) ?: '#d32f2f' ) : (string) ( $existing['style_danger']   ?? '#d32f2f' ),
-        'style_width'             => $is_premium ? max( 360, min( 640, intval( $post['mkcp_style_width'] ?? 500 ) ) )       : (int) ( $existing['style_width']       ?? 500 ),
+        'style_width'             => $is_premium ? max( MKCP_RESIZE_MIN_WIDTH, min( 640, intval( $post['mkcp_style_width'] ?? 500 ) ) ) : (int) ( $existing['style_width']       ?? 500 ),
         'style_btn_style'         => $is_premium ? ( in_array( $post['mkcp_style_btn_style'] ?? '', [ 'filled', 'outline' ], true ) ? $post['mkcp_style_btn_style'] : 'filled' ) : (string) ( $existing['style_btn_style'] ?? 'filled' ),
         'style_position'          => $is_premium ? ( in_array( $post['mkcp_style_position'] ?? '', [ 'left', 'right', 'center' ], true ) ? $post['mkcp_style_position'] : 'right' ) : (string) ( $existing['style_position'] ?? 'right' ),
         'style_expand_enabled'    => $is_premium ? ! empty( $post['mkcp_style_expand_enabled'] )                              : (bool) ( $existing['style_expand_enabled'] ?? true ),
         'style_dark_mode_enabled' => $is_premium ? ! empty( $post['mkcp_style_dark_mode_enabled'] )                           : (bool) ( $existing['style_dark_mode_enabled'] ?? true ),
         'mobile_app_experience'   => $is_premium ? ! empty( $post['mkcp_mobile_app_experience'] )                             : (bool) ( $existing['mobile_app_experience'] ?? true ),
+        'account_link_enabled'    => $is_premium ? ! empty( $post['mkcp_account_link_enabled'] )                               : (bool) ( $existing['account_link_enabled'] ?? true ),
+        'style_resize_enabled'    => $is_premium ? ! empty( $post['mkcp_style_resize_enabled'] )                               : (bool) ( $existing['style_resize_enabled'] ?? true ),
+        'trust_badge_enabled'     => $is_premium ? ! empty( $post['mkcp_trust_badge_enabled'] )                                 : (bool) ( $existing['trust_badge_enabled'] ?? false ),
+        'trust_badge_provider'    => $is_premium ? ( in_array( $post['mkcp_trust_badge_provider'] ?? '', [ 'manual', 'trustedshops', 'webwinkelkeur', 'kiyoh' ], true ) ? $post['mkcp_trust_badge_provider'] : 'manual' ) : (string) ( $existing['trust_badge_provider'] ?? 'manual' ),
+        'trust_badge_rating'      => $is_premium ? max( 0, min( 5, (float) ( $post['mkcp_trust_badge_rating'] ?? 4.8 ) ) )       : (float) ( $existing['trust_badge_rating'] ?? 4.8 ),
+        'trust_badge_review_count'=> $is_premium ? max( 0, absint( $post['mkcp_trust_badge_review_count'] ?? 0 ) )              : (int) ( $existing['trust_badge_review_count'] ?? 0 ),
+        'trust_badge_url'         => $is_premium ? esc_url_raw( $post['mkcp_trust_badge_url'] ?? '' )                          : (string) ( $existing['trust_badge_url'] ?? '' ),
     ];
 
     update_option( 'mkcp_settings', $settings );
@@ -370,6 +386,7 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
             'testEmailNonce' => wp_create_nonce( 'mkcp_test_email' ),
             'themeNonce'     => wp_create_nonce( 'mkcp_admin_theme' ),
             'returnsNonce'   => wp_create_nonce( 'mkcp_account_admin_returns' ),
+            'accountSetupNonce' => wp_create_nonce( 'mkcp_account_setup' ),
             'homeUrl'        => home_url( '/' ),
         ] );
 
@@ -384,12 +401,10 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
         wp_enqueue_style( 'mkcp-builder', MKCP_URL . 'admin/assets/builder.css', [ 'mkcp-admin' ], MKCP_VER );
         wp_enqueue_style( 'mk-cart-popup-preview', MKCP_URL . 'assets/cart-popup.css', [], MKCP_VER );
 
-        // Eigen kleuren/breedte (Instellingen → Styling) — zelfde mechanisme als
-        // op de live site (zie mk-cart-popup.php). Zonder dit blok laadt de
-        // live-preview alleen de :root-defaults uit cart-popup.css, en lijkt het
-        // net na opslaan/herladen alsof de opgeslagen kleuren niet zijn
-        // doorgekomen — ze staan dan wél goed in de database en op de
-        // daadwerkelijke site, alleen de admin-preview toonde ze niet.
+        // Eigen kleuren/breedte, zelfde mechanisme als op de live site (zie
+        // mk-cart-popup.php). Zonder dit blok laadt de live-preview alleen de
+        // :root-defaults uit cart-popup.css — de opgeslagen kleuren staan dan
+        // wél goed in database en site, alleen de admin-preview toont ze niet.
         if ( mkcp_license_has( 'premium' ) ) {
             wp_add_inline_style( 'mk-cart-popup-preview', mkcp_style_inline_css( mkcp_config() ) );
         }
@@ -399,9 +414,8 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
             'licenseNonce'  => wp_create_nonce( 'mkcp_license_nonce' ),
         ] );
 
-        // Onboarding-tour (Driver.js) — vendored, zelfde patroon als
-        // mkcp-sortable hierboven. mkcp_show_onboarding wordt gezet door
-        // register_activation_hook() in mk-cart-popup.php en hier meteen
+        // Onboarding-tour (Driver.js, vendored). mkcp_show_onboarding wordt gezet
+        // door register_activation_hook() in mk-cart-popup.php en hier meteen
         // weer verwijderd, zodat de tour maar één keer automatisch start.
         wp_enqueue_style( 'mkcp-driver', MKCP_URL . 'admin/assets/driver.css', [], '1.3.1' );
         wp_enqueue_script( 'mkcp-driver', MKCP_URL . 'admin/assets/driver.iife.js', [], '1.3.1', true );
@@ -413,9 +427,11 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
             delete_option( 'mkcp_show_onboarding' );
         }
         wp_localize_script( 'mkcp-onboarding', 'mkcpOnboarding', mkcp_onboarding_localize_data( $mkcp_start_tour ) );
-    } else {
-        wp_enqueue_script( 'mkcp-admin', MKCP_URL . 'admin/assets/settings.js', [], MKCP_VER, true );
     }
+    // De docs-pagina heeft haar eigen tab-switch-script (inline in admin/docs.php)
+    // en settings.js niet nodig: settings.js roept altijd activateProduct() aan,
+    // wat hier de verkeerde panelen zou verbergen ('docs'/'development' i.p.v.
+    // 'checkout-dashboard'/'account-general').
 } );
 
 
@@ -457,24 +473,17 @@ add_action( 'wp_ajax_mkcp_builder_save', function() {
 
     $existing = get_option( 'mkcp_settings', [] );
 
-    // JS sends mirror keys with mkcp_ prefix — strip it and whitelist allowed fields.
-    // Deze lijsten dekken bewust alleen de velden die de live-preview builder
-    // daadwerkelijk inline-bewerkbaar maakt (zie textFields/boolFields in
-    // src/admin/builder/index.js — moet hiermee in sync blijven). Nieuwe
-    // inline-bewerkbare velden in de builder moeten hier én daar toegevoegd
-    // worden, anders slaat quick-save die wijziging stilzwijgend niet op.
+    // JS stuurt mirror keys met mkcp_ prefix — strip 'm en whitelist toegestane velden.
+    // Deze lijst dekt bewust alleen de velden die de builder inline-bewerkbaar
+    // maakt (zie textFields/boolFields in src/admin/builder/index.js — moet
+    // hiermee in sync blijven), anders slaat quick-save nieuwe velden stilzwijgend niet op.
     $allowed_text = [ 'title', 'btn_checkout', 'col_product', 'col_total',
                       'empty_heading', 'empty_button', 'shipping_note',
                       'free_shipping_note', 'crosssell_title' ];
-    // Premium-only velden — zelfde gating als de volledige save-handler
-    // hierboven, anders zou quick-save (dat geen is_premium-check had) een
-    // basic-tier account's premium-instellingen alsnog kunnen overschrijven
-    // omdat de builder-UI ze alleen visueel (disabled) vergrendelt, niet
-    // server-side.
-    // 'cart_count_badge_enabled' hoort hier bewust niet bij: de builder heeft
-    // er geen veld voor (dat zit in de Shipping-tab), dus de JS stuurt 'm
-    // nooit mee — stond deze wel in de whitelist, dan zette elke quick-save
-    // 'm alsnog stilzwijgend terug naar uit.
+    // Premium-only velden — zelfde gating als de volledige save-handler:
+    // de builder-UI vergrendelt ze alleen visueel, niet server-side.
+    // 'cart_count_badge_enabled' hoort hier bewust niet bij: geen builder-veld
+    // (zit in Shipping-tab), dus zou elke quick-save 'm terugzetten naar uit.
     $allowed_bool          = [ 'free_shipping_bar', 'show_coupon', 'crosssell_enabled' ];
     $allowed_bool_premium  = [ 'btw_split', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email' ];
 

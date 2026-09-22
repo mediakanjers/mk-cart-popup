@@ -1,11 +1,10 @@
 <?php
 /**
- * MK Cart Popup — Account: Notificaties (Fase 1, stap 6a)
+ * MK Cart Popup — Account: Notificaties
  *
- * Los bestand van account-orders.php/account-returns.php (zie de "god file"-
- * notitie in account-profile.php) — dit bestand kent alleen wp_mkcp_notifications
- * en heeft verder geen weet van bestellingen/retouren, ook al vullen die
- * systemen deze tabel straks (via mkcp_account_add_notification()).
+ * Los bestand van account-orders.php/account-returns.php — kent alleen
+ * wp_mkcp_notifications en heeft verder geen weet van bestellingen/retouren,
+ * ook al vullen die systemen deze tabel (via mkcp_account_add_notification()).
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -18,12 +17,21 @@ add_filter( 'mkcp_account_fragment_handlers', function( $handlers ) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function mkcp_account_get_notifications( int $user_id, int $limit = 50 ): array {
+function mkcp_account_get_notifications( int $user_id, int $limit = 50, int $offset = 0 ): array {
     global $wpdb;
     $table = $wpdb->prefix . 'mkcp_notifications';
     return $wpdb->get_results( $wpdb->prepare(
-        "SELECT * FROM {$table} WHERE user_id = %d ORDER BY created_at DESC LIMIT %d",
-        $user_id, $limit
+        "SELECT * FROM {$table} WHERE user_id = %d ORDER BY created_at DESC LIMIT %d OFFSET %d",
+        $user_id, $limit, $offset
+    ) );
+}
+
+function mkcp_account_get_notifications_total( int $user_id ): int {
+    global $wpdb;
+    $table = $wpdb->prefix . 'mkcp_notifications';
+    return (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM {$table} WHERE user_id = %d",
+        $user_id
     ) );
 }
 
@@ -47,11 +55,9 @@ function mkcp_account_get_owned_notification( int $notification_id, int $user_id
 }
 
 /**
- * Eén centraal aanmaakpunt — bedoeld om vanuit andere systemen (wishlist-
- * prijsdaling/voorraad-cron, retour-statuswijziging, ...) aangeroepen te
- * worden zodra die functionaliteit er is. Nu al hier gedefinieerd (i.p.v.
- * pas wanneer de eerste aanroeper bestaat) zodat elk systeem straks tegen
- * dezelfde, ene functie-signatuur bouwt i.p.v. zelf een variant te verzinnen.
+ * Eén centraal aanmaakpunt, bedoeld voor andere systemen (wishlist-
+ * prijsdaling/voorraad-cron, retour-statuswijziging, ...) — zodat elk systeem
+ * tegen dezelfde functie-signatuur bouwt i.p.v. zelf een variant te verzinnen.
  */
 function mkcp_account_add_notification( int $user_id, string $type, string $title, string $body = '', string $url = '', string $related_object_type = '', int $related_object_id = 0 ) {
     global $wpdb;
@@ -72,10 +78,8 @@ function mkcp_account_add_notification( int $user_id, string $type, string $titl
 // ── Fragment: Notificaties ────────────────────────────────────────────────────
 
 function mkcp_account_render_notification_row( $n ): string {
-    // Relatieve tijd ("2 uur geleden") voor recente meldingen — voelt veel
-    // meer als een "levend" meldingencentrum dan een kale datum/tijd-stempel.
-    // Ouder dan een week: relatieve tijd wordt onduidelijk ("1 week geleden"
-    // zegt weinig), dan gewoon de volledige datum tonen.
+    // Relatieve tijd ("2 uur geleden") voor recente meldingen; ouder dan een
+    // week is relatieve tijd onduidelijk, dan de volledige datum tonen.
     $created_ts = mysql2date( 'U', $n->created_at );
     $is_recent  = ( time() - $created_ts ) < WEEK_IN_SECONDS;
     $created    = $is_recent
@@ -93,8 +97,10 @@ function mkcp_account_render_notification_row( $n ): string {
         'back_in_stock' => '<path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/>',
         'order_status'  => '<path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>',
         'return_update' => '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
+        'wishlist'      => '<path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/>',
+        'review'        => '<polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/>',
     ];
-    $icon = $icons[ $n->type ] ?? '<path d="M6 8a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/>';
+    $icon = $icons[ $n->type ] ?? '<path d="M18 8a6 6 0 00-12 0c0 4.5-1.5 6.5-2 7h16c-.5-.5-2-2.5-2-7z"/><path d="M13.7 3a2 2 0 00-3.4 0"/><path d="M9 18a3 3 0 006 0"/>';
     ?>
     <div class="mkcp-notif<?php echo empty( $n->is_read ) ? ' is-unread' : ''; ?>" data-notification-id="<?php echo esc_attr( $n->id ); ?>" data-url="<?php echo esc_attr( $n->url ); ?>" data-type="<?php echo esc_attr( $n->type ); ?>">
         <span class="mkcp-notif__icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><?php echo $icon; // phpcs:ignore WordPress.Security.EscapeOutput ?></svg></span>
@@ -112,9 +118,8 @@ function mkcp_account_render_notification_row( $n ): string {
 }
 
 /**
- * "Vandaag" / "Deze week" / "Eerder" — de lijst is al DESC op datum
- * gesorteerd, dus de buckets komen vanzelf aaneengesloten uit zonder dat de
- * items zelf opnieuw gesorteerd hoeven te worden.
+ * "Vandaag" / "Deze week" / "Eerder" — lijst is al DESC gesorteerd, dus de
+ * buckets komen vanzelf aaneengesloten uit.
  */
 function mkcp_account_notification_date_bucket( string $created_at ): string {
     $ts               = mysql2date( 'U', $created_at );
@@ -126,11 +131,8 @@ function mkcp_account_notification_date_bucket( string $created_at ): string {
 }
 
 /**
- * Labels voor de type-filterchips — dezelfde vier types als de iconen in
- * mkcp_account_render_notification_row(). Alleen types die daadwerkelijk in
- * de lijst van de klant voorkomen krijgen een chip (zie hieronder); een
- * klant die nooit een retour heeft aangevraagd hoeft geen "Retouren"-filter
- * te zien die toch altijd leeg zou zijn.
+ * Labels voor de type-filterchips. Alleen types die daadwerkelijk voorkomen
+ * in de lijst van de klant krijgen een chip (zie hieronder) — geen lege filters.
  */
 function mkcp_account_notification_type_labels(): array {
     return [
@@ -138,6 +140,8 @@ function mkcp_account_notification_type_labels(): array {
         'back_in_stock' => __( 'Voorraad', 'mk-cart-popup' ),
         'order_status'  => __( 'Bestellingen', 'mk-cart-popup' ),
         'return_update' => __( 'Retouren', 'mk-cart-popup' ),
+        'wishlist'      => __( 'Wishlist', 'mk-cart-popup' ),
+        'review'        => __( 'Reviews', 'mk-cart-popup' ),
     ];
 }
 
@@ -145,6 +149,9 @@ function mkcp_account_render_fragment_notifications(): string {
     $user_id       = get_current_user_id();
     $notifications = mkcp_account_get_notifications( $user_id );
     $unread        = mkcp_account_get_unread_notifications_count( $user_id );
+    // Harde LIMIT 50 maakte oudere meldingen onbereikbaar (filtertabjes filteren
+    // alleen binnen die 50) — "Toon meer" haalt de volgende 50 op via AJAX.
+    $notifications_total = mkcp_account_get_notifications_total( $user_id );
 
     // Welke types komen er daadwerkelijk voor in de lijst van deze klant —
     // bepaalt welke extra filterchips (naast Alles/Ongelezen) zinvol zijn.
@@ -187,11 +194,50 @@ function mkcp_account_render_fragment_notifications(): string {
                     <?php echo mkcp_account_render_notification_row( $n ); ?>
                 <?php endforeach; ?>
             </div>
+
+            <?php if ( $notifications_total > count( $notifications ) ) : ?>
+                <div class="mkcp-notif-load-more-wrap">
+                    <button type="button" class="mkcp-btn mkcp-btn--secondary js-mkcp-notif-load-more" data-offset="<?php echo esc_attr( count( $notifications ) ); ?>"><?php esc_html_e( 'Toon meer', 'mk-cart-popup' ); ?></button>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
     <?php
     return ob_get_clean();
 }
+
+
+// ── AJAX: volgende pagina meldingen ophalen (F1) ────────────────────────────
+
+add_action( 'wp_ajax_mkcp_account_notifications_load_more', function() {
+    if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
+    if ( ! mkcp_account_is_active() ) wp_send_json_error( [ 'code' => 'not_available' ], 403 );
+
+    $user_id = get_current_user_id();
+    $offset  = isset( $_POST['offset'] ) ? absint( $_POST['offset'] ) : 0;
+
+    $notifications = mkcp_account_get_notifications( $user_id, 50, $offset );
+    $total         = mkcp_account_get_notifications_total( $user_id );
+
+    ob_start();
+    $current_bucket = null;
+    foreach ( $notifications as $n ) :
+        $bucket = mkcp_account_notification_date_bucket( $n->created_at );
+        if ( $bucket !== $current_bucket ) :
+            $current_bucket = $bucket;
+            ?>
+            <p class="mkcp-notif-group-label"><?php echo esc_html( $bucket ); ?></p>
+        <?php endif; ?>
+        <?php echo mkcp_account_render_notification_row( $n ); ?>
+    <?php endforeach;
+    $html = ob_get_clean();
+
+    wp_send_json_success( [
+        'html'     => $html,
+        'has_more' => $total > ( $offset + count( $notifications ) ),
+        'next_offset' => $offset + count( $notifications ),
+    ] );
+} );
 
 
 // ── AJAX: één melding als gelezen markeren ────────────────────────────────────
@@ -243,12 +289,10 @@ add_action( 'wp_ajax_mkcp_account_notif_read_all', function() {
 
 // ── Opschoning: oude, gelezen meldingen ───────────────────────────────────────
 //
-// Standaard UIT (account_notification_retention_days = 0, zie account-
-// frontend.php's mkcp_account_defaults()) — meldingen bleven tot nu toe voor
-// altijd staan. Alleen als een winkelier hier bewust een aantal dagen
-// instelt, gaat deze dagelijkse cron gelezen meldingen ouder dan dat aantal
-// dagen verwijderen. Ongelezen meldingen worden NOOIT automatisch
-// opgeruimd — een klant moet ze altijd nog kunnen zien/lezen.
+// Standaard UIT (account_notification_retention_days = 0). Alleen als een
+// winkelier bewust een aantal dagen instelt, verwijdert deze dagelijkse cron
+// gelezen meldingen ouder dan dat. Ongelezen meldingen worden NOOIT
+// automatisch opgeruimd.
 
 add_action( 'init', function() {
     if ( ! wp_next_scheduled( 'mkcp_account_notifications_cleanup' ) ) {

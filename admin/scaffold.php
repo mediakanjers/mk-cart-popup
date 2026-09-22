@@ -93,14 +93,9 @@ function mkcp_scaffold_create( $overwrite = false ) {
 function mkcp_scaffold_css_content() {
     return <<<CSS
 /*
- * MK Cart Popup — Gecompileerde theme overrides
- *
- * Dit bestand wordt automatisch geladen door de plugin (na de plugin-CSS).
- * Schrijf hier direct plain CSS om de popup te stijlen.
- *
- * De plugin checkt het bestaan van dit bestand op elke pagina;
- * de versie wordt bepaald door filemtime() zodat de browser altijd de
- * nieuwste versie laadt na het opslaan.
+ * MK Cart Popup — Theme overrides, automatisch geladen na de plugin-CSS.
+ * Schrijf hier plain CSS. Versie wordt bepaald door filemtime(), dus de
+ * browser laadt altijd de nieuwste versie na het opslaan.
  */
 
 CSS;
@@ -110,14 +105,10 @@ CSS;
 function mkcp_scaffold_checkout_css_content() {
     return <<<CSS
 /*
- * MK Cart Popup — Checkout pagina overrides (premium)
- *
- * Dit bestand wordt automatisch geladen door de plugin na assets/checkout.css.
- * Schrijf hier je eigen CSS om de checkout pagina aan te passen.
- *
- * Alle selectors zijn al gescooped op body.mkcp-distraction-free-checkout
- * in de plugin-CSS. Je kunt hier plain CSS schrijven zonder die prefix
- * te herhalen, of hem toevoegen voor extra specificiteit.
+ * MK Cart Popup — Checkout pagina overrides (premium), automatisch geladen
+ * na assets/checkout.css. Alle selectors zijn al gescooped op
+ * body.mkcp-distraction-free-checkout in de plugin-CSS, dus die prefix
+ * hoeft hier niet herhaald (kan wel, voor extra specificiteit).
  *
  * Voorbeeld:
  *
@@ -136,17 +127,11 @@ CSS;
 function mkcp_scaffold_js_content() {
     return <<<JS
 /*
- * MK Cart Popup — Eigen JS voor de winkelwagen-popup
- *
- * Dit bestand wordt automatisch geladen door de plugin (na de plugin-JS,
- * met jQuery als dependency). Schrijf hier eigen JavaScript i.p.v. dit in
- * de thema-bestanden te zetten — die worden op de checkout pagina
- * verwijderd zodra "Theme JS uitschakelen" aan staat (Checkout instellingen
- * → Styling), dit bestand juist nooit.
- *
- * De plugin checkt het bestaan van dit bestand op elke pagina; de versie
- * wordt bepaald door filemtime() zodat de browser altijd de nieuwste versie
- * laadt na het opslaan.
+ * MK Cart Popup — Eigen JS voor de winkelwagen-popup, automatisch geladen
+ * na de plugin-JS (jQuery als dependency). Schrijf hier eigen JavaScript
+ * i.p.v. in thema-bestanden — die worden op checkout verwijderd zodra
+ * "Theme JS uitschakelen" aan staat, dit bestand juist nooit. Versie wordt
+ * bepaald door filemtime(), dus de browser laadt altijd de nieuwste versie.
  */
 
 jQuery(function (\$) {
@@ -160,18 +145,14 @@ JS;
 function mkcp_scaffold_checkout_js_content() {
     return <<<JS
 /*
- * MK Cart Popup — Eigen JS voor de checkout pagina (premium)
+ * MK Cart Popup — Eigen JS voor de checkout pagina (premium), automatisch
+ * geladen op checkout (jQuery als dependency) — ook bij "Theme JS
+ * uitschakelen", want dit bestand zit expliciet buiten die opschoning.
  *
- * Dit bestand wordt automatisch geladen door de plugin op de checkout
- * pagina (na de plugin-JS, met jQuery als dependency) — ook als
- * "Theme JS uitschakelen" aan staat, want dit bestand zit expliciet
- * buiten die opschoning.
- *
- * WooCommerce's checkout ververst een deel van de pagina via AJAX zodra de
- * klant iets wijzigt (adres, verzendmethode, ...). Bind daarom niet alleen
- * op page-load, maar ook op 'updated_checkout' voor code die elementen
- * binnen #order_review of #payment aanspreekt — die worden na elke
- * AJAX-ronde opnieuw gerenderd.
+ * WooCommerce's checkout ververst delen van de pagina via AJAX bij elke
+ * wijziging. Bind daarom ook op 'updated_checkout' voor code die elementen
+ * binnen #order_review of #payment aanspreekt — die worden elke AJAX-ronde
+ * opnieuw gerenderd.
  *
  * Voorbeeld:
  *
@@ -205,8 +186,6 @@ function mkcp_scaffold_hooks_content() {
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 
-// ── Configuratie overschrijven ─────────────────────────────────────────────────
-//
 // Het 'mkcp_config' filter heeft prioriteit boven de admin-instellingen.
 // Handig voor waarden die per omgeving of per pagina moeten verschillen.
 

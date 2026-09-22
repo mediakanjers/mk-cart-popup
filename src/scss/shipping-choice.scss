@@ -36,6 +36,9 @@
 .mkcp-sc-package-text {
     flex: 1 1 auto;
     min-width: 0;
+    // Klein en compact houden ook nu de volledige (mogelijk meerregelige)
+    // productlijst hier staat i.p.v. een afgekapte versie.
+    line-height: 1.35;
 }
 
 // Lege staat — postcode/huisnummer nog niet ingevuld (of, op de winkelwagen-
@@ -60,44 +63,6 @@
         flex-shrink: 0;
         margin-top : 1px;
         color      : #9ca3af;
-    }
-}
-
-// "en N meer" / "minder tonen" — klikbaar in/uitklappen van de volledige
-// artikelenlijst (zie mkcp-sc-package-details-short/-full hierboven). Zelfde
-// compacte knop-pil-taal als .showcoupon/.mkcp-manual-entry (checkout.scss):
-// vaste padding/radius/gewicht/accentkleur, i.p.v. de losstaande --mkcp-sc-
-// accent-variabele (blauw) die hier eerder een eigen, afwijkende kleur gaf.
-.mkcp-sc-package-more,
-.mkcp-sc-package-less {
-    display        : inline-flex;
-    align-items    : center;
-    padding        : 3px 10px;
-    background     : var(--mkcp-accent-soft, rgba(46, 125, 50, .08));
-    color          : var(--mkcp-primary, var(--mkcp-accent, #2e7d32));
-    font-size      : 12px;
-    font-weight    : 600;
-    border         : 1px solid rgba(46, 125, 50, .2);
-    border-radius  : 999px;
-    text-decoration: none;
-    cursor         : pointer;
-    transition      : background .15s, border-color .15s;
-
-    &:hover {
-        background  : rgba(46, 125, 50, .15);
-        border-color: rgba(46, 125, 50, .32);
-    }
-}
-
-.mkcp-sc-package-details-full {
-    display: block;
-
-    // De browser's eigen [hidden]{display:none} (UA-stylesheet) heeft een
-    // lagere specificiteit dan onze class-selector hierboven — zonder deze
-    // regel wint "display:block" dus altijd, ook mét het hidden-attribuut,
-    // en blijven short én full tegelijk zichtbaar i.p.v. dat de toggle werkt.
-    &[hidden] {
-        display: none;
     }
 }
 

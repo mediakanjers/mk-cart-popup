@@ -25,11 +25,32 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 // The transient is deleted when the user clicks "Check again" in Dashboard → Updates,
 // so manual checks always get a fresh result.
 
+// Hosts waarvan we een update-zip of detailpagina accepteren. Het manifest staat
+// op GitHub en is dus in principe manipuleerbaar zodra iemand bij die repo kan;
+// deze allowlist zorgt dat een gewijzigd manifest WordPress' installer nooit
+// naar een vreemd domein kan sturen. Geen volledige checksum-verificatie
+// (vereist server-side signing), maar wel het domein hard afgedwongen.
+const MKCP_UPDATER_TRUSTED_HOSTS = [
+    'github.com',
+    'raw.githubusercontent.com',
+    'objects.githubusercontent.com', // waar GitHub release-downloads naartoe redirecten
+];
+
+/** True als $url https is én op een vertrouwde host staat. */
+function mkcp_updater_url_is_trusted( $url ): bool {
+    if ( ! is_string( $url ) || $url === '' ) return false;
+    $parts = wp_parse_url( $url );
+    if ( empty( $parts['scheme'] ) || strtolower( $parts['scheme'] ) !== 'https' ) return false;
+    if ( empty( $parts['host'] ) ) return false;
+    return in_array( strtolower( $parts['host'] ), MKCP_UPDATER_TRUSTED_HOSTS, true );
+}
+
 function mkcp_fetch_manifest( string $url ) {
     $debug  = defined( 'WP_DEBUG' ) && WP_DEBUG;
     $remote = wp_remote_get( $url, [
-        'timeout' => 15,
-        'headers' => [ 'Accept' => 'application/json' ],
+        'timeout'   => 15,
+        'sslverify' => true,
+        'headers'   => [ 'Accept' => 'application/json' ],
     ] );
 
     if ( is_wp_error( $remote ) ) {
@@ -46,6 +67,18 @@ function mkcp_fetch_manifest( string $url ) {
     $data = json_decode( wp_remote_retrieve_body( $remote ) );
     if ( ! $data || empty( $data->version ) ) {
         if ( $debug ) error_log( 'MKCP updater: ' . $url . ' gaf geen geldige JSON/versie terug. Body: ' . substr( wp_remote_retrieve_body( $remote ), 0, 300 ) );
+        return null;
+    }
+
+    // Een manifest met een download- of details-URL buiten de vertrouwde hosts
+    // wordt volledig genegeerd: liever géén update dan een pakket van een
+    // onbekend domein door WordPress' installer laten uitpakken.
+    if ( ! empty( $data->download_url ) && ! mkcp_updater_url_is_trusted( $data->download_url ) ) {
+        if ( $debug ) error_log( 'MKCP updater: download_url ' . $data->download_url . ' staat niet op een vertrouwde host — manifest genegeerd.' );
+        return null;
+    }
+    if ( ! empty( $data->details_url ) && ! mkcp_updater_url_is_trusted( $data->details_url ) ) {
+        if ( $debug ) error_log( 'MKCP updater: details_url ' . $data->details_url . ' staat niet op een vertrouwde host — manifest genegeerd.' );
         return null;
     }
 
@@ -127,8 +160,11 @@ function mkcp_check_for_update( $transient ) {
             'requires'     => $data->requires     ?? '',
             'requires_php' => $data->requires_php ?? '',
             'tested'       => $data->tested       ?? '',
-            'icons'        => [],
-            'banners'      => [],
+            // M2: eigen SVG-icoon/banner op basis van de site-huisstijlkleur
+            // i.p.v. lege arrays — WordPress' update-UI accepteert een SVG-URL
+            // hier gewoon (schaalt vanzelf), geen losse PNG-export nodig.
+            'icons'        => [ 'svg' => MKCP_URL . 'assets/plugin-icon.svg' ],
+            'banners'      => [ 'low' => MKCP_URL . 'assets/plugin-banner.svg', 'high' => MKCP_URL . 'assets/plugin-banner.svg' ],
         ];
     }
 
@@ -157,6 +193,8 @@ function mkcp_plugin_info( $result, $action, $args ) {
         'requires'      => $data->requires      ?? '',
         'requires_php'  => $data->requires_php  ?? '',
         'tested'        => $data->tested        ?? '',
+        'icons'         => [ 'svg' => MKCP_URL . 'assets/plugin-icon.svg' ],
+        'banners'       => [ 'low' => MKCP_URL . 'assets/plugin-banner.svg', 'high' => MKCP_URL . 'assets/plugin-banner.svg' ],
         'sections'      => [
             'description' => $data->description ?? 'Slide-in cart drawer for WooCommerce.',
             'changelog'   => $data->changelog   ?? '',

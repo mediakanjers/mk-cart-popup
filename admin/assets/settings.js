@@ -41,13 +41,10 @@
         btn.addEventListener('click', function(e) { e.preventDefault(); activateTab(this.dataset.goto); });
     });
 
-    // ── Kleurmodus admin-UI (auto/licht/donker) ─────────────────────────────
-    //
-    // Klasse direct togglen voor instant effect (geen reload nodig — enkel
-    // een set CSS-variabelen wisselt); de AJAX-call erna slaat de keuze op
-    // in user meta zodat 'ie ook bij de volgende paginalading (server-side
-    // via de admin_body_class-filter, zie admin/settings.php) meteen goed
-    // staat — dus zonder flits van het verkeerde thema.
+    // Klasse direct togglen voor instant effect (geen reload nodig); de AJAX-
+    // call erna slaat de keuze op in user meta (admin_body_class-filter in
+    // admin/settings.php) zodat de volgende paginalading meteen goed staat,
+    // zonder flits van het verkeerde thema.
     document.querySelectorAll('.mkcp-theme-btn[data-theme]').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var theme = this.dataset.theme;
@@ -73,20 +70,13 @@
         if (activeNav && adminWrap) adminWrap.setAttribute('data-active-panel', activeNav.dataset.tab || 'dashboard');
     }());
 
-    // ── Retour-aanvragen (Account → Retouren) ───────────────────────────────
-    //
-    // Statusfilter herlaadt de pagina met een aangepaste query-string (simpel
-    // en robuust — de tabel staat toch al server-side gerenderd, geen reden
-    // om dat ene filter apart via AJAX te doen). Goedkeuren/afwijzen/
-    // voltooien gaat wél via AJAX: vervangt alleen de tabelkaart, niet de
-    // hele pagina, en blijft in hetzelfde filter staan (server geeft het
-    // filter terug mee in de herrenderde HTML).
+    // Statusfilter herlaadt de pagina met een aangepaste query-string (tabel
+    // is toch al server-side gerenderd). Goedkeuren/afwijzen/voltooien gaat
+    // wél via AJAX en vervangt alleen de tabelkaart, met filter behouden.
     (function() {
-        // Event delegation i.p.v. een losse element-referentie op te slaan —
-        // het filterveld wordt na elke Goedkeuren/Afwijzen/Voltooien-actie
-        // vervangen (de hele kaart krijgt een nieuwe outerHTML), waardoor een
-        // vastgehouden referentie stale zou worden en de listener na de
-        // eerste actie niet meer zou vuren.
+        // Event delegation i.p.v. een losse element-referentie: het filterveld
+        // wordt na elke actie vervangen (nieuwe outerHTML), dus een vastgehouden
+        // referentie zou stale worden en de listener zou stoppen met vuren.
         document.addEventListener('change', function(e) {
             if (e.target.id !== 'mkcp-return-status-filter') return;
             var url = new URL(window.location.href);
@@ -123,9 +113,84 @@
                     if (json && json.success && json.data && typeof json.data.html === 'string') {
                         var panel = document.querySelector('.mkcp-panel--account-returns .mkcp-glass');
                         if (panel) panel.outerHTML = json.data.html;
+                    } else {
+                        // Elk ander pad (bv. success:false) moet de knop ook
+                        // weer vrijgeven — liep eerder alleen via .catch.
+                        btn.disabled = false;
                     }
                 })
                 .catch(function() { btn.disabled = false; });
+        });
+
+        // "Alles in deze order"-checkbox zet alle rij-checkboxes binnen die
+        // order-kaart aan/uit; de bulkbalk toont zich op basis van "staat er
+        // ergens ≥1 vinkje aan", zelfde principe als de klant-bulk-balken.
+        function updateReturnAdminBulkbar() {
+            var bar = document.getElementById('mkcp-return-bulkbar');
+            if (!bar) return;
+            var checked = document.querySelectorAll('.js-mkcp-return-admin-select:checked');
+            bar.hidden = checked.length === 0;
+            var countEl = bar.querySelector('.js-mkcp-return-admin-bulk-count');
+            if (countEl) countEl.textContent = String(checked.length);
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('js-mkcp-return-admin-select-order')) {
+                var order = e.target.closest('.mkcp-return-admin-order');
+                if (order) {
+                    order.querySelectorAll('.js-mkcp-return-admin-select').forEach(function(cb) {
+                        cb.checked = e.target.checked;
+                    });
+                }
+                updateReturnAdminBulkbar();
+                return;
+            }
+            if (e.target.classList.contains('js-mkcp-return-admin-select')) {
+                updateReturnAdminBulkbar();
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            var bulkBtn = e.target.closest('.js-mkcp-return-admin-bulk-action');
+            if (!bulkBtn || typeof mkcpAdmin === 'undefined') return;
+
+            var ids = Array.prototype.map.call(
+                document.querySelectorAll('.js-mkcp-return-admin-select:checked'),
+                function(cb) { return cb.closest('tr[data-return-id]').dataset.returnId; }
+            );
+            if (!ids.length) return;
+
+            var noteField = document.querySelector('.js-mkcp-return-admin-bulk-note');
+            var currentFilterEl = document.getElementById('mkcp-return-status-filter');
+            var currentFilter = currentFilterEl ? currentFilterEl.value : '';
+
+            var origText = bulkBtn.textContent;
+            document.querySelectorAll('.js-mkcp-return-admin-bulk-action').forEach(function(b) { b.disabled = true; });
+            bulkBtn.textContent = 'Bezig…';
+
+            var data = new FormData();
+            data.append('action', 'mkcp_account_admin_return_update_bulk');
+            data.append('nonce', mkcpAdmin.returnsNonce);
+            ids.forEach(function(id) { data.append('ids[]', id); });
+            data.append('status', bulkBtn.dataset.status);
+            data.append('note', noteField ? noteField.value : '');
+            data.append('status_filter', currentFilter);
+
+            fetch(mkcpAdmin.ajaxUrl, { method: 'POST', body: data, credentials: 'same-origin' })
+                .then(function(res) { return res.json(); })
+                .then(function(json) {
+                    if (json && json.success && json.data && typeof json.data.html === 'string') {
+                        var panel = document.querySelector('.mkcp-panel--account-returns .mkcp-glass');
+                        if (panel) panel.outerHTML = json.data.html;
+                    } else {
+                        document.querySelectorAll('.js-mkcp-return-admin-bulk-action').forEach(function(b) { b.disabled = false; });
+                        bulkBtn.textContent = origText;
+                    }
+                })
+                .catch(function() {
+                    document.querySelectorAll('.js-mkcp-return-admin-bulk-action').forEach(function(b) { b.disabled = false; });
+                    bulkBtn.textContent = origText;
+                });
         });
     }());
 
@@ -212,9 +277,8 @@
         account:  document.getElementById('mkcp-nav-wrap-account')
     };
     // Elk product krijgt hier zijn eigen tab-prefix + terugvaltab, zodat een
-    // toekomstig vierde product hier maar op één plek toegevoegd hoeft te
-    // worden i.p.v. op meerdere losse if/else-takken (zoals dit vóór de
-    // Account-tab nog was, met een expliciete "isCheckoutPanel"-check).
+    // toekomstig vierde product hier op één plek toegevoegd kan worden i.p.v.
+    // op meerdere losse if/else-takken.
     var PRODUCT_DEFAULTS = {
         popup:    { prefix: null,         defaultTab: 'dashboard' },
         checkout: { prefix: 'checkout-',  defaultTab: 'checkout-dashboard' },
@@ -233,11 +297,9 @@
         if (popupSidebar) popupSidebar.style.display = product === 'popup' ? '' : 'none';
         if (productInput) productInput.value = product;
 
-        // Switch to correct panel for the newly visible nav — alleen als de
-        // huidige panel niet al bij dit product hoort (prefix-check, anders
-        // belandt elke nieuwe "checkout-*"/"account-*"-tab hier niet in de
-        // lijst en springt een reload na opslaan altijd terug naar het
-        // eerste tabblad van dat product).
+        // Alleen naar het default-tabblad springen als het huidige panel niet
+        // al bij dit product hoort (prefix-check), anders zou een reload na
+        // opslaan altijd terugspringen naar het eerste tabblad.
         var currentPanel = (document.querySelector('.mkcp-panel.is-active') || {}).dataset && document.querySelector('.mkcp-panel.is-active').dataset.panel;
         var belongsToProduct = currentPanel && Object.keys(PRODUCT_DEFAULTS).some(function(key) {
             var prefix = PRODUCT_DEFAULTS[key].prefix;
@@ -293,10 +355,9 @@
 
     document.querySelectorAll('.mkcp-badge-pos-option input[type="radio"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
-            // Scoped op de eigen .mkcp-badge-position-grid — er staan meerdere
-            // van deze positie-kiezers los naast elkaar op de pagina (hartje-
-            // badge, aantal-badge, ...), een ongescoped document-brede query
-            // wiste de highlight van de andere kiezer(s) mee.
+            // Scoped op de eigen grid — meerdere positie-kiezers staan los
+            // naast elkaar op de pagina; ongescoped wiste de highlight van
+            // de andere kiezer(s) mee.
             var grid = this.closest('.mkcp-badge-position-grid');
             grid.querySelectorAll('.mkcp-badge-pos-option').forEach(function(opt) {
                 opt.classList.remove('is-selected');
@@ -778,6 +839,120 @@
     });
 
 
+    // ── Account: "Mijn account"-pagina automatisch aanmaken ─────────────────────
+    // Zie mkcp_account_setup_status()/de AJAX-handler in includes/account-frontend.php
+    // — knop staat alleen in de DOM als er nog GEEN pagina-ID ingesteld staat
+    // (zie settings-page.php), dus geen dubbele-aanmaak-check hier nodig.
+    (function() {
+        var btn = document.getElementById('mkcp-account-create-myaccount-page');
+        if (!btn || typeof mkcpAdmin === 'undefined') return;
+
+        btn.addEventListener('click', function() {
+            btn.disabled = true;
+            var origHtml = btn.innerHTML;
+            btn.innerHTML = '<svg class="mkcp-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg> Bezig…';
+
+            var data = new FormData();
+            data.append('action', 'mkcp_account_create_myaccount_page');
+            data.append('nonce', mkcpAdmin.accountSetupNonce);
+
+            fetch(mkcpAdmin.ajaxUrl, { method: 'POST', body: data, credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (res.success) {
+                        // Herlaadt zodat de hele checklist + het paginaoverzicht
+                        // opnieuw uit de server-status wordt opgebouwd, i.p.v.
+                        // hier zelf de DOM te proberen bij te werken.
+                        window.location.reload();
+                        return;
+                    }
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                    window.alert((res.data && res.data.message) || 'Aanmaken mislukt.');
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                    window.alert('Verbinding mislukt. Controleer je internetverbinding.');
+                });
+        });
+    })();
+
+
+    // ── Account: WooCommerce-eigen account-opties live wijzigen ──────────────────
+    // Zie MKCP_WC_TOGGLEABLE_OPTIONS/mkcp_toggle_wc_option in
+    // includes/account-frontend.php — whitelisted set, schrijft rechtstreeks
+    // WooCommerce's eigen opties, niet iets van ons. Event-delegatie i.p.v. losse
+    // listener per toggle: deze checkboxen staan zowel op de Account- als de
+    // Checkout-tab, en die tabs wisselen puur via CSS (alle panelen staan al in
+    // de DOM), dus rebinding is toch niet nodig — maar delegatie is hier de
+    // veiligere standaard, zelfde reden als overal elders in dit bestand.
+    document.addEventListener('change', function(e) {
+        var el = e.target.closest('[data-mkcp-wc-option]');
+        if (!el || typeof mkcpAdmin === 'undefined') return;
+
+        var option      = el.dataset.mkcpWcOption;
+        var prevChecked = !el.checked;
+        el.disabled = true;
+
+        var data = new FormData();
+        data.append('action', 'mkcp_toggle_wc_option');
+        data.append('nonce', mkcpAdmin.accountSetupNonce);
+        data.append('option', option);
+
+        fetch(mkcpAdmin.ajaxUrl, { method: 'POST', body: data, credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                el.disabled = false;
+                if (!res.success) {
+                    el.checked = prevChecked;
+                    window.alert((res.data && res.data.message) || 'Opslaan mislukt.');
+                    return;
+                }
+                // Sommige toggles bepalen of andere rijen op de pagina server-side
+                // wel/niet gerenderd worden (bv. de checkout-tab-notice) — die
+                // kunnen niet zonder herlaad bijgewerkt worden.
+                if (el.dataset.mkcpWcReload) {
+                    window.location.reload();
+                    return;
+                }
+                // Alleen de twee "Account aanmaken"-kaarten hebben een echte
+                // goed/fout-betekenis (data-mkcp-wc-tracks-icon) — de wachtwoord-/
+                // gebruikersnaam-kaarten zijn puur informatief en blijven altijd
+                // groen, dus die laten we bewust ongemoeid.
+                if (el.dataset.mkcpWcTracksIcon) {
+                    var icon = el.closest('.mkcp-dash-card');
+                    icon = icon ? icon.querySelector('.mkcp-dash-card-icon') : null;
+                    if (icon) {
+                        icon.classList.toggle('mkcp-dash-card-icon--green', el.checked);
+                        icon.classList.toggle('mkcp-dash-card-icon--amber', !el.checked);
+                        // Zelfde check-/alert-svg's als $icons['check']/['alert'] in
+                        // settings-page.php — anders blijft (bv.) een groene chip met
+                        // een alert-driehoek staan tot de volgende paginaherlaad.
+                        icon.innerHTML = el.checked
+                            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+                    }
+                }
+
+                // Kaarten met een sub-tekst die van de toggle-stand afhangt (bv.
+                // "Wordt gegenereerd en gemaild." vs. "Klant kiest zelf een
+                // wachtwoord.") — zonder dit bleef die tekst na het togglen op de
+                // waarde van de laatste page-load staan tot een handmatige refresh.
+                if (el.dataset.mkcpWcSubOn && el.dataset.mkcpWcSubOff) {
+                    var card = el.closest('.mkcp-dash-card');
+                    var sub  = card ? card.querySelector('.mkcp-dash-card-sub') : null;
+                    if (sub) sub.textContent = el.checked ? el.dataset.mkcpWcSubOn : el.dataset.mkcpWcSubOff;
+                }
+            })
+            .catch(function() {
+                el.disabled = false;
+                el.checked = prevChecked;
+                window.alert('Verbinding mislukt. Controleer je internetverbinding.');
+            });
+    });
+
+
     // ── License tier enforcement ──────────────────────────────────────────────
 
     (function() {
@@ -821,8 +996,8 @@
             }
             var theForm = document.getElementById('mkcp-form');
             if (theForm) {
-                // Exclude the license key field, its helper buttons, and checkout controls.
-                // Checkout settings are always saveable regardless of license tier (PHP enforces this).
+                // Licentiesleutel + checkout-velden uitzonderen: checkout settings
+                // zijn altijd opslaanbaar, ongeacht licentie-tier (PHP handhaaft dit).
                 var licenseExcludes = ['mkcp_license_key', 'mkcp-toggle-key', 'mkcp-verify-license'];
                 var checkoutNames   = ['mkcp_checkout_enabled', 'mkcp_checkout_header_enabled', 'mkcp_checkout_header_bg',
                                        'mkcp_checkout_header_logo_id', 'mkcp_checkout_footer_enabled'];
@@ -834,8 +1009,8 @@
                     if (checkoutNames.indexOf(ctrl.name) !== -1 || checkoutIds.indexOf(ctrl.id) !== -1) return;
                     ctrl.disabled = true;
                 });
-                // Do NOT disable submit buttons — checkout settings must always be saveable.
-                // PHP correctly gates popup settings behind the license check.
+                // Submit-knoppen niet uitschakelen — checkout settings moeten altijd
+                // opslaanbaar blijven; PHP gate't de popup-instellingen al.
             }
         } else if (tier === 'basic') {
             // Basic license — lock only premium-marked elements
@@ -891,23 +1066,16 @@
 
         if (!colorInputs.length) return;
 
-        // Eén kleurveld stuurt soms meerdere CSS-variabelen tegelijk aan.
-        // Twee redenen:
-        // 1) losstaande defaults die toevallig hetzelfde zijn (Hoofdkleur →
-        //    zowel --mkcp-accent als --mkcp-primary, geen var()-alias van
-        //    elkaar in de SCSS);
-        // 2) var()-kettingen zoals --mkcp-btn-p-bg: var(--mkcp-accent). Zo'n
-        //    kketen wordt in de browser maar ÉÉN keer opgelost, namelijk op
-        //    :root zelf (waar 'ie gedefinieerd staat) — een override die we
-        //    via JS op een kind-element (#mkcp-preview-frame) zetten, komt
-        //    dus nooit door in --mkcp-btn-p-bg zolang die zelf niet ook
-        //    expliciet hier meegegeven wordt. Vandaar dat elke variabele die
-        //    ELDERS in de SCSS via var() naar een van onze 6 velden verwijst,
-        //    ook los in onderstaande lijst staat.
-        // style_accent en style_btn_text sturen de knop niet rechtstreeks aan —
-        // die gaan via applyButtonStyle() hieronder, want de uitkomst hangt ook
-        // af van de outline/gevuld-keuze (zie mkcp_style_inline_css() in
-        // config.php voor dezelfde logica server-side).
+        // Eén kleurveld stuurt soms meerdere CSS-variabelen aan: losstaande
+        // defaults die toevallig gelijk zijn, én var()-kettingen zoals
+        // --mkcp-btn-p-bg: var(--mkcp-accent) — die worden door de browser maar
+        // op :root zelf opgelost, dus een override op #mkcp-preview-frame komt
+        // nooit door tenzij de variabele hier ook expliciet staat. Elke variabele
+        // die elders in de SCSS via var() naar één van onze 6 velden verwijst,
+        // staat daarom los in de lijst hieronder.
+        // style_accent/style_btn_text sturen de knop niet rechtstreeks aan — die
+        // gaan via applyButtonStyle(), want de uitkomst hangt ook af van de
+        // outline/gevuld-keuze (zie mkcp_style_inline_css() in config.php).
         var VAR_MAP = {
             style_accent  : [ '--mkcp-accent', '--mkcp-primary' ],
             style_bg      : [ '--mkcp-bg' ],
@@ -920,12 +1088,10 @@
             if (previewFrame) previewFrame.style.setProperty(cssVar, value);
         }
 
-        // cart-popup.scss kent naast --mkcp-text nog --mkcp-dark (iets
-        // nadrukkelijkere tekst), --mkcp-text-light (gedempte tekst) en
-        // --mkcp-light (hover-achtergrond) — geen losse velden, maar afgeleid
-        // via dezelfde color-mix()-uitdrukking als mkcp_style_inline_css() in
-        // config.php, zodat de preview ook op donkere presets leesbaar blijft
-        // i.p.v. op de light-mode-defaults (#333/#888/#f5f5f5) te blijven hangen.
+        // --mkcp-dark/--mkcp-text-light/--mkcp-light hebben geen losse velden,
+        // maar worden afgeleid via dezelfde color-mix()-uitdrukking als
+        // mkcp_style_inline_css() in config.php, zodat de preview ook op
+        // donkere presets leesbaar blijft i.p.v. op de light-mode-defaults te hangen.
         function applyDerivedColors() {
             var textInput   = document.getElementById('mkcp_style_text');
             var bgInput     = document.getElementById('mkcp_style_bg');
@@ -997,10 +1163,9 @@
             if (!contrastBox || !accentInput || !btnTextInput || !bgInput) return;
 
             // In outline-modus staat de knoptekst in de hoofdkleur óp de
-            // drawer-achtergrond (niet op een gevulde knop) — dan is
-            // hoofdkleur-t.o.v.-achtergrond de relevante combinatie, niet
-            // hoofdkleur-t.o.v.-knoptekstkleur. Zelfde onderscheid als
-            // mkcp_style_inline_css() in config.php.
+            // drawer-achtergrond, dus dan is hoofdkleur-t.o.v.-achtergrond de
+            // relevante combinatie. Zelfde onderscheid als mkcp_style_inline_css()
+            // in config.php.
             var outline = btnStyleInput && btnStyleInput.value === 'outline';
             var fg = outline ? accentInput.value : btnTextInput.value;
             var bg = outline ? bgInput.value : accentInput.value;
@@ -1031,11 +1196,9 @@
             });
         });
 
-        // ── Hex-tekstveld naast elke swatch ──────────────────────────────────
-        //
-        // Schrijft terug naar het echte <input type="color"> en speelt daar een
-        // 'input'-event op af — hergebruikt zo alles hierboven (live preview,
-        // contrastcheck, actieve-preset-highlight) i.p.v. het te dupliceren.
+        // Hex-tekstveld schrijft terug naar het echte <input type="color"> en
+        // speelt daar een 'input'-event op af — hergebruikt zo live preview,
+        // contrastcheck en actieve-preset-highlight i.p.v. te dupliceren.
         function normalizeHex(raw) {
             var v = (raw || '').trim();
             if (v.charAt(0) !== '#') v = '#' + v;
@@ -1084,13 +1247,9 @@
             });
         });
 
-        // ── Eyedropper ────────────────────────────────────────────────────────
-        //
-        // window.EyeDropper is een native browser-API (Chrome/Edge) waarmee je
-        // een kleur van ÉÉN willekeurige pixel op je hele scherm kan overnemen —
-        // niet alleen uit een kleurenwiel. Knop wordt verborgen op browsers
-        // zonder ondersteuning (bv. Firefox/Safari) i.p.v. een kapotte knop te
-        // tonen.
+        // window.EyeDropper is een native browser-API (Chrome/Edge) om een kleur
+        // van elke pixel op het scherm over te nemen. Knop verborgen op browsers
+        // zonder ondersteuning (bv. Firefox/Safari) i.p.v. een kapotte knop.
         if (typeof window.EyeDropper === 'function') {
             document.querySelectorAll('.js-mkcp-style-eyedrop').forEach(function(btn) {
                 var input = document.getElementById(btn.dataset.for);
@@ -1165,10 +1324,8 @@
             el.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
-        // Fris opgevraagd i.p.v. een eenmalige snapshot bij het laden van de
-        // pagina — "Genereer stijl uit deze kleuren" hieronder voegt later
-        // dynamisch een extra preset-kaart toe, die dan ook meegenomen moet
-        // worden bij het markeren van de actieve preset.
+        // Fris opgevraagd i.p.v. een eenmalige snapshot: "Genereer stijl uit
+        // deze kleuren" voegt later dynamisch een extra preset-kaart toe.
         function markActivePreset() {
             document.querySelectorAll('.js-mkcp-style-preset').forEach(function(btn) {
                 var matches = Object.keys(PRESET_FIELD_MAP).every(function(key) {
@@ -1197,9 +1354,8 @@
             btn.classList.add('is-applying');
         }
 
-        // Gedelegeerd (i.p.v. per-knop listeners) zodat een later dynamisch
-        // toegevoegde preset-kaart (zie "Genereer stijl uit deze kleuren"
-        // hieronder) zonder aparte wiring gewoon klikbaar is.
+        // Gedelegeerd i.p.v. per-knop listeners, zodat een later dynamisch
+        // toegevoegde preset-kaart zonder aparte wiring klikbaar is.
         var presetList = document.querySelector('.mkcp-style-preset-list');
         if (presetList) {
             presetList.addEventListener('click', function(e) {
@@ -1213,12 +1369,10 @@
             });
         }
 
-        // ── Gedetecteerde kleuren van de website ────────────────────────────
-        //
         // Tier 1 (server-side, mkcp_detect_theme_colors() in config.php): bij
-        // moderne blok-thema's met theme.json al gecategoriseerd aangeleverd
-        // als PHP-knoppen hieronder — "Toepassen" vult direct het bijbehorende
-        // veld, zelfde patroon als de presets hierboven.
+        // moderne blok-thema's met theme.json al gecategoriseerd aangeleverd —
+        // "Toepassen" vult direct het bijbehorende veld, zelfde patroon als
+        // de presets hierboven.
         document.querySelectorAll('.js-mkcp-detected-apply').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 setFieldValue(btn.dataset.field, btn.dataset.color);
@@ -1229,13 +1383,11 @@
             btn.addEventListener('animationend', function() { btn.classList.remove('is-applying'); });
         });
 
-        // Losse kopieer-knop bovenop elke tier-1-swatch — naast "Toepassen"
-        // (klik op de swatch zelf) kan de hexcode ook los gekopieerd worden,
-        // bv. om 'm ergens anders te plakken zonder 'm meteen als stijlveld
-        // toe te passen. stopPropagation: zit ALS kind in de "Toepassen"-knop
-        // (geen geneste <button>'s toegestaan, vandaar een span met role="button"),
-        // dus zonder stopPropagation zou een klik hier ook de apply-click van
-        // de omvattende knop triggeren.
+        // Losse kopieer-knop bovenop elke tier-1-swatch om de hexcode los te
+        // kopiëren zonder 'm meteen toe te passen. stopPropagation nodig:
+        // zit als kind in de "Toepassen"-knop (span met role="button", want
+        // geneste <button>'s mogen niet), anders triggert een klik hier ook
+        // de apply-click van de omvattende knop.
         document.querySelectorAll('.js-mkcp-detected-copy-inline').forEach(function(el) {
             function doCopy(e) {
                 e.stopPropagation();
@@ -1252,18 +1404,15 @@
             });
         });
 
-        // Tier 2 (client-side fallback voor klassieke thema's zónder
-        // theme.json): een verborgen iframe van de eigen site laden en de
-        // computed styles van knoppen/links/header aftasten. Kan niet
-        // categoriseren (geen bron zegt welke kleur "de hoofdkleur" is) — dus
-        // alleen kopieerbaar, geen "Toepassen". Vindt de live-scan niks
-        // bruikbaars, dan blijft de kaart gewoon verborgen (tier 3: niks tonen).
+        // Tier 2 (client-side fallback voor klassieke thema's zónder theme.json):
+        // een verborgen iframe van de eigen site laden en computed styles van
+        // knoppen/links/header aftasten. Kan niet categoriseren — dus alleen
+        // kopieerbaar, geen "Toepassen". Niks bruikbaars gevonden = kaart
+        // verborgen (tier 3).
         //
-        // Dit laadt de VOLLEDIGE homepage (afbeeldingen, trackers, alles) —
-        // te zwaar om bij elk paginabezoek te doen. Daarom: (1) alleen
-        // starten als de Styling-tab ook echt actief wordt, niet bij elk
-        // tabblad, en (2) resultaat 30 dagen cachen in localStorage zodat
-        // herhaalde bezoeken aan de tab niet telkens opnieuw scannen.
+        // Laadt de VOLLEDIGE homepage — te zwaar voor elk paginabezoek. Daarom:
+        // (1) alleen starten als de Styling-tab actief wordt, en (2) resultaat
+        // 30 dagen cachen in localStorage.
         var CACHE_KEY = 'mkcp_detected_colors_v1';
         var CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 
@@ -1311,12 +1460,9 @@
             refreshGenerateStyleVisibility();
         }
 
-        // Admin-feedback: "opeens staan de resultaten er" — de live scan (tier 2)
-        // kan tot 15s duren zonder dat er iets in beeld verandert. Toont daarom
-        // een zoek-indicator zowel bij de allereerste scanronde als bij een
-        // handmatige "Opnieuw scannen"-klik, en zet de rescan-knop in dezelfde
-        // spinner-staat als de andere async-knoppen in dit bestand (Opslaan,
-        // Verifiëren, Versturen).
+        // De live scan (tier 2) kan tot 15s duren zonder zichtbare verandering,
+        // dus toont een zoek-indicator bij de eerste scanronde én bij een
+        // handmatige "Opnieuw scannen"-klik.
         function setDetectedLoading(card, loading) {
             var loadingEl = document.getElementById('mkcp-detected-loading');
             var rescan    = document.getElementById('mkcp-detected-rescan');
@@ -1356,8 +1502,7 @@
                 if (colors.length) {
                     showColors(card, flatWrap, colors);
                 } else {
-                    // Niets gevonden én geen tier-1-kleuren: kaart weer verbergen
-                    // (was alleen zichtbaar gemaakt om de zoek-indicator te tonen).
+                    // Niets gevonden én geen tier-1-kleuren: kaart weer verbergen.
                     var categorized = document.getElementById('mkcp-detected-swatches-categorized');
                     if (!categorized || !categorized.children.length) card.style.display = 'none';
                     refreshGenerateStyleVisibility();
@@ -1407,17 +1552,12 @@
                     .slice(0, 6);
             }
 
-            // NIET op het 'load'-event van de iframe wachten: een echte
-            // homepage met trackers/pixels/widgets (Facebook Pixel, Gravity
-            // Forms, chatwidgets...) kan best een hangende achtergrond-request
-            // hebben die 'load' minutenlang uitstelt of nooit laat vuren,
-            // terwijl de pagina zelf allang klaar is om af te tasten. Poll
-            // daarom op readyState — zodra de HTML geparsed is en de
-            // stylesheets uit <head> zijn toegepast ("interactive" of later)
-            // zijn computed styles al betrouwbaar leesbaar. Ruim getimede
-            // timeout (15s): dit draait onzichtbaar op de achtergrond, dus
-            // een langzame homepage (trage server, veel resources) mag gerust
-            // langer krijgen zonder dat de gebruiker daar iets van merkt.
+            // NIET op het 'load'-event wachten: trackers/widgets kunnen een
+            // hangende achtergrond-request hebben die 'load' eeuwig uitstelt
+            // terwijl de pagina al klaar is om af te tasten. Poll daarom op
+            // readyState — zodra "interactive" of later zijn computed styles
+            // al betrouwbaar. Ruime timeout (15s) omdat dit onzichtbaar op de
+            // achtergrond draait.
             var timeout = setTimeout(function() { clearInterval(poll); finish([]); }, 15000);
             var poll = setInterval(function() {
                 var doc;
@@ -1429,10 +1569,9 @@
                     finish([]); // cross-origin of andere blokkade — stille fallback
                     return;
                 }
-                // Direct na het invoegen wijst contentDocument nog even naar
-                // het lege placeholder-document (readyState daarvan is
-                // meteen al "complete") — pas als de URL ook echt de eigen
-                // site is, is dit de PAGINA en niet het placeholder-document.
+                // contentDocument wijst direct na invoegen nog even naar het
+                // lege placeholder-document (al "complete") — pas als de URL
+                // ook echt de eigen site is, is dit de PAGINA.
                 if (!doc || doc.readyState === 'loading') return;
                 if (doc.location.href === 'about:blank') return;
                 clearInterval(poll);
@@ -1467,10 +1606,8 @@
                 }
             }
 
-            // Ook al vóórdat de scan daadwerkelijk start (die wacht evt. nog op
-            // het 'load'-event) alvast de zoek-indicator tonen — anders blijft
-            // de kaart in de tussentijd stil, wat precies de "opeens staan de
-            // resultaten er"-klacht was.
+            // Zoek-indicator al tonen vóór de scan echt start, anders blijft
+            // de kaart in de tussentijd stil.
             setDetectedLoading(card, true);
 
             var runScan = function() { runLiveScan(card, flatWrap, function() {}); };
@@ -1483,17 +1620,11 @@
             rescanBtn.addEventListener('click', function() { startColorScan(true); });
         }
 
-        // ── Kant-en-klare stijl genereren uit gevonden kleuren ───────────────
-        //
-        // Admin-feedback: de vaste presets hierboven staan los van de eigen
-        // site — dit leidt in plaats daarvan een combinatie af uit PRECIES de
-        // kleuren die op déze site gevonden zijn (tier 1 gecategoriseerd en/of
-        // tier 2 losse scan-resultaten). Niet per se elke gevonden kleur
-        // gebruiken, wel een combinatie die goed samen oogt: hoofdkleur wordt
-        // de meest verzadigde bruikbare kleur, achtergrond/tekst worden zo
-        // nodig aangevuld met veilige defaults, en steeds gecheckt op
-        // voldoende contrast via dezelfde WCAG-formule als de contrastcheck
-        // hieronder bij de losse Kleuren-velden.
+        // Leidt een stijl af uit PRECIES de kleuren die op déze site gevonden
+        // zijn (i.p.v. de vaste presets hierboven, los van de site). Hoofdkleur
+        // wordt de meest verzadigde bruikbare kleur, achtergrond/tekst worden
+        // aangevuld met veilige defaults en steeds gecheckt op voldoende
+        // contrast via dezelfde WCAG-formule als de contrastcheck hieronder.
         function hexSaturationLightness(hex) {
             var r = parseInt(hex.slice(1, 3), 16) / 255;
             var g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -1556,14 +1687,9 @@
             return { accent: accent, bg: bg, text: text, btnText: btnText, border: border, danger: '#d32f2f' };
         }
 
-        // Admin-feedback: eerst schreef dit meteen (onzichtbaar) de Kleuren-
-        // velden vol — een klik op "Genereer stijl" voelde daardoor niet aan
-        // als een echte verandering. Bouwt daarom i.p.v. dat een ECHTE preset-
-        // kaart (zelfde markup/gedrag als de vaste presets hierboven, zie
-        // buildGeneratedPresetCard()) en zet die vooraan bij "Kant-en-klare
-        // stijlen" neer — een klik daarop past 'm toe via dezelfde
-        // applyPresetButton() als een gewone preset, dus meteen zichtbaar én
-        // herkenbaar als "iets is er nu bijgekomen".
+        // Bouwt een ECHTE preset-kaart (zelfde markup/gedrag als de vaste
+        // presets) i.p.v. de Kleuren-velden meteen onzichtbaar vol te schrijven
+        // — zo voelt een klik op "Genereer stijl" aan als een echte verandering.
         function buildGeneratedPresetCard(style) {
             var btn = document.createElement('button');
             btn.type = 'button';
@@ -1635,11 +1761,9 @@
         }
         refreshGenerateStyleVisibility();
 
-        // Alleen starten zodra de Styling-tab ook echt de zichtbare tab is —
-        // niet bij het laden van de instellingenpagina an sich, ongeacht
-        // welke tab open staat (die staan allemaal al in de DOM, alleen
-        // CSS-verborgen). MutationObserver vangt elke manier waarop de tab
-        // actief wordt (sidebar-klik, "ga naar"-snelkoppeling, terug-knop).
+        // Alleen starten zodra de Styling-tab echt zichtbaar is (alle tabs
+        // staan al in de DOM, alleen CSS-verborgen). MutationObserver vangt
+        // elke manier waarop de tab actief wordt.
         var stylingPanel = document.querySelector('.mkcp-panel[data-panel="styling"]');
         if (stylingPanel) {
             if (stylingPanel.classList.contains('is-active')) {
@@ -1660,6 +1784,105 @@
         applyPanelGlow();
         checkContrast();
         markActivePreset();
+    }());
+
+
+    // ── Account: achtergrondafbeelding inlogscherm ──────────────────────────
+    //
+    // Zelfde patroon als de checkout-header-logo-upload (admin/assets/
+    // checkout.js), hier in vanilla JS omdat dit bestand geen jQuery gebruikt.
+
+    (function() {
+        var bgId      = document.getElementById('mkcp-account-login-bg-id');
+        var bgPreview = document.getElementById('mkcp-account-login-bg-preview');
+        var bgUpload  = document.getElementById('mkcp-account-login-bg-upload');
+        var bgRemove  = document.getElementById('mkcp-account-login-bg-remove');
+        if (!bgId || !bgUpload || typeof wp === 'undefined' || !wp.media) return;
+
+        var frame = null;
+
+        bgUpload.addEventListener('click', function() {
+            if (!frame) {
+                frame = wp.media({
+                    title:    'Achtergrondfoto kiezen',
+                    button:   { text: 'Selecteren' },
+                    multiple: false,
+                    library:  { type: 'image' }
+                });
+                frame.on('select', function() {
+                    var att = frame.state().get('selection').first().toJSON();
+                    bgId.value = att.id;
+                    if (bgPreview) {
+                        bgPreview.src = att.url;
+                        bgPreview.style.display = '';
+                    }
+                    var placeholder = bgPreview ? bgPreview.parentNode.querySelector('.mkcp-logo-preview-placeholder') : null;
+                    if (placeholder) placeholder.style.display = 'none';
+                    if (bgRemove) bgRemove.style.display = '';
+                });
+            }
+            frame.open();
+        });
+
+        if (bgRemove) {
+            bgRemove.addEventListener('click', function() {
+                bgId.value = '';
+                if (bgPreview) {
+                    bgPreview.style.display = 'none';
+                    bgPreview.src = '';
+                }
+                bgRemove.style.display = 'none';
+            });
+        }
+    }());
+
+
+    // ── Account: eigen logo inlogscherm ──────────────────────────────────────
+    //
+    // Zelfde patroon als de achtergrondfoto-uploader hierboven.
+
+    (function() {
+        var logoId      = document.getElementById('mkcp-account-login-logo-id');
+        var logoPreview = document.getElementById('mkcp-account-login-logo-preview');
+        var logoUpload  = document.getElementById('mkcp-account-login-logo-upload');
+        var logoRemove  = document.getElementById('mkcp-account-login-logo-remove');
+        if (!logoId || !logoUpload || typeof wp === 'undefined' || !wp.media) return;
+
+        var frame = null;
+
+        logoUpload.addEventListener('click', function() {
+            if (!frame) {
+                frame = wp.media({
+                    title:    'Logo kiezen',
+                    button:   { text: 'Selecteren' },
+                    multiple: false,
+                    library:  { type: 'image' }
+                });
+                frame.on('select', function() {
+                    var att = frame.state().get('selection').first().toJSON();
+                    logoId.value = att.id;
+                    if (logoPreview) {
+                        logoPreview.src = att.url;
+                        logoPreview.style.display = '';
+                    }
+                    var placeholder = logoPreview ? logoPreview.parentNode.querySelector('.mkcp-logo-preview-placeholder') : null;
+                    if (placeholder) placeholder.style.display = 'none';
+                    if (logoRemove) logoRemove.style.display = '';
+                });
+            }
+            frame.open();
+        });
+
+        if (logoRemove) {
+            logoRemove.addEventListener('click', function() {
+                logoId.value = '';
+                if (logoPreview) {
+                    logoPreview.style.display = 'none';
+                    logoPreview.src = '';
+                }
+                logoRemove.style.display = 'none';
+            });
+        }
     }());
 
 }());

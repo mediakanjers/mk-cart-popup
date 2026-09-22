@@ -24,17 +24,13 @@ $mkcp_cfg = mkcp_checkout_config();
 
 <main id="mkcp-checkout-main" class="mkcp-checkout-main">
 <?php
-// Bewust NIET the_content() — de WooCommerce "Afrekenen"-pagina bevat vaak
-// nog page-builder-shortcodes (bv. het thema's mk_sectie/mk_rij/mk_module)
-// rond de eigenlijke [woocommerce_checkout]-shortcode, omdat de pagina ooit
-// via de builder is aangemaakt/bewerkt. the_content() rendert die builder-
-// wrappers gewoon mee, wat precies de "distraction-free" belofte van deze
-// template ondermijnt — en shortcodes zitten niet in $wp_filter, dus de
-// thema-hook-opruim-sweep hierboven (checkout-frontend.php) kan dit sowieso
-// niet filteren. Door hier altijd rechtstreeks alleen de checkout-shortcode
-// te renderen, maakt het niet meer uit wat er ooit in de pagina-inhoud is
-// geplakt — de checkout blijft gegarandeerd schoon, ook na een toekomstige
-// bewerking van die pagina in de editor.
+// Bewust NIET the_content() — de "Afrekenen"-pagina bevat vaak nog page-
+// builder-shortcodes rond de eigenlijke [woocommerce_checkout]-shortcode.
+// the_content() zou die builder-wrappers meerenderen, wat de distraction-free
+// belofte ondermijnt — en shortcodes zitten niet in $wp_filter, dus de
+// thema-hook-opruim-sweep (checkout-frontend.php) kan ze niet filteren.
+// Rechtstreeks alleen de checkout-shortcode renderen houdt de checkout
+// gegarandeerd schoon, ongeacht wat er ooit in de pagina-inhoud is geplakt.
 while ( have_posts() ) {
     the_post();
 }

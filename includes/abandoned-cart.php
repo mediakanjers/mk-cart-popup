@@ -2,10 +2,8 @@
 /**
  * MK Cart Popup — Verlaten winkelwagen herinneringen
  *
- * Werkt voor ingelogde gebruikers én gasten. Gasten worden alleen gevolgd
- * zodra ze hun e-mailadres invullen bij het afrekenen (anders hebben we geen
- * adres om naartoe te mailen). Vereist actieve WP Cron.
- * Verstuurt één herinneringsmail per verlaten winkelwagen na de ingestelde vertraging.
+ * Werkt voor ingelogde gebruikers én gasten (gasten pas zodra ze een e-mailadres
+ * invullen bij het afrekenen). Vereist actieve WP Cron.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -23,11 +21,9 @@ function mkcp_ac_install_table() {
     $suppressed_table = $wpdb->prefix . 'mkcp_ac_suppressed';
     $charset          = $wpdb->get_charset_collate();
 
-    // 1.0 → 1.1: de oude tabel had een UNIQUE KEY op user_id (geen gasten
-    // mogelijk, want die zouden allemaal user_id=0 delen) en geen
-    // tracking_key-kolom. dbDelta wijzigt/verwijdert bestaande keys niet, dus
-    // die stap — en het vullen van tracking_key vóórdat de nieuwe UNIQUE KEY
-    // erop komt — doen we hier expliciet.
+    // 1.0 → 1.1: oude UNIQUE KEY zat op user_id (gasten deelden allemaal 0) en
+    // tracking_key bestond nog niet. dbDelta wijzigt/verwijdert bestaande keys
+    // niet, dus dat doen we hier handmatig vóór de nieuwe UNIQUE KEY erop komt.
     if ( $installed && version_compare( $installed, '1.1', '<' ) ) {
         $has_column = $wpdb->get_var( "SHOW COLUMNS FROM {$table} LIKE 'tracking_key'" );
         if ( ! $has_column ) {
@@ -56,11 +52,8 @@ function mkcp_ac_install_table() {
         KEY checked_reminder (checked_out, reminder_sent_at)
     ) {$charset};";
 
-    // Losse, kleine tabel voor permanente afmeldingen — bewust niet in de
-    // hoofdtabel, want die wordt straks periodiek opgeschoond en een
-    // afmelding moet blijven staan. Alleen de cron-verstuurcheck en de
-    // afmeldlink zelf raken deze tabel, dus geen impact op reguliere
-    // pagina's (admin of frontend).
+    // Losse tabel voor permanente afmeldingen: bewust niet in de hoofdtabel,
+    // want die wordt periodiek opgeschoond en een afmelding moet blijven staan.
     $suppressed_sql = "CREATE TABLE {$suppressed_table} (
         id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         email      VARCHAR(200)    NOT NULL DEFAULT '',
@@ -82,9 +75,8 @@ add_action( 'plugins_loaded', function() {
     }
 } );
 
-// Eenmalige migratie: vertraging stond tot nu toe in hele uren, voortaan in
-// minuten (voor de "per half uur instelbaar"-optie). Zonder deze stap zou een
-// bestaande waarde van bv. "24" (24 uur) plots als "24 minuten" gelezen worden.
+// Eenmalige migratie: vertraging stond in hele uren, voortaan in minuten
+// (per-half-uur instelbaar). Anders zou bv. "24" (uur) als "24 minuten" lezen.
 add_action( 'plugins_loaded', function() {
     if ( get_option( 'mkcp_ac_delay_migrated' ) ) return;
 
@@ -98,10 +90,8 @@ add_action( 'plugins_loaded', function() {
 
 
 // ── Tracking-sleutel ─────────────────────────────────────────────────────────
-//
-// Ingelogde klanten: 'user_{id}'. Gasten: 'guest_{WC-sessie-customer-id}' —
-// dezelfde ID die WooCommerce zelf gebruikt om een gast-winkelwagen te
-// herkennen tussen requests (cookie-gebaseerd).
+// Ingelogd: 'user_{id}'. Gast: 'guest_{WC-sessie-customer-id}' — dezelfde ID
+// die WooCommerce zelf gebruikt om een gast-winkelwagen te herkennen (cookie).
 
 function mkcp_ac_get_tracking_key(): string {
     if ( is_user_logged_in() ) {
@@ -171,9 +161,8 @@ function mkcp_ac_upsert( string $tracking_key, int $user_id, string $email, WC_C
         $email_to_store = $email !== '' ? $email : $existing->user_email;
 
         if ( $existing->cart_hash !== $cart_hash ) {
-            // Cart changed → reset reminder so they can get a new one.
-            // reminder_sent_at must be set to SQL NULL; wpdb->update() converts
-            // PHP null to empty string '', so we use a raw query here.
+            // Cart gewijzigd → reminder resetten. Raw query nodig omdat
+            // wpdb->update() een PHP null omzet naar '' i.p.v. SQL NULL.
             $wpdb->query( $wpdb->prepare(
                 "UPDATE {$table}
                  SET user_email=%s, cart_hash=%s, cart_total=%f, cart_updated_at=%s,
@@ -217,9 +206,8 @@ add_action( 'woocommerce_checkout_order_processed', function() {
 
 
 // ── AJAX: gast-e-mailadres vastleggen tijdens het afrekenen ────────────────────
-//
-// Alleen nopriv: het script dat dit aanroept wordt uitsluitend geladen voor
-// niet-ingelogde bezoekers op de checkout-pagina (zie mk-cart-popup.php).
+// Alleen nopriv: script wordt uitsluitend geladen voor niet-ingelogde bezoekers
+// op de checkout (zie mk-cart-popup.php).
 
 add_action( 'wp_ajax_nopriv_mkcp_ac_capture_guest_email', 'mkcp_ac_capture_guest_email' );
 
@@ -253,11 +241,9 @@ function mkcp_ac_capture_guest_email() {
 
 
 // ── Permanente afmelding ("nooit meer een herinnering") ────────────────────────
-//
-// Los van de tracking-tabel: die wordt periodiek opgeschoond, een afmelding
-// moet blijven staan. Het token is een HMAC over het e-mailadres met de
-// site-eigen salt (wp_salt) — geen aparte DB-lookup nodig om een klik te
-// verifiëren, alleen om 'm daarna weg te schrijven.
+// Los van de tracking-tabel (die wordt opgeschoond, dit moet blijven staan).
+// Token = HMAC over het e-mailadres met wp_salt, dus geen DB-lookup nodig om
+// een klik te verifiëren — alleen om 'm daarna weg te schrijven.
 
 function mkcp_ac_unsub_token( string $email ): string {
     return hash_hmac( 'sha256', strtolower( trim( $email ) ), wp_salt( 'auth' ) );
@@ -342,6 +328,13 @@ function mkcp_ac_send_reminders() {
     $config = mkcp_config();
     if ( empty( $config['abandoned_cart_enabled'] ) ) return;
 
+    // Vóór de transient-lock-check: een geblokkeerde run (dubbele cron)
+    // betekent niet dat de cron zelf niet draait, dus telt ook als "levend".
+    // Gebruikt door mkcp_popup_setup_status() (includes/popup-setup.php) om
+    // een winkelier te laten zien of WP-Cron daadwerkelijk nog uitvoert, i.p.v.
+    // alleen de statische DISABLE_WP_CRON-constante te checken.
+    update_option( 'mkcp_ac_cron_last_run', time(), false );
+
     // Transient lock voorkomt dubbele mails als twee cron-processen tegelijk draaien
     if ( get_transient( 'mkcp_ac_cron_lock' ) ) return;
     set_transient( 'mkcp_ac_cron_lock', 1, 5 * MINUTE_IN_SECONDS );
@@ -355,8 +348,6 @@ function mkcp_ac_send_reminders() {
     $table            = $wpdb->prefix . 'mkcp_abandoned_carts';
     $suppressed_table = $wpdb->prefix . 'mkcp_ac_suppressed';
 
-    // LEFT JOIN tegen de (kleine) afmeldtabel — draait alleen hier, elke 15
-    // minuten in de achtergrond, dus geen impact op admin- of bezoekerspagina's.
     $rows = $wpdb->get_results( $wpdb->prepare(
         "SELECT t.* FROM {$table} t
          LEFT JOIN {$suppressed_table} s ON s.email = t.user_email
@@ -368,6 +359,12 @@ function mkcp_ac_send_reminders() {
         $cutoff
     ) );
 
+    // Afkoelperiode per klant, los van de per-mandje reminder_sent_at-guard
+    // hierboven: zonder dit kreeg een klant die vaak een nieuw mandje
+    // achterlaat alsnog steeds opnieuw mail. 0 dagen = uitgeschakeld.
+    $cooldown_days   = max( 0, intval( $config['abandoned_cart_cooldown_days'] ?? 7 ) );
+    $cooldown_cutoff = gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql', false ) ) - $cooldown_days * DAY_IN_SECONDS );
+
     foreach ( $rows as $row ) {
         // Markeer direct als verzonden vóór het versturen om race conditions te voorkomen
         $updated = $wpdb->update(
@@ -375,12 +372,34 @@ function mkcp_ac_send_reminders() {
             [ 'reminder_sent_at' => current_time( 'mysql' ) ],
             [ 'id' => $row->id, 'reminder_sent_at' => null ]
         );
-        if ( $updated ) {
-            mkcp_ac_send_email( $row, $config );
+        if ( ! $updated ) continue;
+
+        if ( $cooldown_days > 0 ) {
+            $last_sent = $wpdb->get_var( $wpdb->prepare(
+                "SELECT MAX(reminder_sent_at) FROM {$table} WHERE user_email = %s AND id != %d AND reminder_sent_at IS NOT NULL",
+                $row->user_email, $row->id
+            ) );
+            // Binnen afkoelperiode: telt al als verstuurd (zie update hierboven), er gaat alleen geen mail uit.
+            if ( $last_sent && $last_sent > $cooldown_cutoff ) continue;
         }
+
+        mkcp_ac_log_mail_result( mkcp_ac_send_email( $row, $config ) );
     }
 
     delete_transient( 'mkcp_ac_cron_lock' );
+}
+
+// Zelfde soort lichte "laatste status"-logging als mkcp_pu_ready_log_add()
+// (includes/pickup-ready.php) — bewust geen volledige logtabel, alleen de
+// laatste uitkomst + tijdstip, want dat is alles wat de Installatie-check
+// nodig heeft om te laten zien of mails daadwerkelijk aankomen. Alleen de
+// automatische cron-run logt hier (niet de handmatige testmail-knop
+// hieronder), anders overschrijft een losse test de echte laatste-run-status.
+function mkcp_ac_log_mail_result( bool $sent ) {
+    update_option( 'mkcp_ac_last_mail_result', [
+        'sent' => $sent,
+        'time' => time(),
+    ], false );
 }
 
 function mkcp_ac_send_email( object $row, array $config ): bool {
@@ -424,10 +443,8 @@ function mkcp_ac_send_email( object $row, array $config ): bool {
 
 
 // ── Admin: testmail versturen ───────────────────────────────────────────────────
-//
-// Bouwt een synthetische rij (geen DB-schrijfactie, raakt de tracking-tabel
-// niet) en stuurt 'm door dezelfde mkcp_ac_send_email() als de echte cron —
-// zo test je precies de mail die een klant ook zou krijgen.
+// Synthetische rij (raakt de tracking-tabel niet) door dezelfde
+// mkcp_ac_send_email() als de echte cron — test precies de mail die een klant krijgt.
 
 add_action( 'wp_ajax_mkcp_ac_send_test_email', 'mkcp_ac_ajax_send_test_email' );
 
@@ -458,23 +475,12 @@ function mkcp_ac_ajax_send_test_email() {
 }
 
 
-// ── Admin melding: WP Cron uitgeschakeld ──────────────────────────────────────
-
-add_action( 'admin_notices', function() {
-    $config = mkcp_config();
-    if ( empty( $config['abandoned_cart_enabled'] ) ) return;
-
-    $screen = get_current_screen();
-    if ( ! $screen || strpos( $screen->id, 'mkcp' ) === false ) return;
-
-    if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
-        echo '<div class="notice notice-error"><p>'
-            . '<strong>MK Cart Popup — Verlaten winkelwagen:</strong> '
-            . 'WP Cron is uitgeschakeld (<code>DISABLE_WP_CRON</code> staat op <code>true</code> in <code>wp-config.php</code>). '
-            . 'Herinneringsmails worden <strong>niet verstuurd</strong> totdat WP Cron actief is of een externe cron-taak is ingesteld.'
-            . '</p></div>';
-    }
-} );
+// De vroegere "WP Cron uitgeschakeld"-admin_notice hier is vervangen door een
+// permanent kaartje in de Installatie-check op het Cart Popup-dashboard (zie
+// mkcp_popup_setup_status() in includes/popup-setup.php) — die toont niet
+// alleen de statische DISABLE_WP_CRON-constante, maar ook of de cron
+// daadwerkelijk nog draait (mkcp_ac_cron_last_run hierboven) en of de laatste
+// mail is gelukt (mkcp_ac_last_mail_result).
 
 
 // Deactivatie-hook wordt vanuit mk-cart-popup.php geregistreerd (zie aldaar)

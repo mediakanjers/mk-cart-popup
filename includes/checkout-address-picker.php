@@ -2,17 +2,11 @@
 /**
  * MK Cart Popup — Checkout: adreskeuze uit het Account-adresboek
  *
- * Voor ingelogde klanten met opgeslagen adressen (Account-adresboek, zie
- * includes/account-profile.php) toont dit compacte keuzekaarten boven de
- * factuur-/verzendvelden — kies een opgeslagen adres en de volledige
- * veldenset klapt dicht, precies zoals Bol.com dat doet. "Nieuw adres" of
- * nogmaals klikken op de al-geselecteerde kaart klapt de volledige velden
- * weer open om aan te passen.
- *
- * Bewust een eigen bestand i.p.v. meegroeien in checkout-frontend.php, zie
- * de "god file"-notitie daar — dit is een op zichzelf staand stukje UX
- * bovenop twee al bestaande systemen (het adresboek + de checkout-velden)
- * zonder dat een van beide hoeft te weten van het andere.
+ * Toont voor ingelogde klanten met opgeslagen adressen compacte keuzekaarten
+ * boven de factuur-/verzendvelden — kies een adres en de volledige veldenset
+ * klapt dicht (Bol.com-stijl); "Nieuw adres" of nogmaals klikken klapt weer open.
+ * Eigen bestand: op zichzelf staande UX bovenop adresboek + checkout-velden,
+ * zonder dat een van beide van het andere hoeft te weten.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -26,10 +20,8 @@ function mkcp_addr_picker_active(): bool {
     $cfg = mkcp_checkout_config();
     if ( empty( $cfg['checkout_enabled'] ) ) return false;
 
-    // Hergebruikt bewust dezelfde gate als de Account-omgeving zelf: het
-    // adresboek waar dit uit put is onderdeel van diezelfde premium
-    // Account-ervaring (Account-plan, sectie 9 — "belangrijkste
-    // kruisverbinding tussen Account en Checkout").
+    // Zelfde gate als de Account-omgeving zelf — het adresboek waar dit uit
+    // put is onderdeel van diezelfde premium Account-ervaring.
     if ( ! function_exists( 'mkcp_account_is_active' ) || ! mkcp_account_is_active() ) return false;
 
     return true;
@@ -49,21 +41,16 @@ function mkcp_render_checkout_address_picker( string $context ) {
         'is_default_billing', 'is_default_shipping',
     ];
 
-    // Zelfde soort iconen-taal (lijnstijl, stroke=currentColor, 24x24 viewBox)
-    // als de rest van de checkout — het "huis"-icoon voor zakelijke adressen
-    // vervangen door een gebouw-icoon maakt het onderscheid al zichtbaar vóór
-    // er ook maar tekst gelezen is.
+    // Zelfde iconenstijl als de rest van de checkout; huis vs. gebouw-icoon
+    // maakt zakelijk/particulier al zichtbaar vóór er tekst gelezen is.
     $icon_home = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>';
     $icon_biz  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="10" height="18"/><path d="M14 8h6v13h-6"/><line x1="7" y1="7" x2="7" y2="7.01"/><line x1="7" y1="11" x2="7" y2="11.01"/><line x1="7" y1="15" x2="7" y2="15.01"/></svg>';
     $icon_plus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
     $icon_check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
-    // Horizontaal scrollende "viewport" + pijltjesnavigatie i.p.v. een grid
-    // dat de kaarten smaller maakt zodra er meer dan drie zijn — letterlijk
-    // hetzelfde patroon (opbouw + klassen-conventie) als de bezorgdatum-
-    // kaarten (.mkcp-dd-track/.mkcp-dd-nav in delivery-date.php/.scss): vaste,
-    // riante kaartbreedte, overtollige kaarten schuiven opzij i.p.v. te
-    // verschrompelen, met dezelfde ronde pijltjesknoppen eromheen.
+    // Horizontaal scrollende viewport + pijltjesnavigatie i.p.v. een grid dat
+    // kaarten smaller maakt bij meer dan drie — zelfde patroon/klassen-conventie
+    // als de bezorgdatum-kaarten (.mkcp-dd-track/.mkcp-dd-nav in delivery-date.php).
     echo '<div class="mkcp-addr-picker" data-context="' . esc_attr( $context ) . '">';
     echo '<div class="mkcp-addr-picker__track">';
     echo '<button type="button" class="mkcp-addr-picker__nav mkcp-addr-picker__nav--prev" aria-label="' . esc_attr__( 'Vorige adressen', 'mk-cart-popup' ) . '">&#8249;</button>';
@@ -78,11 +65,6 @@ function mkcp_render_checkout_address_picker( string $context ) {
         $name       = trim( $address->first_name . ' ' . $address->last_name );
         $street     = trim( $address->address_1 . ( $address->address_2 !== '' ? ' ' . $address->address_2 : '' ) );
         $city_line  = trim( $address->postcode . ' ' . $address->city );
-        // Voornaam/achternaam staan ook echt in het adresboek (en worden
-        // door de JS hieronder in billing_first_name/last_name gezet) — nu
-        // over meerdere regels zichtbaar (i.p.v. één afgekapte regel) zodat
-        // het aanvinken van een kaart genoeg vertrouwen geeft om door te
-        // gaan zonder dat iemand toch weer de losse velden wil nakijken.
 
         printf(
             '<button type="button" class="mkcp-addr-picker__card%s" data-address="%s" aria-pressed="false">'
@@ -140,10 +122,9 @@ add_action( 'wp', function() {
         ?>
         <script>
         (function () {
-            // Best-effort splitsing van één adresregel ("Straatnaam 12A") in
-            // straat/huisnummer/toevoeging — nodig omdat het adresboek geen
-            // gesplitste velden bijhoudt, terwijl de (Nederlandse) postcode-
-            // checker-velden dat wél verwachten wanneer ze bestaan.
+            // Best-effort splitsing van "Straatnaam 12A" in straat/nummer/
+            // toevoeging — het adresboek heeft geen gesplitste velden, de
+            // postcode-checker-velden verwachten die wél als ze bestaan.
             function mkcpSplitAddress1( addr1 ) {
                 var m = /^(.*\D)\s*(\d+)\s*([a-zA-Z][a-zA-Z0-9\-\/]*)?$/.exec( ( addr1 || '' ).trim() );
                 if ( ! m ) return { street: addr1 || '', number: '', suffix: '' };
@@ -174,9 +155,7 @@ add_action( 'wp', function() {
                     mkcpSetField( 'billing_eu_vat_number', data.vat_number || '' );
                 }
 
-                // Bestaan de gesplitste postcode-checker-velden? Dan die vullen
-                // i.p.v. het generieke adres_1/adres_2 — zie toelichting boven
-                // mkcpSplitAddress1().
+                // Gesplitste postcode-checker-velden vullen i.p.v. adres_1/2 als ze bestaan.
                 if ( document.getElementById( prefix + '_street_name' ) && document.getElementById( prefix + '_house_number' ) ) {
                     var parts = mkcpSplitAddress1( data.address_1 );
                     mkcpSetField( prefix + '_street_name', parts.street );
@@ -218,10 +197,8 @@ add_action( 'wp', function() {
                         var isNew      = card.classList.contains( 'mkcp-addr-picker__new' );
                         var isSelected = card.classList.contains( 'is-selected' );
 
-                        // Nogmaals op een al-actieve BESTAANDE kaart klikken = "toch
-                        // even zelf aanpassen" — selectie opheffen, velden weer
-                        // volledig tonen. "Nieuw adres" krijgt hieronder juist wél
-                        // een actieve status wanneer je erop klikt.
+                        // Nogmaals klikken op een al-actieve bestaande kaart = "toch
+                        // zelf aanpassen": selectie opheffen, velden weer volledig tonen.
                         if ( isSelected && ! isNew ) {
                             mkcpDeselectAll();
                             mkcpCollapseFields( prefix, false );
@@ -232,18 +209,13 @@ add_action( 'wp', function() {
                         card.classList.add( 'is-selected' );
                         card.setAttribute( 'aria-pressed', 'true' );
 
-                        // "block: nearest" i.p.v. de default "center" — anders
-                        // scrollt de hele PAGINA mee verticaal om de kaart in het
-                        // midden te krijgen. "inline: nearest" scrollt de
-                        // horizontale kaartenstrook net ver genoeg om de kaart
-                        // volledig in beeld te krijgen (bv. "Nieuw adres" dat
-                        // rechts half buiten beeld kan staan).
+                        // "block: nearest" i.p.v. default "center": anders scrollt de
+                        // hele pagina verticaal mee. "inline: nearest" scrollt de
+                        // kaartenstrook net genoeg om de kaart volledig in beeld te krijgen.
                         card.scrollIntoView( { behavior: 'smooth', inline: 'nearest', block: 'nearest' } );
 
                         if ( isNew ) {
-                            // Velden leegmaken i.p.v. het vorige geselecteerde adres
-                            // te laten staan — "nieuw adres" moet ook echt een ANDER
-                            // adres kunnen worden, niet het vorige gewoon opnieuw tonen.
+                            // Velden leegmaken i.p.v. vorig adres te laten staan.
                             mkcpApplyAddress( prefix, {} );
                             mkcpCollapseFields( prefix, false );
                             return;
@@ -259,15 +231,11 @@ add_action( 'wp', function() {
                     } );
                 } );
 
-                // Standaardadres direct voorgeselecteerd — scheelt een klik voor
-                // het meest voorkomende geval (bestellen naar het eigen
-                // standaardadres), precies de "kortere checkout"-vraag.
+                // Standaardadres direct voorgeselecteerd, scheelt een klik.
                 var defaultCard = picker.querySelector( '.mkcp-addr-picker__card.is-default' );
                 if ( defaultCard ) defaultCard.click();
 
-                // Pijltjesnavigatie — zelfde opzet als .mkcp-dd-nav bij de
-                // bezorgdatum-kaarten: scrollt een vaste afstand (kaartbreedte +
-                // gap), uitgeschakeld zodra je aan het begin/einde zit.
+                // Pijltjesnavigatie, zelfde opzet als .mkcp-dd-nav bij bezorgdatum-kaarten.
                 var viewport = picker.querySelector( '.mkcp-addr-picker__viewport' );
                 var prevBtn  = picker.querySelector( '.mkcp-addr-picker__nav--prev' );
                 var nextBtn  = picker.querySelector( '.mkcp-addr-picker__nav--next' );

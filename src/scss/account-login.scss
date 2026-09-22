@@ -1,0 +1,1332 @@
+/*
+ * MK Cart Popup — Account-inlogscherm (uitgelogde staat van /mijn-account/)
+ *
+ * Reskin van WooCommerce's EIGEN login-/registratieformulier (geen markup/
+ * hooks vervangen, zie includes/account-frontend.php) — alleen CSS + een
+ * paar merk-elementen via woocommerce_before/after_customer_login_form +
+ * woocommerce_login_form_start, voor hetzelfde merkgevoel als de ingelogde
+ * Account-omgeving (account.scss).
+ *
+ * Leunt op de sitewide --mkcp-*-tokens (cart-popup.scss) voor de accentkleur
+ * en op een eigen --mkcp-acc-*-subset (zelfde namen als account.scss's
+ * lichte thema) voor het kaart-oppervlak. Geen thema-toggle hier (die leeft
+ * alleen in de ingelogde app-shell), dus altijd het lichte palet.
+ *
+ * Sinds de distraction-free template (templates/account-login-page.php,
+ * geen thema-header/footer/menu) is dit bestand ook verantwoordelijk voor de
+ * pagina-achtergrond en verticale centrering. Het thema's EIGEN stylesheet
+ * laadt via wp_head() nog wél mee — vandaar !important op de typografie
+ * hieronder, anders wint soms een zwaardere thema-regel (bv. op h2).
+ */
+
+$mkcp-login-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+body.mkcp-account-login-page {
+    margin     : 0;
+    // Vaste ruimte voor de scrollbalk — anders duwt het verschijnen ervan (bv.
+    // bij wisselen Login/Registreren, addAuthToggle) de kaart zichtbaar opzij.
+    scrollbar-gutter: stable;
+    --mkcp-acc-bg      : #f7f8fa;
+    --mkcp-acc-card-bg : #ffffff;
+    --mkcp-acc-border  : #e4e7f0;
+    --mkcp-acc-text    : #1a1a1a;
+    --mkcp-acc-muted   : #5b6472;
+    --mkcp-acc-shadow  : 0 2px 8px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04);
+    --mkcp-acc-shadow-lg: 0 24px 48px -12px rgba(20, 22, 30, .14), 0 2px 6px rgba(20, 22, 30, .05);
+    --mkcp-acc-ring    : 0 0 0 3px color-mix(in srgb, var(--mkcp-accent, #2e7d32) 14%, transparent);
+    background : var(--mkcp-acc-bg);
+}
+
+// Er is hier geen thema-toggle (die leeft alleen in de ingelogde app-shell) —
+// bezoekers met een donker systeemthema krijgen dit automatisch, met dezelfde
+// donkere tokens als account.scss's html[data-mkcp-theme="dark"]-blok.
+@media (prefers-color-scheme: dark) {
+    body.mkcp-account-login-page {
+        --mkcp-acc-bg       : #14161a;
+        --mkcp-acc-card-bg  : #1c1f24;
+        --mkcp-acc-border   : rgba(255, 255, 255, .09);
+        --mkcp-acc-text     : #f1f2f4;
+        --mkcp-acc-muted    : #9aa2ad;
+        --mkcp-acc-shadow   : 0 2px 8px rgba(0, 0, 0, .35), 0 1px 2px rgba(0, 0, 0, .25);
+        --mkcp-acc-shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3);
+        --mkcp-acc-ring     : 0 0 0 3px rgba(76, 175, 80, .2);
+    }
+}
+
+.mkcp-account-login-main {
+    box-sizing     : border-box;
+    position       : relative; // tilt deze laag boven .mkcp-account-login-bgphoto (position:fixed) uit — anders wint dat laatste puur omdat het WEL gepositioneerd is
+    z-index        : 1;
+    display        : flex;
+    flex-direction : column;
+    align-items    : center;
+    justify-content: center;
+    min-height     : 100vh;
+    padding        : 32px 16px;
+}
+
+// Winkelier-logo, buiten en boven de kaart (WooCommerce → Cart Popup →
+// Account → Loginscherm → Logo). Direct kind van .mkcp-account-login-main,
+// profiteert dus van diens align-items:center voor horizontale centrering.
+.mkcp-account-login-external-logo {
+    box-sizing   : border-box;
+    display      : block;
+    max-height   : 72px;
+    // Padding (44px) wordt van max-width afgetrokken zodat het LOGO zelf nooit
+    // breder dan ~300px rendert, ook al telt de achtergrond-"chip" wel mee.
+    max-width    : min(344px, calc(100% - 24px));
+    width        : auto;
+    height       : auto;
+    // "auto" zijmarges i.p.v. te leunen op align-items:center — een breed
+    // logo dat tegen max-width aanloopt centreert anders niet meer vanzelf.
+    margin       : 0 auto 20px;
+    // Eigen "chip"-achtergrond — zonder deze verdween een (deels) transparant
+    // of wit logo visueel in de pagina-achtergrond.
+    padding      : 16px 24px;
+    background   : var(--mkcp-acc-card-bg);
+    border-radius: 14px;
+    box-shadow   : var(--mkcp-acc-shadow);
+    object-fit   : contain;
+}
+
+// Eigen achtergrondfoto (WooCommerce → Cart Popup → Account → Algemeen) —
+// vast op het scherm, rechts vanaf het paneel tot de vensterrand. `left`
+// hieronder is een gok vooraf (50%); account-login.js corrigeert 'm naar de
+// echte positie van .mkcp-account-login-panel, zie positionLoginBgPhoto().
+.mkcp-account-login-bgphoto {
+    position        : fixed;
+    top             : 0;
+    right           : 0;
+    bottom          : 0;
+    left            : 50%;
+    z-index         : 0;
+    background-repeat: no-repeat;
+    background-size  : cover;
+    background-position: center;
+}
+
+// position:fixed i.p.v. onderdeel van de gecentreerde flex-kolom — anders
+// verschuift het "middelpunt" van de kaart mee als deze link/een foutmelding
+// meer ruimte inneemt. Eigen "chip"-achtergrond + schaduw i.p.v. kale tekst:
+// bij scrollen kan de link OVER de kaart komen te staan, en oogt zo als een
+// bewust zwevende knop i.p.v. kapotte tekst bovenop de velden.
+.mkcp-account-login-back {
+    position       : fixed;
+    top            : 24px;
+    left           : 24px;
+    z-index        : 2;
+    display        : inline-flex;
+    align-items    : center;
+    gap            : 6px;
+    padding        : 8px 14px;
+    border-radius  : 999px;
+    background     : var(--mkcp-acc-card-bg);
+    box-shadow     : var(--mkcp-acc-shadow);
+    color          : var(--mkcp-acc-muted) !important;
+    font-family    : $mkcp-login-font !important;
+    font-size      : 0.85em;
+    font-weight    : 600;
+    text-decoration: none !important;
+    transition     : color 150ms ease, transform 150ms ease;
+
+    svg { transition: transform 150ms ease; }
+
+    &:hover {
+        color: var(--mkcp-acc-text) !important;
+        svg { transform: translateX(-3px); }
+    }
+}
+
+// ── De kaart ──────────────────────────────────────────────────────────────
+
+// Bewust ALLEEN opacity (geen translateY/scale) — een transform op de kaart
+// bleek de positieberekening van een browser-/wachtwoordmanager-overlay-
+// icoontje in het wachtwoordveld in de war te sturen.
+@keyframes mkcp-login-card-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.mkcp-account-login-card {
+    box-sizing   : border-box;
+    position     : relative;
+    width        : 100%;
+    // Verlaagd van 1000/1200px nu het voordelenpaneel (rechts) de kaart vult
+    // — een breder paneel zou daar onnodig leeg ogen voor zijn tekst.
+    min-width    : 760px;
+    max-width    : 940px;
+    margin       : 0;
+    padding      : 20px 26px 24px;
+    // GEEN background hier — die zit op .formcol hieronder. Het paneel heeft
+    // zelf altijd al zijn eigen, volledig dekkende achtergrond, dus deze
+    // kaartkleur zou daar toch nooit doorheen schijnen.
+    border-radius: 20px;
+    box-shadow   : var(--mkcp-acc-shadow-lg);
+    font-family  : $mkcp-login-font;
+    overflow     : hidden;
+    animation    : mkcp-login-card-in 320ms ease;
+
+    // Merk-accentbalk boven op de kaart — klein, decoratief, geeft de brede
+    // kaart meteen een herkenbaar "eigen product" gevoel i.p.v. een generiek
+    // wit vlak.
+    &::before {
+        content   : '';
+        position  : absolute;
+        top       : 0;
+        left      : 0;
+        right     : 0;
+        height    : 4px;
+        background: linear-gradient(90deg, var(--mkcp-accent, #2e7d32), color-mix(in srgb, var(--mkcp-accent, #2e7d32) 40%, #fff 60%));
+    }
+
+    h2 {
+        margin        : 0 0 6px !important;
+        font-family   : $mkcp-login-font !important;
+        font-size     : 1.5em !important;
+        font-weight   : 700 !important;
+        line-height   : 1.2 !important;
+        letter-spacing: -0.01em !important;
+        color         : var(--mkcp-acc-text) !important;
+    }
+}
+
+// ── Split-screen: formulier links, voordelenpaneel rechts ──────────────────
+// Alleen het loginformulier gebruikt dit — de "wachtwoord vergeten"-kaart
+// blijft bewust de gewone, niet-gesplitste .mkcp-account-login-card: één
+// doelgericht veld, een paneel ernaast zou daar geforceerd aanvoelen.
+.mkcp-account-login-card--split {
+    display    : flex;
+    align-items: stretch;
+    padding    : 0;
+}
+
+.mkcp-account-login-formcol {
+    box-sizing: border-box;
+    // 60% van de kaart — vult aan op het paneel (40%, hiernaast) tot een
+    // vaste 60/40-verdeling, ongeacht de uiteindelijke kaartbreedte.
+    flex      : 1 1 60%;
+    min-width : 0;
+    padding   : 30px 36px 28px;
+    background: var(--mkcp-acc-card-bg);
+}
+
+.mkcp-account-login-panel {
+    box-sizing     : border-box;
+    position       : relative;
+    // Vaste 40%-breedte i.p.v. een px-basis — schaalt zo netjes mee met de
+    // kaart (760–940px) en houdt altijd exact de 60/40-verhouding aan die
+    // hier expliciet gevraagd is.
+    flex           : 0 0 40%;
+    display        : flex;
+    align-items    : center;
+    padding        : 28px 26px;
+    overflow       : hidden;
+    background     : #003459;
+    color          : #ffffff;
+}
+
+.mkcp-account-login-panel__inner {
+    width: 100%;
+}
+
+.mkcp-account-login-panel__title {
+    margin        : 0 0 10px;
+    font-family   : $mkcp-login-font;
+    font-size     : 1.35em;
+    font-weight   : 700;
+    letter-spacing: -0.01em;
+    color         : #ffffff;
+    padding-bottom: 0px!important;
+}
+
+.password-input {
+    width: 100%;
+}
+
+.mkcp-account-login-panel__list {
+    list-style: none;
+    margin    : 0;
+    padding   : 0;
+    display   : flex;
+    flex-direction: column;
+    gap       : 12px;
+
+    li {
+        display    : flex;
+        align-items: center;
+        gap        : 12px;
+        font-family: $mkcp-login-font;
+        font-size  : 0.92em;
+        line-height: 1.4;
+        color      : rgba(255, 255, 255, .92);
+    }
+}
+
+.mkcp-account-login-panel__icon {
+    flex-shrink    : 0;
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 30px;
+    height         : 30px;
+    border-radius  : 9px;
+    background     : rgba(255, 255, 255, .16);
+    color          : #ffffff;
+}
+
+// ── Login ↔ Registreren wisselen zonder de kaart te verbreden ──────────────
+// WooCommerce rendert bij ingeschakelde registratie #customer_login.col2-set
+// met login-/registratiekolom NAAST elkaar — dat verdrukt de split-screen
+// kaart/paneel/foto. account-login.js (addAuthToggle) toont daarom steeds
+// maar één kolom tegelijk met een wissellink; de <h2> zit IN elke kolom, dus
+// "Login"/"Registreren" wisselt vanzelf mee.
+#customer_login.col2-set {
+    display: block;
+
+    .u-column1, .u-column2 { width: 100%; float: none; }
+    .u-column2 { border-left: none; padding-left: 0; }
+
+    // account-login.js zet deze klasse pas als de hoogte van beide kolommen
+    // gemeten en vastgezet is (wrap.style.height) — anders klapt de container
+    // zonder eigen hoogte in elkaar zodra position:absolute ingrijpt.
+    &.mkcp-account-login-col2--js {
+        // CSS Grid i.p.v. position:absolute om de kolommen te overlappen —
+        // absolute posities gaven hier een circulaire breedte-afhankelijkheid
+        // (browser-eigenaardigheid in deze geneste flex-structuur); grid-items
+        // in dezelfde cel blijven "normale" layout-deelnemers.
+        display   : grid;
+        overflow  : hidden;
+        transition: height 320ms ease;
+
+        .u-column1, .u-column2 {
+            grid-area     : 1 / 1 / -1 / -1;
+            width         : 100%;
+            min-width     : 0;
+            opacity       : 0;
+            pointer-events: none;
+            transition    : opacity 280ms ease;
+        }
+
+        .mkcp-account-login-col--active {
+            opacity       : 1;
+            pointer-events: auto;
+        }
+    }
+}
+
+.mkcp-account-login-toggle {
+    margin     : 16px 0 0;
+    font-family: $mkcp-login-font;
+    font-size  : 0.88em;
+    color      : var(--mkcp-acc-muted);
+
+    a {
+        color          : var(--mkcp-accent, #2e7d32) !important;
+        font-weight    : 600;
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+}
+
+// Zit ZELF binnen <form class="woocommerce-form-login"> (via de
+// woocommerce_login_form_start-hook, vóór de velden).
+.mkcp-account-login-subtitle {
+    margin     : 0 0 2px;
+    font-family: $mkcp-login-font;
+    font-size  : 0.86em;
+    font-style : italic;
+    color      : var(--mkcp-acc-muted);
+    padding-bottom: 0px!important;
+}
+
+// "Reset-mail verstuurd"-uitlegtekst (WC's eigen ongestylede <p>) — enige
+// plek waar zo'n kale <p> rechtstreeks in .formcol staat, dus veilig scoped.
+.mkcp-account-login-formcol > p {
+    margin     : 0;
+    color      : var(--mkcp-acc-muted);
+    font-family: $mkcp-login-font;
+    font-size  : 0.86em;
+    font-style : italic;
+    line-height: 1.55;
+}
+
+.mkcp-account-login-back-to-login {
+    margin-top: 28px;
+
+    a {
+        display        : inline-flex;
+        align-items    : center;
+        gap            : 6px;
+        color          : var(--mkcp-accent, #2e7d32) !important;
+        font-family    : $mkcp-login-font;
+        font-size      : 0.88em;
+        font-weight    : 600;
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+}
+
+.mkcp-account-login-brand {
+    display       : flex;
+    align-items   : center;
+    gap           : 9px;
+    margin-bottom : 12px;
+    padding-bottom: 10px;
+    border-bottom : 1px solid var(--mkcp-acc-border);
+    color         : var(--mkcp-acc-muted);
+    font-family   : $mkcp-login-font;
+    font-size     : 0.85em;
+    font-weight   : 600;
+    letter-spacing: 0.2px;
+
+    &__mark {
+        display        : inline-flex;
+        align-items    : center;
+        justify-content: center;
+        width          : 30px;
+        height         : 30px;
+        border-radius  : 9px;
+        background     : color-mix(in srgb, var(--mkcp-accent, #2e7d32) 10%, transparent);
+        color          : var(--mkcp-accent, #2e7d32);
+        flex-shrink    : 0;
+    }
+
+    // Eigen logo (WooCommerce → Cart Popup → Account → Loginscherm) i.p.v.
+    // het generieke icoon+label hierboven — max-height houdt 'm binnen de
+    // hoogte van de merkregel, ongeacht het eigen formaat van de upload.
+    &__logo {
+        display   : block;
+        max-height: 32px;
+        max-width : 200px;
+        width     : auto;
+        object-fit: contain;
+    }
+}
+
+// ── Formulier & velden ───────────────────────────────────────────────────
+
+.woocommerce-form-register {
+    display       : flex;
+    flex-direction: column;
+    gap           : 16px;
+}
+
+// Kale WooCommerce-tekstjes in het registratieformulier (auto-wachtwoord-
+// melding, privacyverklaring) — .mkcp-account-login-formcol > p hierboven
+// raakt deze niet, ze zitten dieper genest in .woocommerce-form-register.
+.woocommerce-form-register > p,
+.woocommerce-privacy-policy-text p {
+    margin     : 0;
+    color      : var(--mkcp-acc-muted);
+    font-family: $mkcp-login-font;
+    font-size  : 0.82em;
+    line-height: 1.5;
+
+    a {
+        color: var(--mkcp-accent, #2e7d32) !important;
+    }
+}
+
+// Gestapeld (1 kolom) — nu het voordelenpaneel ernaast de kaart vult, past
+// een normaal verticaal formulier beter dan een 2-koloms-grid.
+.woocommerce-form-login {
+    display       : flex;
+    flex-direction: column;
+    gap           : 11px;
+}
+
+.woocommerce-form-row {
+    padding-bottom: 0px!important;
+}
+
+.woocommerce-form-row,
+p.form-row {
+    margin: 0;
+
+    label {
+        display       : block;
+        margin-bottom : 6px;
+        font-family   : $mkcp-login-font;
+        font-size     : 0.84em;
+        font-weight   : 600;
+        letter-spacing: 0.1px;
+        color         : var(--mkcp-acc-text);
+
+        .required          { color: color-mix(in srgb, var(--mkcp-danger, #d32f2f) 75%, var(--mkcp-acc-muted) 25%); }
+        .screen-reader-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+    }
+
+    input.input-text,
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+        box-sizing   : border-box;
+        width        : 100%;
+        padding      : 0.62em 0.9em 0.62em 3.1em;
+        border       : 1px solid var(--mkcp-acc-border);
+        border-radius: 10px;
+        font-family  : $mkcp-login-font;
+        font-size    : 0.95em;
+        color        : var(--mkcp-acc-text);
+        background   : var(--mkcp-acc-bg) no-repeat 14px center / 18px 18px;
+        transition   : border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+
+        &:focus {
+            outline     : none;
+            border-color: var(--mkcp-accent, #2e7d32);
+            box-shadow  : var(--mkcp-acc-ring);
+            background-color: var(--mkcp-acc-card-bg);
+        }
+
+        // Vangnet voor Edge's ingebouwde "toon wachtwoord"-oogje (::-ms-reveal
+        // is de enige CSS-haak die Edge daadwerkelijk honoreert) — het eigen
+        // oogje hieronder (.mkcp-account-login-pwtoggle) is de daadwerkelijke,
+        // overal werkende vervanging.
+        &::-ms-reveal, &::-ms-clear { display: none; }
+    }
+}
+
+// Inline veld-validatie (addInlineValidation) — puur client-UX, WC's eigen
+// serverzijdige validatie blijft de echte controle. Element bestaat al bij
+// laden (leeg, verborgen) i.p.v. pas bij een fout aangemaakt, zodat de ruimte
+// eronder gereserveerd blijft (anders sprong de kaart van hoogte). min-height
+// i.p.v. line-height: een leeg element heeft zonder tekst geen line box.
+.mkcp-account-login-field-error {
+    display    : block;
+    min-height : 15px; // == de werkelijke regelhoogte mét tekst op deze font-size; in em bleek dat net iets te weinig, wat bij het verschijnen alsnog een paar pixels hoogteverschil gaf
+    margin-top : -10px;
+    color      : var(--mkcp-danger, #d32f2f);
+    font-family: $mkcp-login-font;
+    font-size  : 0.72em;
+    font-weight: 600;
+    opacity    : 1;
+    transition : opacity 150ms ease;
+
+    &--hidden {
+        opacity: 0;
+    }
+}
+
+.mkcp-account-login-field-invalid {
+    border-color: var(--mkcp-danger, #d32f2f) !important;
+}
+
+// Slim persoon-/envelop-icoon (assets/account-login.js, addSmartFieldIcon) —
+// een los element i.p.v. background-image, want alleen zo kan het icoon bij
+// het wisselen ook echt "poppen" (scale/rotate); een background-image kun je
+// niet los van de rest van het veld animeren.
+.mkcp-account-login-userfield {
+    position: relative;
+    display : block;
+}
+
+.mkcp-account-login-userfield__icon {
+    // z-index nodig: #username en dit icoon zaten anders in dezelfde
+    // stapelvolgorde-laag (allebei z-index:auto), en dan wint puur DOM-
+    // volgorde — het veld (ná het icoon toegevoegd, met een ondoorzichtige
+    // achtergrond) schilderde het icoon dan gewoon plat weg.
+    position       : absolute;
+    z-index        : 1;
+    left           : 14px;
+    top            : 50%;
+    transform      : translateY(-50%);
+    width          : 18px;
+    height         : 18px;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    color          : var(--mkcp-acc-muted);
+    pointer-events : none;
+
+    svg { display: block; }
+}
+
+// Kort, speels "pop"-momentje bij elke wissel tussen de twee icoontjes —
+// scale + rotate i.p.v. een simpele fade, dat oogt net wat levendiger.
+@keyframes mkcp-account-login-icon-pop {
+    0%   { transform: translateY(-50%) scale(0.4) rotate(-20deg); opacity: 0; }
+    55%  { transform: translateY(-50%) scale(1.2) rotate(8deg); opacity: 1; }
+    100% { transform: translateY(-50%) scale(1) rotate(0deg); opacity: 1; }
+}
+
+.mkcp-account-login-userfield__icon--pop {
+    animation: mkcp-account-login-icon-pop 340ms cubic-bezier(.34, 1.56, .64, 1);
+}
+
+// ── Wachtwoordveld vergrendeld tot geldig e-mailadres (registratie) ────────
+// assets/account-login.js, lockPasswordUntilValidEmail.
+.mkcp-account-login-pwfield--locked {
+    opacity: .55;
+
+    input[type="password"], input[type="text"] {
+        cursor    : not-allowed;
+        background: var(--mkcp-acc-border);
+    }
+
+    .mkcp-account-login-pwtoggle {
+        pointer-events: none;
+        opacity       : .4;
+    }
+}
+
+// Zichtbaarheid via opacity/visibility i.p.v. display:none — de ruimte
+// eronder blijft zo gereserveerd, anders veranderde de kaarthoogte telkens
+// zodra bv. "Vul eerst je gebruikersnaam of e-mailadres in" verscheen.
+.mkcp-account-login-field-hint {
+    display    : block;
+    margin-top : 5px;
+    font-family: $mkcp-login-font;
+    font-size  : 0.78em;
+    font-style : italic;
+    color      : var(--mkcp-acc-muted);
+    opacity    : 1;
+    visibility : visible;
+    transition : opacity 150ms ease;
+
+    &--hidden {
+        opacity   : 0;
+        visibility: hidden;
+    }
+}
+
+// Wachtwoordsterkte-indicator (registratieformulier, addPasswordStrengthMeter)
+.mkcp-account-login-strength {
+    margin-top: 6px;
+
+    &__bar {
+        height       : 4px;
+        width        : 0%;
+        border-radius: 2px;
+        background   : var(--mkcp-acc-border);
+        transition   : width 200ms ease, background-color 200ms ease;
+    }
+
+    &__label {
+        display    : block;
+        margin-top : 4px;
+        font-family: $mkcp-login-font;
+        font-size  : 0.72em;
+        font-weight: 600;
+        color      : var(--mkcp-acc-muted);
+    }
+
+    &--weak   .mkcp-account-login-strength__bar { background: var(--mkcp-danger, #d32f2f); }
+    &--weak   .mkcp-account-login-strength__label { color: var(--mkcp-danger, #d32f2f); }
+    &--fair   .mkcp-account-login-strength__bar { background: #e29320; }
+    &--fair   .mkcp-account-login-strength__label { color: #e29320; }
+    &--good   .mkcp-account-login-strength__bar { background: #2e7d32; }
+    &--good   .mkcp-account-login-strength__label { color: #2e7d32; }
+    &--strong .mkcp-account-login-strength__bar { background: var(--mkcp-accent, #2e7d32); }
+    &--strong .mkcp-account-login-strength__label { color: var(--mkcp-accent, #2e7d32); }
+}
+
+// Wachtwoord-eisenlijst (registratieformulier, addPasswordRequirements) —
+// concreter dan het kleurbalkje hierboven: elke eis vinkt zelfstandig af.
+.mkcp-account-login-requirements {
+    display       : flex;
+    flex-wrap     : wrap;
+    gap           : 4px 12px;
+    margin        : 8px 0 0;
+    padding       : 0;
+    list-style    : none;
+
+    &__item {
+        display    : flex;
+        align-items: center;
+        gap        : 5px;
+        color      : var(--mkcp-acc-muted);
+        font-family: $mkcp-login-font;
+        font-size  : 0.76em;
+        font-weight: 600;
+        transition : color 150ms ease;
+
+        &--met {
+            color: var(--mkcp-accent, #2e7d32);
+
+            .mkcp-account-login-requirements__icon {
+                opacity  : 1;
+                transform: scale(1);
+            }
+        }
+    }
+
+    &__icon {
+        flex-shrink    : 0;
+        display        : inline-flex;
+        align-items    : center;
+        justify-content: center;
+        width          : 14px;
+        height         : 14px;
+        border-radius  : 50%;
+        background     : color-mix(in srgb, var(--mkcp-accent, #2e7d32) 16%, transparent);
+        color          : var(--mkcp-accent, #2e7d32);
+        opacity        : 0.35;
+        transform      : scale(0.7);
+        transition     : opacity 200ms ease, transform 200ms cubic-bezier(.34, 1.56, .64, 1);
+
+        svg { width: 9px; height: 9px; display: block; }
+    }
+}
+
+// ── Zelfgebouwde "toon wachtwoord"-toggle ───────────────────────────────────
+// Native reveal-knopjes verschillen enorm per browser (of ontbreken) en zijn
+// niet overal goed te stylen — vandaar een eigen, overal identiek oogje.
+// account-login.js wrapt elk #password/#reg_password-veld in
+// <span class="mkcp-account-login-pwfield">, puur additief.
+.mkcp-account-login-pwfield {
+    // display:flex i.p.v. block — een <span> om een inline-block <input>
+    // krijgt anders extra ruimte ONDER het veld (baseline-gedrag van inline
+    // content), waardoor de top:50%-knop niet op het midden van het
+    // zichtbare veld uitkomt. Flex met align-items:center sluit strak aan.
+    position   : relative;
+    display    : flex;
+    align-items: center;
+    width      : 100%;
+
+    input[type="password"],
+    input[type="text"] {
+        flex          : 1;
+        width         : 100%;
+        min-width     : 0;
+        padding-right : 2.5em;
+    }
+}
+
+// Kijkend mascotje-icoontje (links in het wachtwoordveld) — zelfde
+// positionering/z-index-logica als .mkcp-account-login-userfield__icon
+// hierboven, en om dezelfde reden: anders schildert het veld het icoon weg.
+.mkcp-account-login-pwfield__peek {
+    position       : absolute;
+    z-index        : 1;
+    left           : 14px;
+    top            : 50%;
+    transform      : translateY(-50%);
+    width          : 18px;
+    height         : 18px;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    color          : var(--mkcp-acc-muted);
+    pointer-events : none;
+
+    svg { display: block; }
+
+    &--pop {
+        animation: mkcp-account-login-icon-pop 340ms cubic-bezier(.34, 1.56, .64, 1);
+    }
+}
+
+// ── Caps Lock-waarschuwing ──────────────────────────────────────────────────
+.mkcp-account-login-capslock {
+    color      : #e29320;
+    font-style : normal;
+    font-weight: 600;
+}
+
+// ── Groen vinkje bij een geldig ingevuld veld ───────────────────────────────
+.mkcp-account-login-checkfield {
+    position: relative;
+    display : block;
+}
+
+// Extra ruimte rechts zodat het vinkje nooit over getypte tekst heen komt te
+// staan.
+#username,
+#reg_email,
+#reg_username {
+    padding-right: 2.4em !important;
+}
+
+.mkcp-account-login-checkmark {
+    position       : absolute;
+    z-index        : 1;
+    right          : 14px;
+    top            : 50%;
+    transform      : translateY(-50%) scale(0.6);
+    width          : 18px;
+    height         : 18px;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    color          : var(--mkcp-accent, #2e7d32);
+    opacity        : 0;
+    pointer-events : none;
+    transition     : opacity 150ms ease;
+
+    svg { display: block; }
+
+    &--visible { opacity: 1; }
+
+    &--pop {
+        animation: mkcp-account-login-checkmark-pop 340ms cubic-bezier(.34, 1.56, .64, 1);
+    }
+}
+
+@keyframes mkcp-account-login-checkmark-pop {
+    0%   { transform: translateY(-50%) scale(0.3) rotate(-15deg); }
+    60%  { transform: translateY(-50%) scale(1.25) rotate(5deg); }
+    100% { transform: translateY(-50%) scale(1) rotate(0deg); }
+}
+
+// ── E-mail-typfout-suggestie ────────────────────────────────────────────────
+// Zichtbaarheid via opacity/visibility i.p.v. display:none, zelfde reden als
+// .mkcp-account-login-field-hint hierboven: ruimte blijft gereserveerd.
+.mkcp-account-login-typo-hint {
+    display    : block;
+    // Zonder dit collapte het lege <button> (geen line box zonder tekst, dus
+    // line-height alleen helpt niet) en sprong de kaart alsnog van hoogte
+    // zodra de eerste suggestie verscheen. em, zodat het meeschaalt.
+    min-height : 1.4em;
+    margin-top : 5px;
+    padding    : 0;
+    border     : none;
+    background : none;
+    color      : var(--mkcp-accent, #2e7d32);
+    font-family: $mkcp-login-font;
+    font-size  : 0.78em;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor     : pointer;
+    opacity    : 1;
+    visibility : visible;
+    transition : opacity 150ms ease;
+
+    &:hover { opacity: .8; }
+
+    &--hidden {
+        opacity       : 0 !important;
+        visibility    : hidden;
+        pointer-events: none;
+    }
+}
+
+// ── Confetti-burst (registratie, sterk wachtwoord) ──────────────────────────
+.mkcp-account-login-confetti {
+    position      : fixed;
+    width         : 7px;
+    height        : 7px;
+    border-radius : 2px;
+    pointer-events: none;
+    z-index       : 9999;
+    animation     : mkcp-account-login-confetti-burst 700ms ease-out forwards;
+}
+
+@keyframes mkcp-account-login-confetti-burst {
+    0% {
+        transform: translate(-50%, -50%) translate(0, 0) rotate(0deg);
+        opacity  : 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) translate(var(--mkcp-confetti-x), var(--mkcp-confetti-y)) rotate(var(--mkcp-confetti-rot));
+        opacity  : 0;
+    }
+}
+
+// ── Attentie-puls op "wachtwoord vergeten" (na herhaalde mislukkingen) ─────
+@keyframes mkcp-account-login-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mkcp-accent, #2e7d32) 35%, transparent); }
+    50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--mkcp-accent, #2e7d32) 0%, transparent); }
+}
+
+.mkcp-account-login-pulse {
+    display      : inline-block;
+    border-radius: 5px;
+    animation    : mkcp-account-login-pulse 1.6s ease-in-out infinite;
+}
+
+// Chrome/Edge's EIGEN "wachtwoord weergeven"-knop — ondanks de naam
+// ::-ms-reveal is dit een gewoon DOM-element (button.show-password-input,
+// niet in een shadow-root) en dus met CSS te pakken. Moet weg, anders staan
+// er twee oogjes door elkaar met ons eigen consistente oogje hierboven.
+.show-password-input {
+    display: none !important;
+}
+
+.mkcp-account-login-pwtoggle {
+    position       : relative;
+    flex-shrink    : 0;
+    margin-left    : -2.5em;
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 28px;
+    height         : 28px;
+    padding        : 0;
+    border         : none;
+    border-radius  : 7px;
+    background     : transparent;
+    color          : var(--mkcp-acc-muted);
+    cursor         : pointer;
+    transition     : background-color 150ms ease, color 150ms ease;
+
+    svg { display: block; }
+
+    &:hover        { background: var(--mkcp-acc-border); color: var(--mkcp-acc-text); }
+    &:focus-visible { outline: none; box-shadow: var(--mkcp-acc-ring); }
+}
+
+// #username NIET hier — dat krijgt zijn icoon via een los JS-element
+// (addSmartFieldIcon) zodat het kan "poppen" tussen persoon/envelop.
+// #reg_username/#user_login wisselen nooit van betekenis, dus simpel
+// background-image.
+#reg_username,
+#user_login {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
+}
+
+#username {
+    background-image: none !important;
+}
+
+// GEEN background-image hier — #password/#reg_password krijgen hun icoon via
+// het losse "kijkend mascotje"-element (.mkcp-account-login-pwfield__peek,
+// addPasswordToggle), dat kan wisselen tussen open/dicht.
+
+// GEEN background-image meer — browsers schilderen bij een autofill-
+// suggestie hun eigen achtergrondkleur over het veld, wat zo'n icoon aan het
+// zicht onttrekt (zelfde probleem als eerder bij #user_login/#username). Het
+// envelop-icoon komt nu via een JS-overlay-element i.p.v. CSS.
+#reg_email {
+    background-image: none !important;
+}
+
+// "Onthouden"-checkbox + inlogknop (resp. registratieknop) op één rij,
+// zelfde patroon als de rest van de Account-omgeving.
+p.form-row:has(.woocommerce-form-login__submit),
+p.form-row:has(button[name="register"]) {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    gap            : 14px;
+    flex-wrap      : wrap;
+    margin-top     : 2px;
+}
+
+.woocommerce-LostPassword {
+    margin     : 2px 0 0;
+    font-family: $mkcp-login-font;
+    font-size  : 0.85em;
+
+    a {
+        color          : var(--mkcp-accent, #2e7d32) !important;
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+}
+
+// Herbruikbaar merk-passende checkbox, appearance:none — zelfde patroon als
+// .mkcp-checkbox in account.scss, hier bewust los gehouden (mogen
+// onafhankelijk wijzigen).
+//
+// !important op display/align-items: WC's eigen 3-class-selector
+// (specificiteit 0,3,0) wint anders altijd van onze 1-class-selector,
+// waardoor checkbox+tekst als losse inline-elementen bleven vloeien i.p.v.
+// verticaal gecentreerd naast elkaar.
+.woocommerce-form__label-for-checkbox {
+    display    : inline-flex !important;
+    align-items: center !important;
+    gap        : 8px;
+    font-family: $mkcp-login-font;
+    font-size  : 0.88em;
+    font-weight: 500;
+    line-height: 1;
+    color      : var(--mkcp-acc-muted);
+    cursor     : pointer;
+
+    // appearance:none op de <input> zelf (i.p.v. netter via een <span>, dat
+    // vraagt om WC's markup te wijzigen) — daarom hier expliciet elke UA-
+    // eigenaardigheid resetten zodat geen "kale" native checkbox doorpiept.
+    input[type="checkbox"] {
+        appearance        : none;
+        -webkit-appearance: none;
+        -moz-appearance   : none;
+        box-sizing        : border-box;
+        display           : block;
+        flex-shrink       : 0;
+        width             : 18px;
+        height            : 18px;
+        margin            : 0;
+        padding           : 0;
+        border            : 1.5px solid var(--mkcp-acc-border);
+        border-radius     : 5px;
+        background        : var(--mkcp-acc-card-bg);
+        box-shadow        : none;
+        outline           : none;
+        vertical-align    : middle;
+        cursor             : pointer;
+        position          : relative;
+        transition        : background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+
+        &:hover { border-color: var(--mkcp-accent, #2e7d32); }
+
+        &:focus-visible { box-shadow: var(--mkcp-acc-ring); }
+
+        &:checked {
+            background  : var(--mkcp-accent, #2e7d32);
+            border-color: var(--mkcp-accent, #2e7d32);
+
+            &::after {
+                content     : '';
+                position    : absolute;
+                left        : 6px;
+                top         : 2px;
+                width       : 3px;
+                height      : 9px;
+                border      : solid #fff;
+                border-width: 0 2px 2px 0;
+                transform   : rotate(45deg);
+            }
+        }
+
+        &:active { transform: scale(0.9); }
+    }
+}
+
+.woocommerce-form-login__submit,
+.woocommerce-form-register__submit {
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : 8px;
+    padding        : 0.65em 1.5em;
+    border         : none;
+    border-radius  : 10px;
+    background     : var(--mkcp-accent, #2e7d32);
+    color          : #ffffff !important;
+    font-family    : $mkcp-login-font;
+    font-size      : 0.95em;
+    font-weight    : 600;
+    cursor         : pointer;
+    box-shadow     : 0 1px 2px rgba(0, 0, 0, .06);
+    transition     : transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+
+    &:hover  { transform: translateY(-1px); box-shadow: 0 8px 16px -6px color-mix(in srgb, var(--mkcp-accent, #2e7d32) 55%, transparent); }
+    &:active { transform: translateY(0); }
+
+    // Klein pijltje na de knoptekst — puur CSS, geen extra markup nodig.
+    &::after {
+        content    : '';
+        width      : 14px;
+        height     : 14px;
+        background : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3Cpolyline points='12 5 19 12 12 19'/%3E%3C/svg%3E") no-repeat center / contain;
+        transition : transform 150ms ease, opacity 150ms ease;
+    }
+
+    &:hover::after { transform: translateX(3px); }
+}
+
+// Laadstatus tijdens het versturen (.is-loading, voorkomt dubbel-submit).
+// ::before i.p.v. ::after voor het draaiende rondje, ::after is al het pijltje.
+@keyframes mkcp-account-login-spin {
+    to { transform: rotate(360deg); }
+}
+
+.woocommerce-form-login__submit,
+.woocommerce-form-register__submit,
+.woocommerce-ResetPassword .woocommerce-Button {
+    &.is-loading {
+        position      : relative;
+        color         : transparent !important;
+        pointer-events: none;
+
+        &::after { opacity: 0; }
+
+        &::before {
+            content      : '';
+            position     : absolute;
+            top          : 50%;
+            left         : 50%;
+            width        : 16px;
+            height       : 16px;
+            margin       : -8px 0 0 -8px;
+            border       : 2px solid rgba(255, 255, 255, .4);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation    : mkcp-account-login-spin 600ms linear infinite;
+        }
+    }
+}
+
+// ── "Wachtwoord vergeten" (myaccount/form-lost-password.php) ───────────────
+// Ander WC-sjabloon dan het loginformulier, eigen hookpaar — vandaar een
+// aparte sectie. Altijd 1 kolom, zonder eigen <h2> (die voegt PHP zelf toe).
+.woocommerce-ResetPassword {
+    display       : flex;
+    flex-direction: column;
+    gap           : 16px;
+
+    // De introtekst ("Wachtwoord vergeten? Voer je...") is de eerste <p>,
+    // vóór het username-veld — als subtitel stylen, zelfde rol als
+    // .mkcp-account-login-subtitle bij het loginformulier.
+    > p:first-of-type {
+        margin     : -6px 0 2px;
+        font-family: $mkcp-login-font;
+        font-size  : 0.86em;
+        font-style : italic;
+        color      : var(--mkcp-acc-muted);
+    }
+
+    // Puur een oude floats-clearfix, overbodig (en een ongewenste lege
+    // gap-rij) in deze flex-kolom.
+    .clear { display: none; }
+
+    .woocommerce-Button {
+        display        : inline-flex;
+        align-items    : center;
+        justify-content: center;
+        gap            : 8px;
+        padding        : 0.8em 1.7em;
+        border         : none;
+        border-radius  : 10px;
+        background     : var(--mkcp-accent, #2e7d32);
+        color          : #ffffff !important;
+        font-family    : $mkcp-login-font;
+        font-size      : 0.95em;
+        font-weight    : 600;
+        cursor         : pointer;
+        box-shadow     : 0 1px 2px rgba(0, 0, 0, .06);
+        transition     : transform 150ms ease, box-shadow 150ms ease;
+
+        &:hover { transform: translateY(-1px); box-shadow: 0 8px 16px -6px color-mix(in srgb, var(--mkcp-accent, #2e7d32) 55%, transparent); }
+    }
+}
+
+// Vertrouwenssignaal onder de inlogknop (woocommerce_login_form_end-hook,
+// account-frontend.php) — zelfde idee als checkout's .mkcp-login-trust
+// (includes/checkout-frontend.php).
+.mkcp-account-login-trust {
+    display    : flex;
+    align-items: center;
+    gap        : 6px;
+    margin     : 10px 0 0;
+    font-family: $mkcp-login-font;
+    font-size  : 0.78em;
+    color      : var(--mkcp-acc-muted);
+
+    svg { flex-shrink: 0; opacity: .7; }
+}
+
+// ── Foutmelding/melding/info ────────────────────────────────────────────────
+// WC print deze notices af VÓÓRDAT onze hooks vuren (wc_print_notices()
+// draait al bij het begin van de shortcode) — ze landen als losse <ul> vóór
+// de kaart, als flex-child van .mkcp-account-login-main. Bewust NIET in de
+// kaart verplaatst (oogde gepropt) maar als eigen zelfstandig kaartje erboven.
+//
+// !important overal: WC's eigen basisregel heeft EXACT dezelfde specificiteit
+// (1 class) als deze selector — bij zo'n gelijkspel wint de laadvolgorde, en
+// die wonnen wij niet altijd (zelfde bug als eerder bij de checkbox).
+@keyframes mkcp-account-login-notice-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+// Bewust GEEN display:flex op de <ul>: WC voegt bij sommige meldingen een
+// eigen actieknop toe (".woocommerce-message .button{float:right}") als
+// DIRECT kind van de <ul>. Op flex wordt float genegeerd en ging de knop
+// over de tekst heen liggen — gewone blok-layout + absoluut icoon is veilig.
+.woocommerce-error,
+.woocommerce-message,
+.woocommerce-info {
+    // Zelfde min-/max-width als .mkcp-account-login-card — anders lijnen
+    // melding en kaart niet op elkaar uit.
+    box-sizing   : border-box !important;
+    width        : 100% !important;
+    min-width    : 1000px !important;
+    max-width    : 1200px !important;
+    margin       : 0 0 14px !important;
+    padding      : 11px 40px 11px 42px !important;
+    border-radius: 12px !important;
+    border        : none !important;
+    outline       : 0px;
+    border-left   : 4px solid var(--mkcp-danger, #d32f2f) !important;
+    list-style    : none !important;
+    position      : relative;
+    font-family   : $mkcp-login-font;
+    font-size     : 0.9em;
+    line-height   : 1.4;
+    background    : var(--mkcp-acc-card-bg) !important;
+    box-shadow    : var(--mkcp-acc-shadow-lg) !important;
+    color         : var(--mkcp-acc-text) !important;
+    animation     : mkcp-account-login-notice-in 280ms ease;
+
+    &::before {
+        content   : '';
+        position  : absolute;
+        left      : 14px;
+        top       : 50%;
+        transform : translateY(-50%);
+        width     : 18px;
+        height    : 18px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d32f2f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+
+    // WooCommerce's eigen actieknop (bv. "Verder winkelen") — herstylen naar
+    // een kleine, passende ghost-knop i.p.v. de zware standaard-knopstijl die
+    // 'm anders van het thema/WC-kern overerft.
+    .button {
+        float          : right;
+        margin         : -2px 0 -2px 12px;
+        padding        : 0.4em 1em;
+        border         : 1px solid var(--mkcp-acc-border);
+        border-radius  : 8px;
+        background     : var(--mkcp-acc-bg);
+        color          : var(--mkcp-acc-text) !important;
+        font-family    : $mkcp-login-font;
+        font-size      : 0.9em;
+        font-weight    : 600;
+        text-decoration: none;
+        white-space    : nowrap;
+        transition     : background-color 150ms ease, border-color 150ms ease;
+
+        &:hover {
+            background  : var(--mkcp-acc-card-bg);
+            border-color: var(--mkcp-accent, #2e7d32);
+        }
+    }
+}
+
+.woocommerce-message {
+    border-left-color: var(--mkcp-accent, #2e7d32) !important;
+
+    &::before {
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232e7d32' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='8 12 11 15 16 9'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+}
+
+.woocommerce-info {
+    border-left-color: #1e6fbf !important;
+
+    &::before {
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231e6fbf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+}
+
+// Aandacht-trekkende schud bij mislukte inlogpoging — bewust op de MELDING
+// (niet de kaart): een transform op de kaart (ancestor van het wachtwoordveld)
+// stuurt de wachtwoordmanager-overlay in de war, zie mkcp-login-card-in.
+// De melding is een sibling van het formulier, dus hier veilig.
+@keyframes mkcp-account-login-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+}
+
+.woocommerce-error.mkcp-account-login-shake {
+    animation: mkcp-account-login-shake 400ms ease;
+}
+
+// Sluitkruisje, door assets/account-login.js toegevoegd.
+.mkcp-account-login-notice__close {
+    position       : absolute;
+    top            : 50%;
+    right          : 8px;
+    transform      : translateY(-50%);
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 26px;
+    height         : 26px;
+    padding        : 0;
+    border         : none;
+    border-radius  : 7px;
+    background     : transparent;
+    color          : inherit;
+    opacity        : .6;
+    cursor         : pointer;
+    transition     : background-color 150ms ease, opacity 150ms ease;
+
+    svg { display: block; }
+
+    &:hover { background: rgba(0, 0, 0, .06); opacity: 1; }
+}
+
+// 1024px i.p.v. 720px — de kaart heeft een vaste min-width:1000px, dus de
+// mobiele layout moet ruim vóór die drempel al actief zijn, anders wordt de
+// pagina breder dan het venster (horizontale overflow).
+@media (max-width: 1024px) {
+    .mkcp-account-login-main {
+        // padding-top ruim boven de hoogte van .mkcp-account-login-back
+        // (fixed, top:14px) — op een kort scherm valt de kaart terug op deze
+        // padding als bovengrens en zou anders onder de terug-link vallen.
+        padding: 56px 12px 16px;
+    }
+
+    .mkcp-account-login-back {
+        top : 14px;
+        left: 14px;
+    }
+
+    .mkcp-account-login-external-logo {
+        max-height: 56px;
+        max-width : min(260px, calc(100% - 20px));
+        padding   : 12px 20px;
+        margin    : 0 auto 14px;
+    }
+
+    .mkcp-account-login-card {
+        // Vaste min-/max-width hierboven is voor desktop — op smal scherm
+        // mag de kaart de volle breedte gebruiken.
+        min-width: 0;
+        max-width: 480px;
+        padding  : 30px 22px 26px;
+    }
+
+    .woocommerce-error,
+    .woocommerce-message,
+    .woocommerce-info {
+        min-width: 0 !important;
+        max-width: 480px !important;
+    }
+
+    // Split-kaart: formulier + paneel ONDER elkaar i.p.v. naast elkaar —
+    // .card--split is standaard display:flex zonder flex-direction (dus
+    // row), hier omgezet naar column.
+    .mkcp-account-login-card--split {
+        flex-direction: column;
+        padding       : 0;
+    }
+
+    // .formcol's desktop flex-basis was voor BREEDTE — zou hier als HOOGTE
+    // gelden nu de hoofdas verticaal is (column). Resetten naar volle breedte.
+    .mkcp-account-login-formcol {
+        flex   : none;
+        width  : 100%;
+        padding: 30px 22px 26px;
+    }
+
+    // Paneel blijft staan (i.p.v. display:none) — desktop flex-sizing is hier
+    // zinloos, vervangen door simpele mobiele padding.
+    .mkcp-account-login-panel {
+        flex   : none;
+        padding: 24px 22px;
+    }
+
+    // Achtergrondfoto: van rechts-naast-paneel naar onderaan-uitgelijnd-met-
+    // paneeltop (nu onderaan gestapeld). account-login.js zet `top` hierop.
+    .mkcp-account-login-bgphoto {
+        left  : 0;
+        right : 0;
+        bottom: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-account-login-card { animation: none; }
+    .woocommerce-error,
+    .woocommerce-message,
+    .woocommerce-info { animation: none; }
+    .woocommerce-error.mkcp-account-login-shake { animation: none; }
+    .mkcp-account-login-userfield__icon--pop { animation: none; }
+    .mkcp-account-login-pwfield__peek--pop { animation: none; }
+    .mkcp-account-login-checkmark--pop { animation: none; }
+    .mkcp-account-login-pulse { animation: none; }
+    #customer_login.col2-set.mkcp-account-login-col2--js {
+        transition: none;
+        .u-column1, .u-column2 { transition: none; }
+    }
+}

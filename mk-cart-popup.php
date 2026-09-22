@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:  MK Cart Popup & Checkout
- * Description:  Slide-in cart drawer for WooCommerce. Intercepts add-to-cart on every page, handles qty/remove via AJAX, and redirects /cart to a configurable URL.
- * Version:      1.14.31-beta.27
+ * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
+ * Version:      1.14.31-beta.74
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.14.31-beta.27' );
+define( 'MKCP_VER',  '1.14.31-beta.74' );
+
+// Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
+// (admin/settings.php + de clamp in config.php), de sleepgreep-template
+// (aria-valuemin) en de sleeplogica in cart-popup.js — die leest 'm uit het
+// data-min-width-attribuut van de greep, zodat deze waarde op precies één
+// plek staat i.p.v. op vier plekken los hardgecodeerd.
+define( 'MKCP_RESIZE_MIN_WIDTH', 360 );
 
 // URL to the update manifest on GitHub (raw main branch).
 // Change this when you move the repo to a different organisation or name.
@@ -71,6 +78,7 @@ require_once MKCP_PATH . 'includes/pickup.php';
 require_once MKCP_PATH . 'includes/pickup-ready.php';
 require_once MKCP_PATH . 'includes/thankyou.php';
 require_once MKCP_PATH . 'includes/shipping-choice.php';
+require_once MKCP_PATH . 'includes/popup-setup.php';
 
 register_deactivation_hook( __FILE__, function() {
     wp_clear_scheduled_hook( 'mkcp_ac_cron' );
@@ -235,6 +243,27 @@ add_action( 'wp_enqueue_scripts', function() {
         }
     }
 
+    // Auto-enqueue child theme CSS overrides — blijft altijd geladen, ook op
+    // de login-pagina (zie hieronder): dat kan bv. ook merkkleuren buiten de
+    // popup om overschrijven, en de bestandsgrootte is verwaarloosbaar.
+    $override_file = get_stylesheet_directory() . '/mk-cart-popup/style.css';
+    if ( file_exists( $override_file ) ) {
+        wp_enqueue_style(
+            'mk-cart-popup-theme',
+            get_stylesheet_directory_uri() . '/mk-cart-popup/style.css',
+            [ 'mk-cart-popup' ],
+            (string) filemtime( $override_file ) // auto-bust cache on file save
+        );
+    }
+
+    // Het distraction-free login-/registratie-/wachtwoord-vergeten-scherm
+    // heeft helemaal geen add-to-cart-flow — alleen de CSS hierboven (de
+    // gedeelde --mkcp-*-tokens waar account-login.scss op leunt, zie het
+    // bestandskop daar) is nodig, niet de interactieve popup-drawer zelf.
+    // Zelfde uitzonderingsgedachte als mkcp_is_distraction_free_checkout()
+    // elders in dit bestand.
+    if ( function_exists( 'mkcp_account_login_should_style' ) && mkcp_account_login_should_style() ) return;
+
     wp_enqueue_script(
         'mk-cart-popup',
         MKCP_URL . 'assets/cart-popup.js',
@@ -254,17 +283,6 @@ add_action( 'wp_enqueue_scripts', function() {
             [ 'jquery', 'mk-cart-popup' ],
             MKCP_VER,
             true
-        );
-    }
-
-    // Auto-enqueue child theme CSS overrides.
-    $override_file = get_stylesheet_directory() . '/mk-cart-popup/style.css';
-    if ( file_exists( $override_file ) ) {
-        wp_enqueue_style(
-            'mk-cart-popup-theme',
-            get_stylesheet_directory_uri() . '/mk-cart-popup/style.css',
-            [ 'mk-cart-popup' ],
-            (string) filemtime( $override_file ) // auto-bust cache on file save
         );
     }
 
@@ -311,6 +329,11 @@ add_action( 'wp_enqueue_scripts', function() {
 
 add_action( 'wp_footer', function() {
     if ( ! mkcp_woocommerce_active() || ! mkcp_is_enabled() || is_cart() || mkcp_is_distraction_free_checkout() ) return;
+    // Distraction-free login-/registratie-/wachtwoord-vergeten-scherm heeft
+    // zelf geen enkele add-to-cart-flow — de hele popup-drawer (en al zijn
+    // JS/AJAX-gedrag) is daar dode gewicht. Zelfde uitzonderingspatroon als
+    // mkcp_is_distraction_free_checkout() hierboven.
+    if ( function_exists( 'mkcp_account_login_should_style' ) && mkcp_account_login_should_style() ) return;
     if ( ! mkcp_license_has( 'basic' ) ) return;
     include mkcp_get_template_path();
 }, 5 );
@@ -330,6 +353,22 @@ add_action( 'wp_footer', function() {
 add_action( 'wp_footer', function() {
     if ( ! mkcp_woocommerce_active() || ! mkcp_is_enabled() || is_cart() || mkcp_is_distraction_free_checkout() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
+    // De Account-omgeving (/mijn-account/) heeft al haar eigen vaste bottom-
+    // nav én een eigen winkelwagen-icoontje in de topbar — deze losse,
+    // sitebrede peek-tab wist daar niets van (rendert altijd via wp_footer,
+    // ongeacht pagina) en ging op een kort scherm precies over die bottom-
+    // nav heen hangen. Op de Account-pagina is de peek-tab overbodig
+    // (dubbelop met het topbar-icoontje) én de bron van het overlap-
+    // probleem, dus hier bewust uitgezet.
+    //
+    // is_account_page() ALLEEN is niet genoeg (en mkcp_account_is_active()
+    // ALLEEN ook niet) — de eerste is ook true voor de normale WooCommerce-
+    // "Mijn account", de tweede zegt alleen iets over of de functie
+    // aanstaat, niet of we op die pagina zitten. Zelfde gecombineerde check
+    // als overal elders waar de Account-template wordt herkend (zie
+    // includes/account-frontend.php).
+    if ( function_exists( 'is_account_page' ) && is_account_page()
+        && function_exists( 'mkcp_account_is_active' ) && mkcp_account_is_active() ) return;
 
     $config = mkcp_config();
     if ( empty( $config['mobile_app_experience'] ) ) return;
@@ -370,6 +409,7 @@ add_action( 'wp_footer', function() {
 // cart-popup.js zelf leest 'm uit (zie applyFragments() in cart-popup.js).
 add_filter( 'woocommerce_add_to_cart_fragments', function( $fragments ) {
     if ( ! mkcp_woocommerce_active() || ! mkcp_is_enabled() || is_cart() || mkcp_is_distraction_free_checkout() ) return $fragments;
+    if ( function_exists( 'mkcp_account_login_should_style' ) && mkcp_account_login_should_style() ) return $fragments;
     if ( ! mkcp_license_has( 'basic' ) ) return $fragments;
     ob_start();
     include mkcp_get_template_path();
@@ -428,6 +468,62 @@ add_action( 'wc_ajax_add_to_cart',               'mkcp_ajax_fix_any_attribute_va
 add_action( 'wp_ajax_woocommerce_add_to_cart',        'mkcp_ajax_fix_any_attribute_variation', 5 );
 add_action( 'wp_ajax_nopriv_woocommerce_add_to_cart', 'mkcp_ajax_fix_any_attribute_variation', 5 );
 
+/**
+ * Bouwt de complete attributen-array voor een variatie met "Elke"-attributen.
+ *
+ * Gedeelde kern van de fix hierboven: WC_Cart::add_to_cart() weigert een
+ * variatie zodra een "Elke"-attribuut (leeg opgeslagen op de variatie zelf)
+ * niet expliciet wordt meegegeven. Elke plek die rechtstreeks add_to_cart()
+ * aanroept (het AJAX-endpoint hieronder, opnieuw bestellen, wishlist → cart)
+ * moet die waarden dus zelf aanleveren.
+ *
+ * $known_attributes zijn de al bekende keuzes van de klant (geposte
+ * attribute_*-velden, of de op de orderregel bewaarde variatie-meta), met of
+ * zonder 'attribute_'-prefix. Wat daar niet in staat valt terug op het
+ * standaardattribuut van het hoofdproduct.
+ *
+ * @return array Attributen (keys mét 'attribute_'-prefix, zoals WC_Cart
+ *               verwacht), leeg als er niets te fixen valt (WooCommerce's
+ *               eigen pad is dan al correct), of false als een "Elke"-
+ *               attribuut niet te bepalen is — de klant moet dan zelf kiezen.
+ */
+function mkcp_resolve_any_attribute_variation( int $variation_id, array $known_attributes = [] ) {
+    if ( ! $variation_id || ! function_exists( 'wc_get_product' ) ) return [];
+
+    $variation = wc_get_product( $variation_id );
+    if ( ! $variation || 'variation' !== $variation->get_type() ) return [];
+
+    $stored = $variation->get_variation_attributes();
+    if ( ! in_array( '', $stored, true ) ) return []; // geen "Elke"-attribuut: niets te doen
+
+    // Beide schrijfwijzen accepteren: geposte formuliervelden hebben de
+    // 'attribute_'-prefix, order-item-meta niet (WC_Order_Item_Product::
+    // set_variation() strípt 'm bij het opslaan).
+    $known = [];
+    foreach ( $known_attributes as $key => $value ) {
+        $key = sanitize_title( (string) $key );
+        if ( 0 !== strpos( $key, 'attribute_' ) ) $key = 'attribute_' . $key;
+        $known[ $key ] = $value;
+    }
+
+    $parent   = wc_get_product( $variation->get_parent_id() );
+    $defaults = $parent ? $parent->get_default_attributes() : [];
+
+    $resolved = [];
+    foreach ( $stored as $key => $value ) {
+        if ( '' !== $value ) {
+            $resolved[ $key ] = $value;
+            continue;
+        }
+        $taxonomy = substr( $key, 10 );
+        $chosen   = $known[ $key ] ?? ( $defaults[ $taxonomy ] ?? '' );
+        if ( '' === $chosen ) return false;
+        $resolved[ $key ] = $chosen;
+    }
+
+    return $resolved;
+}
+
 function mkcp_ajax_fix_any_attribute_variation() {
     if ( ! mkcp_woocommerce_active() || ! WC()->cart ) return;
     if ( ! isset( $_POST['product_id'] ) ) return;
@@ -441,19 +537,21 @@ function mkcp_ajax_fix_any_attribute_variation() {
     // wij geven hier alleen niets terug/doen niets).
     if ( ! $product || 'variation' !== $product->get_type() ) return;
 
-    $stored_attributes = $product->get_variation_attributes();
-    $has_any_attribute = in_array( '', $stored_attributes, true );
-    if ( ! $has_any_attribute ) return; // WooCommerce's eigen pad is hier al correct
+    $posted_attributes = [];
+    foreach ( $_POST as $key => $value ) {
+        if ( 'attribute_' === substr( $key, 0, 10 ) ) {
+            $posted_attributes[ sanitize_title( wp_unslash( $key ) ) ] = wp_unslash( $value );
+        }
+    }
+
+    // Leeg = geen "Elke"-attribuut, false = niet op te lossen: in beide
+    // gevallen WooCommerce's eigen handler (prioriteit 10) zijn werk laten
+    // doen, inclusief zijn eigen foutmelding.
+    $variations = mkcp_resolve_any_attribute_variation( $product_id, $posted_attributes );
+    if ( ! $variations ) return;
 
     $parent_id = $product->get_parent_id();
     $quantity  = empty( $_POST['quantity'] ) ? 1 : wc_stock_amount( wp_unslash( $_POST['quantity'] ) );
-
-    $variations = [];
-    foreach ( $_POST as $key => $value ) {
-        if ( 'attribute_' === substr( $key, 0, 10 ) ) {
-            $variations[ sanitize_title( wp_unslash( $key ) ) ] = wp_unslash( $value );
-        }
-    }
 
     $passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $parent_id, $quantity, $product_id, $variations );
 

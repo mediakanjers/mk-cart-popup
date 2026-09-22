@@ -40,6 +40,7 @@ function mkcp_render_docs_page() {
         'hoe-werkt-het' => 'Hoe werkt de plugin?',
         'instellingen'  => 'Popup instellingen',
         'checkout-doc'  => 'Cart Checkout',
+        'account-doc'   => 'Account mini-app',
         'css'           => 'CSS aanpassen',
         'scaffold'      => 'Theme override bestanden',
         'php'           => 'PHP: config filter',
@@ -53,7 +54,7 @@ function mkcp_render_docs_page() {
     $nav_groups = [
         'Gebruik'   => [ 'hoe-werkt-het', 'instellingen', 'checkout-doc' ],
         'Aanpassen' => [ 'css', 'php', 'template', 'actions', 'functies' ],
-        'Algemeen'  => [ 'problemen', 'scaffold', 'licenties' ],
+        'Algemeen'  => [ 'problemen', 'scaffold', 'licenties', 'account-doc' ],
     ];
 
     $icons_svg = [
@@ -893,6 +894,35 @@ cp <?php echo esc_html( MKCP_PATH ); ?>templates/cart-popup.php \
                                 <tr><td><code>Premium</code></td><td style="color:var(--mkcp-ui-text2)">Alle functies ontgrendeld.</td></tr>
                             </tbody>
                         </table>
+
+                    </div>
+                </div>
+
+                <div class="mkcp-glass" id="account-doc">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons_svg['shield']; ?></div>
+                        <h3><span class="mkcp-docs-section-num">12</span> &nbsp;Account mini-app</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 16px">
+                            Premium-onderdeel dat WooCommerce's standaard "Mijn account"-pagina vervangt door een eigen dashboard: bestellingen met een voortgangstracker, wishlist met prijs-/voorraadalerts, adresboek, retouren en een meldingencentrum. Aan/uit en per module in te stellen via <a href="<?php echo esc_url( admin_url( 'admin.php?page=mkcp-settings&product=account' ) ); ?>" style="color:var(--mkcp-ui-accent)">WooCommerce → Cart Popup</a> → product <strong>Account</strong>.
+                        </p>
+
+                        <table class="mkcp-docs-table" style="margin-bottom:16px">
+                            <thead><tr><th>Onderdeel</th><th>Wat het doet</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>Dashboard</code></td><td style="color:var(--mkcp-ui-text2)">Overzicht met laatste/actieve bestelling, wishlist-, aanbevolen- en "onlangs bekeken"-sliders.</td></tr>
+                                <tr><td><code>Bestellingen</code></td><td style="color:var(--mkcp-ui-text2)">Lijst met filters (incl. "Retour"), orderdetail met producten, verzendkosten, gewenste lever-/ophaaldatum en factuurdownload.</td></tr>
+                                <tr><td><code>Wishlist</code></td><td style="color:var(--mkcp-ui-text2)">Prijsdaling-/voorraadalert per item, los instelbaar op e-mail en/of in-dashboard-melding, bulkacties.</td></tr>
+                                <tr><td><code>Retourneren</code></td><td style="color:var(--mkcp-ui-text2)">Eigen tabblad + status-stappentracker per aanvraag; synct automatisch met een terugbetaling die de winkelier zelf in WooCommerce verwerkt (geen aparte orderstatus, zie de "Problemen oplossen"-sectie).</td></tr>
+                                <tr><td><code>Meldingen</code></td><td style="color:var(--mkcp-ui-text2)">In-app meldingencentrum met filtertabjes per type (bestellingen, retouren, wishlist, reviews); oudere gelezen meldingen worden automatisch opgeruimd (instelbare bewaartermijn).</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="mkcp-docs-callout mkcp-docs-callout--info">
+                            Retouren worden bewust <strong>niet</strong> als nieuwe WooCommerce-orderstatus bijgehouden — dat zou exports/rapportages die op status filteren kunnen verstoren. In plaats daarvan: een ordernotitie + e-mail naar de winkelier bij een aanvraag, een "Retour?"-kolom en een klein verwerkingspaneel direct op het WooCommerce-orderscherm zelf, en automatische synchronisatie zodra de winkelier de order via WooCommerce's eigen terugbetaal-functie verwerkt.
+                        </div>
 
                     </div>
                 </div>

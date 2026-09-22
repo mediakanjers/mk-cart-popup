@@ -87,6 +87,13 @@ function mkcp_defaults() {
         'style_expand_enabled'    => true,
         'style_dark_mode_enabled' => true,
         'mobile_app_experience'   => true,
+        'account_link_enabled'    => true,
+        'style_resize_enabled'    => true,
+        'trust_badge_enabled'     => false,
+        'trust_badge_provider'    => 'manual',
+        'trust_badge_rating'      => 4.8,
+        'trust_badge_review_count'=> 0,
+        'trust_badge_url'         => '',
     ];
 }
 
@@ -107,7 +114,7 @@ function mkcp_style_inline_css( array $config ): string {
     $btn_text = $config['style_btn_text'] ?? '#ffffff';
     $border   = $config['style_border']   ?? '#cccccc';
     $danger   = $config['style_danger']   ?? '#d32f2f';
-    $width    = max( 360, min( 640, (int) ( $config['style_width'] ?? 500 ) ) );
+    $width    = max( MKCP_RESIZE_MIN_WIDTH, min( 640, (int) ( $config['style_width'] ?? 500 ) ) );
 
     // Outline-knopstijl: transparante achtergrond, tekst + rand in de
     // hoofdkleur. De Knoptekstkleur-instelling wordt hier bewust genegeerd —
@@ -340,7 +347,7 @@ function mkcp_config() {
     $config = array_merge( $defaults, $saved );
 
     // Cast booleans (stored as '1'/'0' strings by HTML forms).
-    foreach ( [ 'enabled', 'free_shipping_bar', 'redirect_cart', 'btw_split', 'analytics_enabled', 'analytics_wc_stats', 'analytics_debug', 'show_coupon', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email', 'crosssell_enabled', 'cart_count_badge_enabled', 'delivery_preview_enabled', 'style_expand_enabled', 'style_dark_mode_enabled', 'mobile_app_experience' ] as $key ) {
+    foreach ( [ 'enabled', 'free_shipping_bar', 'redirect_cart', 'btw_split', 'analytics_enabled', 'analytics_wc_stats', 'analytics_debug', 'show_coupon', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email', 'crosssell_enabled', 'cart_count_badge_enabled', 'delivery_preview_enabled', 'style_expand_enabled', 'style_dark_mode_enabled', 'mobile_app_experience', 'account_link_enabled', 'trust_badge_enabled', 'style_resize_enabled' ] as $key ) {
         $config[ $key ] = ! empty( $config[ $key ] );
     }
     $config['crosssell_limit'] = max( 1, min( 6, (int) ( $config['crosssell_limit'] ?? 3 ) ) );
@@ -882,6 +889,28 @@ function mkcp_sanitize_dd_shipping_rules( array $post ): array {
     }
     return $rules;
 }
+
+/**
+ * Zet de per-verzendmethode POST-velden (mkcp_sc_label[rate_id]) om naar de
+ * opgeslagen structuur [ rate_id => 'Eigen labeltekst' ]. Alleen rate-ID's
+ * die daadwerkelijk bij een bestaande WooCommerce-verzendmethode horen en een
+ * daadwerkelijk ingevulde tekst hebben worden bewaard — een leeg veld
+ * betekent "gewoon de WooCommerce-methodenaam tonen", dus die hoeft niet
+ * apart opgeslagen te worden.
+ */
+function mkcp_sanitize_shipping_choice_labels( array $post ): array {
+    $known = function_exists( 'mkcp_dd_get_shipping_methods' ) ? mkcp_dd_get_shipping_methods() : [];
+    if ( empty( $known ) ) return [];
+
+    $label_map = (array) ( $post['mkcp_sc_label'] ?? [] );
+    $labels    = [];
+    foreach ( array_keys( $known ) as $rate_id ) {
+        $label = trim( sanitize_text_field( $label_map[ $rate_id ] ?? '' ) );
+        if ( $label !== '' ) $labels[ $rate_id ] = $label;
+    }
+    return $labels;
+}
+
 
 /**
  * Datums worden intern altijd als Y-m-d (ISO) opgeslagen/vergeleken — dat is

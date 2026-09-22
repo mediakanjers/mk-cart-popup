@@ -52,6 +52,7 @@ function mkcp_ty_icon( string $name ): string {
         'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
         'shield'   => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
         'mail'     => '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/>',
+        'user'     => '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
     ];
     if ( ! isset( $paths[ $name ] ) ) return '';
     return '<svg xmlns="http://www.w3.org/2000/svg" ' . $attrs . '>' . $paths[ $name ] . '</svg>';
@@ -59,9 +60,8 @@ function mkcp_ty_icon( string $name ): string {
 
 
 // ── 1. Persoonlijke heading ───────────────────────────────────────────────────
-// Vervangt WooCommerce's eigen "Bedankt, je bestelling is ontvangen"-tekst via
-// de hook die daar al voor bestaat — geen nieuw element nodig, hergebruikt de
-// succesmelding-styling die de vorige ronde al kreeg.
+// Vervangt WooCommerce's eigen tekst via de bestaande hook — hergebruikt zo de
+// succesmelding-styling i.p.v. een nieuw element toe te voegen.
 
 add_filter( 'woocommerce_thankyou_order_received_text', function( $message, $order ) {
     if ( ! mkcp_thankyou_enabled() || ! $order ) return $message;
@@ -75,9 +75,8 @@ add_filter( 'woocommerce_thankyou_order_received_text', function( $message, $ord
 
 
 // ── 2-4, 7. Banner + afhaallocatie-kaartje + factuurknop + stappenstrip ───────
-// Deze render-functies geven hun HTML terug als string (i.p.v. hem direct te
-// echoën) — nodig om ze hieronder in de juiste kolom (hoofd- of zijkolom) van
-// de echte CSS Grid-lay-out te kunnen plaatsen.
+// Geven HTML terug als string i.p.v. te echoën, zodat ze hieronder in de juiste
+// kolom van de CSS Grid-lay-out geplaatst kunnen worden.
 
 function mkcp_ty_render_banner( WC_Order $order, bool $is_pickup, string $pickup_date, string $delivery_date ): string {
     if ( $is_pickup ) {
@@ -140,13 +139,9 @@ function mkcp_ty_render_invoice_button( WC_Order $order ): string {
     $wpo = WPO_WCPDF();
     if ( ! isset( $wpo->endpoint ) || ! method_exists( $wpo->endpoint, 'get_document_link' ) ) return '';
 
-    // Respecteert de eigen toegangsinstelling van WPO_WCPDF ("Documenten →
-    // Factuur → toegang beperken tot ingelogde gebruikers" vs. "iedereen met
-    // de order-sleutel"). Bij "alleen ingelogde gebruikers" (de default)
-    // levert dit voor gastbestellingen bewust geen link — dat is een
-    // bewuste beveiligingskeuze van die plugin, niet iets om hier stilzwijgend
-    // te omzeilen. Wil de winkelier de knop ook voor gasten, dan zet die dat
-    // zelf om naar "iedereen met de order-sleutel" in de WPO_WCPDF-instellingen.
+    // Respecteert WPO_WCPDF's eigen toegangsinstelling (ingelogd-only vs. iedereen
+    // met de order-sleutel). Bij de default (ingelogd-only) dus bewust geen link
+    // voor gasten — geen beveiligingskeuze van die plugin hier omzeilen.
     $url = $wpo->endpoint->get_document_link( $order, 'invoice', [ 'thankyou' => 'true' ] );
     if ( ! $url ) return '';
     ob_start();
@@ -154,6 +149,31 @@ function mkcp_ty_render_invoice_button( WC_Order $order ): string {
     <a href="<?php echo esc_url( $url ); ?>" class="mkcp-ty-invoice-btn" target="_blank" rel="noopener">
         <?php echo mkcp_ty_icon( 'download' ); ?>
         <?php esc_html_e( 'Factuur downloaden', 'mk-cart-popup' ); ?>
+    </a>
+    <?php
+    return ob_get_clean();
+}
+
+/**
+ * Link naar de Account-omgeving, alleen als die actief is en de klant ingelogd
+ * is — anders leidt hij nergens naartoe of opent hij WooCommerce's kale
+ * standaard "Mijn account", precies de breuk die Account moet voorkomen.
+ */
+function mkcp_ty_render_account_link( WC_Order $order ): string {
+    if ( ! is_user_logged_in() ) return '';
+    if ( ! function_exists( 'mkcp_account_is_active' ) || ! mkcp_account_is_active() ) return '';
+    if ( (int) $order->get_customer_id() !== get_current_user_id() ) return '';
+
+    // wc_get_page_id('myaccount') i.p.v. de NL-slug hardcoden — werkt ongeacht
+    // permalink/taal; Account neemt de pagina vanzelf over via template_include.
+    $account_page_url = get_permalink( wc_get_page_id( 'myaccount' ) );
+    if ( ! $account_page_url ) return '';
+    $url = $account_page_url . '#/orders/' . $order->get_id();
+    ob_start();
+    ?>
+    <a href="<?php echo esc_url( $url ); ?>" class="mkcp-ty-invoice-btn">
+        <?php echo mkcp_ty_icon( 'user' ); ?>
+        <?php esc_html_e( 'Bekijk deze bestelling in je account', 'mk-cart-popup' ); ?>
     </a>
     <?php
     return ob_get_clean();
@@ -189,28 +209,19 @@ function mkcp_ty_render_steps( bool $is_pickup, bool $is_delivery ): string {
 
 
 // ── Twee-koloms lay-out (hoofdkolom + zijkolom) ───────────────────────────
-// WooCommerce's eigen thank-you-template zet het orderoverzicht en eventuele
-// betaalinstructies (bv. BACS-bankgegevens) rechtstreeks neer, vóórdat de
-// woocommerce_thankyou-hook vuurt — daar bestaat geen losse, aanroepbare
-// functie voor. Dat stukje wordt daarom heel kort gebufferd (tussen de
-// woocommerce_before_thankyou-hook en het moment dat woocommerce_thankyou
-// zelf vuurt), zodat het hieronder als string in de zijkolom geplaatst kan
-// worden.
+// WooCommerce zet orderoverzicht/betaalinstructies zelf neer vóór de
+// woocommerce_thankyou-hook (geen losse aanroepbare functie ervoor) — daarom
+// kort gebufferd tussen woocommerce_before_thankyou en woocommerce_thankyou,
+// zodat het als string in de zijkolom geplaatst kan worden.
 //
-// De besteldetails-tabel + klantgegevens roepen we zelf aan
-// (woocommerce_order_details_table() — de functie achter WooCommerce's eigen
-// prioriteit-10-hook, die hieronder wordt verwijderd) i.p.v. te vertrouwen op
-// hook-volgorde: zo krijgen we die HTML gegarandeerd en direct als string
-// terug, zonder aannames over wélke prioriteit vóór of ná onze eigen content
-// vuurt.
+// Besteldetails-tabel wordt zelf via woocommerce_order_details_table()
+// aangeroepen (i.p.v. op hook-prioriteit-volgorde te vertrouwen) zodat de HTML
+// gegarandeerd direct als string terugkomt.
 //
-// Resultaat: .mkcp-ty-columns heeft maar twee grid-items — de hoofd- en de
-// zijkolom-container zelf — niet de losse kaartjes daarbinnen. Elke
-// container is vanbinnen gewoon normale block-flow en heeft dus een eigen,
-// onafhankelijke hoogte. Dat is precies wat de vorige grid-poging miste: met
-// de losse kaartjes zelf als grid-items deelden hoofd- en zijkolom impliciet
-// dezelfde rijen, en werd elke rij zo hoog als het langste item erin — met
-// lege ruimte onder de kortere buur tot gevolg.
+// .mkcp-ty-columns heeft bewust maar twee grid-items (hoofd- en zijkolom-
+// container, niet de losse kaartjes erin): met de kaartjes zelf als grid-items
+// deelden beide kolommen impliciet dezelfde rijen, en werd elke rij zo hoog
+// als het langste item — met lege ruimte onder de kortere buur tot gevolg.
 
 add_action( 'wp', function() {
     if ( ! mkcp_thankyou_enabled() ) return;
@@ -234,12 +245,9 @@ add_action( 'woocommerce_thankyou', function( $order_id ) {
 
     $pre_html = ob_get_level() ? ob_get_clean() : '';
 
-    // De succes-/foutmelding (WooCommerce's eigen <p class="...order-received">,
-    // of bij een mislukte betaling "...order-failed") staat altijd als eerste
-    // in $pre_html — die splitsen we eraf zodat hij straks volledig-breed
-    // boven de kolommen komt te staan i.p.v. in de zijkolom. Geen match?
-    // Dan liever niets afsplitsen dan risico op verminkte HTML: alles blijft
-    // dan gewoon (onopgesplitst) in de zijkolom staan.
+    // Succes-/foutmelding (order-received of order-failed <p>) staat altijd als
+    // eerste in $pre_html — eraf splitsen voor een volledig-brede plek boven de
+    // kolommen. Geen match? Dan niets afsplitsen, liever dat dan verminkte HTML.
     $success_html = '';
     if ( preg_match( '/^.*?<p\b[^>]*\bwoocommerce-thankyou-order-(received|failed)\b[^>]*>.*?<\/p>/s', $pre_html, $m ) ) {
         $success_html = $m[0];
@@ -251,10 +259,8 @@ add_action( 'woocommerce_thankyou', function( $order_id ) {
     $is_pickup     = $pickup_date !== '';
     $is_delivery   = ! $is_pickup && $delivery_date !== '';
 
-    // Stappenstrip krijgt, net als de succesmelding en cross-sell, bewust
-    // géén plek in een van de twee kolommen: als eigen, volledig-brede
-    // sectie direct onder de succesmelding valt hij niet meer terug tot de
-    // breedte van de hoofd- of zijkolom.
+    // Bewust géén plek in een van de kolommen: als eigen, volledig-brede sectie
+    // blijft de stappenstrip niet beperkt tot de smallere kolombreedte.
     $steps_html = mkcp_ty_render_steps( $is_pickup, $is_delivery );
 
     $main = '';
@@ -266,15 +272,12 @@ add_action( 'woocommerce_thankyou', function( $order_id ) {
 
     $cfg = mkcp_thankyou_config();
 
-    // Cross-sell krijgt bewust géén plek in de hoofdkolom: als eigen,
-    // volledig-brede sectie ná de twee kolommen (net als de succesmelding
-    // erboven en de vertrouwensfooter eronder) kan het productengrid over de
-    // volle 1080px breedte tonen i.p.v. beperkt tot de smallere hoofdkolom.
+    // Bewust géén plek in de hoofdkolom: als volledig-brede sectie ná de
+    // kolommen kan het productengrid over de volle breedte tonen.
     $crosssell_html = $cfg['crosssell_enabled'] ? mkcp_ty_render_crosssell( $order, $cfg ) : '';
 
-    // Bezorg-/afhaalbanner staat in de zijkolom, vóór de bestelgegevens
-    // (orderoverzicht + evt. betaalinstructies) — hoort inhoudelijk bij
-    // "over deze bestelling", niet bij de hoofdkolom.
+    // Banner staat in de zijkolom, vóór de bestelgegevens — hoort inhoudelijk
+    // bij "over deze bestelling".
     $sidebar = '';
     if ( $is_pickup || $is_delivery ) {
         $sidebar .= mkcp_ty_render_banner( $order, $is_pickup, $pickup_date, $delivery_date );
@@ -284,6 +287,7 @@ add_action( 'woocommerce_thankyou', function( $order_id ) {
         $sidebar .= mkcp_ty_render_pickup_card( $order );
     }
     $sidebar .= mkcp_ty_render_invoice_button( $order );
+    $sidebar .= mkcp_ty_render_account_link( $order );
 
     echo $success_html;
     echo $steps_html;
@@ -297,10 +301,9 @@ add_action( 'woocommerce_thankyou', function( $order_id ) {
 
 
 // ── 6. Cross-sell op basis van de bestelling ──────────────────────────────────
-// Zelfde crosssells/category-vertakking als mkcp_get_crosssell_products()
-// (config.php:990-1054), maar op basis van $order->get_items() i.p.v. de
-// winkelwagen — de vrij-verzenden-gap-badge uit de winkelwagen-popup-versie
-// is hier weggelaten, niet relevant na het afronden van de bestelling.
+// Zelfde crosssells/category-logica als mkcp_get_crosssell_products() in
+// config.php, maar op $order->get_items() i.p.v. de winkelwagen; de
+// vrij-verzenden-gap-badge is hier weggelaten (niet relevant na afronding).
 
 function mkcp_get_crosssell_products_for_order( WC_Order $order, int $limit = 3, string $mode = 'category' ): array {
     $in_order_ids = [];

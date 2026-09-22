@@ -7,9 +7,12 @@
  * Structuur:
  *   1. Intro-stap (geen element, gecentreerde popover) — kies Snelstart of
  *      Volledige rondleiding.
- *   2. fullStepDefs — één stap per tab van de "Cart Popup"-instellingen (de
- *      "Cart Checkout"-productnav, met de aparte checkout-page-builder,
- *      valt hier bewust buiten — dat verdient een eigen tour).
+ *   2. fullStepDefs — één stap per tab van de "Cart Popup"-instellingen, gevolgd
+ *      door één stap per tab van het "Account"-product (los productknopje, zie
+ *      mkcp-product-btn in settings-page.php). "Cart Checkout" — met de aparte
+ *      checkout-page-builder — valt hier bewust buiten: dat verdient een eigen
+ *      tour, in tegenstelling tot Account (geen builder, vergelijkbare omvang
+ *      als de Cart Popup-tabbladen).
  *   3. quickStepDefs — subset van fullStepDefs (licentie, aanzetten, opslaan).
  *
  * Elke "echte" stap wijst naar een element in een andere tab. Niet-actieve
@@ -136,6 +139,57 @@
             element: '[data-panel="analytics"] .mkcp-page-header',
             title: 'Analytics',
             description: 'Koppel GA4/Google Tag Manager via window.dataLayer, of gebruik de eigen ingebouwde WooCommerce-statistieken die GA4 niet kan zien.',
+            side: 'bottom',
+        },
+        // ── Account (los product, eigen productnav — zie mkcp-product-btn in
+        // settings-page.php) — in tegenstelling tot "Cart Checkout" hierboven
+        // wél in deze tour opgenomen: geen aparte page-builder, dus qua omvang
+        // vergelijkbaar met de andere Cart Popup-tabbladen hierboven. Eerste
+        // stap hieronder klikt het productknopje aan i.p.v. een tabblad-item —
+        // dat springt zelf al naar 'account-general' (zie activateProduct() in
+        // settings.js), precies waar #mkcp-account-enabled-toggle-wrap staat.
+        {
+            activator: '.mkcp-product-btn[data-product="account"]',
+            element: '#mkcp-account-enabled-toggle-wrap',
+            title: 'Account — eigen "Mijn account"-ervaring',
+            description: premium
+                ? 'Een los product binnen de plugin: vervangt WooCommerce\'s standaard "Mijn account" door een eigen, bij je cart-popup en checkout aansluitende ervaring. Zet deze schakelaar aan om dit te activeren.'
+                : '🔒 Met een premium-licentie vervangt dit WooCommerce\'s standaard "Mijn account" door een eigen ervaring — bestellingen, wishlist, retouren en meldingen op één plek, in jouw huisstijl.',
+            side: 'bottom',
+        },
+        {
+            activator: '.mkcp-nav-item[data-tab="account-dashboard"]',
+            element: '[data-panel="account-dashboard"] .mkcp-page-header',
+            title: 'Account-dashboard',
+            description: 'Overzicht van elke Account-module en of die aan- of uitstaat. Let hier ook op de "Installatie-check": die controleert een paar WordPress/WooCommerce-instellingen die buiten deze plugin om lopen (zoals de "Mijn account"-pagina) en waarschuwt als er iets ontbreekt.',
+            side: 'bottom',
+        },
+        {
+            activator: '.mkcp-nav-item[data-tab="account-wishlist"]',
+            element: '[data-panel="account-wishlist"] .mkcp-page-header',
+            title: 'Wishlist',
+            description: 'Klanten kunnen producten bewaren en zelf laten mailen bij een prijsdaling of als iets weer op voorraad is — hier zet je dat aan/uit en pas je de mailteksten aan.',
+            side: 'bottom',
+        },
+        {
+            activator: '.mkcp-nav-item[data-tab="account-returns"]',
+            element: '[data-panel="account-returns"] .mkcp-page-header',
+            title: 'Retouren',
+            description: 'Klanten dienen hier zelf een retour in vanuit hun bestelgeschiedenis, binnen de retourtermijn die je instelt — jij beoordeelt de aanvraag vanuit hetzelfde scherm.',
+            side: 'bottom',
+        },
+        {
+            activator: '.mkcp-nav-item[data-tab="account-login"]',
+            element: '[data-panel="account-login"] .mkcp-page-header',
+            title: 'Loginscherm',
+            description: 'De uitstraling van het inlogscherm zelf — achtergrondfoto, welkomsttekst en de voordelen die je toont aan bezoekers die nog geen account hebben.',
+            side: 'bottom',
+        },
+        {
+            activator: '.mkcp-nav-item[data-tab="account-rewards"]',
+            element: '[data-panel="account-rewards"] .mkcp-page-header',
+            title: 'Beloningen',
+            description: 'Een cosmetische tier-weergave (brons/zilver/goud) bovenop WooCommerce Points and Rewards, als die extensie actief is — Points and Rewards zelf kent geen tiers, dit voegt dat gevoel toe.',
             side: 'bottom',
         },
         {
@@ -462,7 +516,7 @@
                     var fullBtn = document.createElement('button');
                     fullBtn.type = 'button';
                     fullBtn.className = 'mkcp-onboarding-path-btn mkcp-onboarding-path-btn--primary';
-                    fullBtn.innerHTML = '<strong>Volledige rondleiding</strong><span>11 stappen — elk onderdeel van de plugin</span>';
+                    fullBtn.innerHTML = '<strong>Volledige rondleiding</strong><span>17 stappen — elk onderdeel van de plugin, inclusief Account</span>';
                     fullBtn.addEventListener('click', function () { beginPath('full', 0, introTour); });
 
                     wrap.appendChild(quickBtn);

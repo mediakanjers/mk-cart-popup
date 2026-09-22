@@ -2,19 +2,13 @@
 /**
  * MK Cart Popup — Account: Productreviews vanuit bestelling-detail
  *
- * Eigen bestand (zie de "god file"-notitie in account-profile.php) — koppelt
- * zich net als includes/account-returns.php via het mkcp_account_order_item_
- * extra-filter aan de order-item-rij in account-orders.php, zonder dat dat
- * bestand iets van reviews hoeft te weten.
+ * Koppelt zich net als account-returns.php via het mkcp_account_order_item_extra-
+ * filter aan de order-rij in account-orders.php, zonder dat dat bestand iets van
+ * reviews hoeft te weten.
  *
- * Geen eigen reviewsysteem: dit schrijft rechtstreeks naar WordPress/
- * WooCommerce's eigen wp_comments-tabel (comment_type='review'), precies
- * zoals WooCommerce's eigen "Beoordeling achterlaten"-formulier op de
- * productpagina dat ook doet — inclusief de standaard wc_customer_bought_
- * product()-check (alleen daadwerkelijk gekochte producten mogen
- * beoordeeld worden) en de normale WordPress-commentmoderatie (een review
- * verschijnt pas publiek zodra 'ie is goedgekeurd, tenzij de site auto-
- * goedkeuring heeft ingesteld — geen aparte moderatieregel hier nodig).
+ * Geen eigen reviewsysteem: schrijft rechtstreeks naar WordPress' wp_comments
+ * (comment_type='review'), zoals WooCommerce's eigen reviewformulier ook doet —
+ * inclusief wc_customer_bought_product()-check en normale WP-commentmoderatie.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -30,9 +24,8 @@ function mkcp_account_user_has_reviewed( int $user_id, int $product_id ): bool {
 }
 
 add_filter( 'mkcp_account_order_item_extra', function( string $html, WC_Order $order, $item ) {
-    // Alleen bij een afgeronde bestelling — vóór levering een review vragen
-    // slaat nergens op, en wc_customer_bought_product() alleen dekt dat niet
-    // af (die kijkt naar "betaald", niet naar "afgerond/geleverd").
+    // Alleen bij "completed": wc_customer_bought_product() checkt "betaald",
+    // niet "geleverd" — vóór levering een review vragen slaat nergens op.
     if ( $order->get_status() !== 'completed' ) return $html;
 
     $product = $item->get_product();
@@ -47,6 +40,11 @@ add_filter( 'mkcp_account_order_item_extra', function( string $html, WC_Order $o
     if ( mkcp_account_user_has_reviewed( $user_id, $product->get_id() ) ) {
         return $html . '<span class="mkcp-review-status"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
             . esc_html__( 'Je hebt dit product al beoordeeld', 'mk-cart-popup' ) . '</span>';
+    }
+
+    // Module uit: geen nieuwe "Schrijf een review"-knop, bestaande reviews blijven staan.
+    if ( function_exists( 'mkcp_account_module_enabled' ) && ! mkcp_account_module_enabled( 'reviews' ) ) {
+        return $html;
     }
 
     ob_start();
@@ -85,7 +83,7 @@ add_action( 'wp_ajax_mkcp_account_review_submit', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) {
         wp_send_json_error( [ 'code' => 'session_expired' ], 403 );
     }
-    if ( ! mkcp_account_is_active() ) {
+    if ( ! mkcp_account_is_active() || ! mkcp_account_module_enabled( 'reviews' ) ) {
         wp_send_json_error( [ 'code' => 'not_available' ], 403 );
     }
 
@@ -97,9 +95,8 @@ add_action( 'wp_ajax_mkcp_account_review_submit', function() {
     $product = $product_id ? wc_get_product( $product_id ) : null;
     if ( ! $product ) wp_send_json_error( [ 'code' => 'invalid_product' ], 400 );
 
-    // Zelfde eigendomscheck als de review-knop zelf verbergt — de server
-    // moet dit sowieso zelf afdwingen, de verborgen knop is UX, geen
-    // beveiliging.
+    // Zelfde check als waarmee de knop wordt verborgen — server moet dit sowieso
+    // zelf afdwingen, verbergen is UX, geen beveiliging.
     if ( ! wc_customer_bought_product( $user->user_email, $user->ID, $product_id ) ) {
         wp_send_json_error( [ 'code' => 'not_purchased', 'message' => __( 'Je kunt alleen producten beoordelen die je hebt gekocht.', 'mk-cart-popup' ) ], 403 );
     }
@@ -113,10 +110,8 @@ add_action( 'wp_ajax_mkcp_account_review_submit', function() {
         wp_send_json_error( [ 'code' => 'missing_content', 'message' => __( 'Vul een toelichting in.', 'mk-cart-popup' ) ], 400 );
     }
 
-    // 'comment_approved' bewust niet meegeven — wp_new_comment() bepaalt de
-    // goedkeuringsstatus zelf altijd via wp_allow_comment() (WordPress' eigen
-    // moderatie-instellingen), een meegegeven waarde wordt daar toch door
-    // overschreven.
+    // 'comment_approved' bewust niet meegeven: wp_new_comment() bepaalt de status
+    // altijd zelf via wp_allow_comment(), een meegegeven waarde wordt overschreven.
     $comment_id = wp_new_comment( [
         'comment_post_ID'      => $product_id,
         'comment_content'      => $content,
@@ -136,10 +131,24 @@ add_action( 'wp_ajax_mkcp_account_review_submit', function() {
     $order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
     $order    = $order_id ? wc_get_order( $order_id ) : null;
 
-    // Order-detail opnieuw renderen (net als de retour-aanvraag-flow) zodat
-    // de klant meteen de "al beoordeeld"-status ziet i.p.v. het formulier —
-    // alleen mogelijk/zinvol als de review vanuit een eigen order kwam en
-    // die order ook echt van deze klant is.
+    if ( function_exists( 'mkcp_account_add_notification' ) ) {
+        mkcp_account_add_notification(
+            $user->ID,
+            'review',
+            __( 'Beoordeling geplaatst', 'mk-cart-popup' ),
+            sprintf(
+                /* translators: %s: productnaam */
+                __( 'Bedankt voor je beoordeling van "%s".', 'mk-cart-popup' ),
+                $product->get_name()
+            ),
+            get_permalink( $product_id ) ?: '',
+            'product',
+            $product_id
+        );
+    }
+
+    // Order-detail opnieuw renderen (zoals de retour-flow) zodat de klant meteen
+    // de "al beoordeeld"-status ziet — alleen als de order echt van deze klant is.
     if ( $order && (int) $order->get_customer_id() === $user->ID ) {
         wp_send_json_success( [
             'message' => __( 'Bedankt voor je review!', 'mk-cart-popup' ),

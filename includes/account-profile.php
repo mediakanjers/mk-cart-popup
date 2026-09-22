@@ -2,16 +2,13 @@
 /**
  * MK Cart Popup — Account: Accountgegevens + Adressen (Fase 1, stap 3)
  *
- * Los bestand van includes/account-frontend.php (dat blijft het routing-/
- * dispatcher-fundament) om te voorkomen dat Account hetzelfde "god file"-
- * patroon krijgt als checkout-frontend.php/settings-page.php — elke view
- * krijgt hier zijn eigen bestand.
+ * Los bestand van account-frontend.php (blijft routing-/dispatcher-
+ * fundament) om het "god file"-patroon van checkout-frontend.php/
+ * settings-page.php te voorkomen — elke view krijgt zijn eigen bestand.
  *
- * Registreert twee fragmenten ("profile", "addresses") via het
- * mkcp_account_fragment_handlers-filter, plus de bijbehorende muterende
- * AJAX-acties. Elke muterende actie herhaalt dezelfde drie checks als de
- * fragmentdispatcher (nonce, mkcp_account_is_active(), eigendom) — nooit via
- * is_account_page(), zie de toelichting in account-frontend.php.
+ * Registreert de fragmenten "profile"/"addresses" plus hun muterende AJAX-
+ * acties. Elke actie herhaalt dezelfde drie checks als de fragmentdispatcher
+ * (nonce, mkcp_account_is_active(), eigendom) — nooit via is_account_page().
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -25,11 +22,7 @@ add_filter( 'mkcp_account_fragment_handlers', function( $handlers ) {
 
 // ── Helpers: adresboek ────────────────────────────────────────────────────────
 
-/**
- * Praktisch misbruikplafond — zie Account-plan, sectie 15. Instelbaar via
- * admin/views/settings-page.php (account_max_addresses), voorheen een
- * hardcoded constante.
- */
+/** Praktisch misbruikplafond, instelbaar via settings-page.php (account_max_addresses), voorheen hardcoded. */
 function mkcp_account_max_addresses(): int {
     $cfg = mkcp_account_config();
     $max = isset( $cfg['account_max_addresses'] ) ? (int) $cfg['account_max_addresses'] : 20;
@@ -57,14 +50,9 @@ function mkcp_account_get_owned_address( int $address_id, int $user_id ) {
 
 
 /**
- * Telefoonnummer alleen verplicht maken in Accountgegevens als het dat ook
- * echt is op de checkout — anders kan een klant hier een profiel opslaan
- * zonder telefoonnummer en alsnog vastlopen bij het afrekenen, wat het hele
- * punt van dit veld hier ondermijnt. Leest WooCommerce's eigen
- * billing_phone-vereiste rechtstreeks uit (i.p.v. hier een losse instelling
- * te dupliceren) zodat dit automatisch meebeweegt als de checkout-vereiste
- * ooit verandert (WooCommerce-instelling, een filter van een andere plugin,
- * enz.) — nooit hardcoded true/false.
+ * Telefoon alleen verplicht in Accountgegevens als het dat ook is op de
+ * checkout — leest WooCommerce's billing_phone-vereiste rechtstreeks uit
+ * (i.p.v. dupliceren) zodat dit automatisch meebeweegt bij wijzigingen.
  */
 function mkcp_account_is_phone_required(): bool {
     if ( ! function_exists( 'WC' ) || ! WC()->checkout() ) return false;
@@ -89,9 +77,7 @@ function mkcp_account_render_fragment_profile(): string {
         </div>
 
         <?php
-        // Compacte samenvatting bovenaan — hergebruikt de Dashboard-
-        // statistieken (account-orders.php) i.p.v. een eigen berekening, en
-        // vult meteen de anders lege ruimte boven de twee formulieren.
+        // Compacte samenvatting: hergebruikt Dashboard-statistieken (account-orders.php) i.p.v. eigen berekening.
         $mkcp_profile_initials = mb_strtoupper( mb_substr( $user->first_name ?: $user->display_name, 0, 1 ) . mb_substr( $user->last_name, 0, 1 ) );
         $mkcp_profile_since    = $user->user_registered ? mysql2date( 'Y', $user->user_registered ) : '';
         $mkcp_profile_stats    = function_exists( 'mkcp_account_get_dashboard_stats' ) ? mkcp_account_get_dashboard_stats( $user->ID ) : null;
@@ -158,15 +144,17 @@ function mkcp_account_render_fragment_profile(): string {
                             <input type="date" id="mkcp-profile-dob" name="date_of_birth" value="<?php echo esc_attr( $dob ); ?>">
                         </div>
                     </div>
+                    <?php if ( ! function_exists( 'mkcp_account_module_enabled' ) || mkcp_account_module_enabled( 'newsletter' ) ) : ?>
                     <div class="mkcp-profile-preferences">
                         <span class="mkcp-profile-preferences__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 4l8 8 8-8"/></svg></span>
                         <div class="mkcp-account-form-row mkcp-account-form-row--checkbox">
                             <label>
-                                <input type="checkbox" name="newsletter_optin" value="1" <?php checked( $optin, '1' ); ?>>
+                                <input type="checkbox" class="mkcp-checkbox" name="newsletter_optin" value="1" <?php checked( $optin, '1' ); ?>>
                                 <?php esc_html_e( 'Ik ontvang graag de nieuwsbrief', 'mk-cart-popup' ); ?>
                             </label>
                         </div>
                     </div>
+                    <?php endif; ?>
 
                     <div class="mkcp-account-form-actions">
                         <button type="submit" class="mkcp-btn mkcp-btn--primary"><?php esc_html_e( 'Opslaan', 'mk-cart-popup' ); ?></button>
@@ -202,11 +190,9 @@ function mkcp_account_render_fragment_profile(): string {
                 </form>
 
                 <?php
-                // Zelfservice-verwijderflow leeft in includes/account-gdpr.php
-                // — dit is puur de knop die 'm aanvraagt (stap 1, verstuurt de
-                // bevestigingsmail). function_exists()-guard is hier vooral
-                // toekomstbestendig (dat bestand is altijd geladen), maar
-                // voorkomt een fatal error als dat ooit niet zo is.
+                // Zelfservice-verwijderflow leeft in account-gdpr.php — dit is
+                // puur de knop die 'm aanvraagt. function_exists()-guard
+                // voorkomt een fatal error mocht dat bestand ooit niet laden.
                 if ( function_exists( 'mkcp_account_delete_confirm_url' ) ) :
                     ?>
                     <div class="mkcp-dash-card mkcp-danger-zone">
@@ -231,11 +217,9 @@ function mkcp_account_render_fragment_profile(): string {
 // ── Fragment: Adressen ────────────────────────────────────────────────────────
 
 /**
- * $show_actions=false wordt gebruikt op het Dashboard (mkcp_account_render_
- * fragment_dashboard) — de Bewerken/Verwijderen-knoppen sturen naar
- * #mkcp-address-form, dat alleen op de Adressen-fragment zelf in de DOM
- * staat; zonder deze parameter zouden die knoppen daar stilzwijgend niets
- * doen.
+ * $show_actions=false wordt gebruikt op het Dashboard — de Bewerken/
+ * Verwijderen-knoppen sturen naar #mkcp-address-form, dat alleen op de
+ * Adressen-fragment in de DOM staat; anders zouden ze daar niets doen.
  */
 function mkcp_account_render_address_card( $address, bool $show_actions = true ): string {
     $label = $address->label !== '' ? $address->label : __( 'Adres', 'mk-cart-popup' );
@@ -266,14 +250,10 @@ function mkcp_account_render_address_card( $address, bool $show_actions = true )
         <span class="mkcp-address-card__icon"><?php echo $icon; // phpcs:ignore WordPress.Security.EscapeOutput ?></span>
         <div class="mkcp-address-card__main">
             <?php
-            // Titel staat als EERSTE item in een flex-rij, badges erna —
-            // niet absoluut gepositioneerd (dat overlapte de titel op
-            // smallere kaarten, want beide claimden dezelfde hoogte zonder
-            // van elkaars breedte te weten) en niet boven de titel gestapeld
-            // (dat liet de titel verspringen tussen kaarten met/zonder
-            // badges). Met flex-wrap vallen badges vanzelf naar een eigen
-            // regel als ze niet naast de titel passen — de titel zelf blijft
-            // altijd het eerste, dus altijd op dezelfde plek.
+            // Titel EERST in een flex-rij, badges erna (flex-wrap laat badges
+            // naar een eigen regel vallen) — niet absoluut gepositioneerd
+            // (overlapte de titel) en niet erboven gestapeld (titel
+            // verspringt dan tussen kaarten met/zonder badges).
             ?>
             <div class="mkcp-address-card__header">
                 <strong><?php echo esc_html( $label ); ?></strong>
@@ -531,10 +511,8 @@ add_action( 'wp_ajax_mkcp_account_change_password', function() {
 
     wp_set_password( $new, $user_id );
 
-    // wp_set_password() vernietigt alle sessies van deze gebruiker, inclusief
-    // de huidige — zonder dit zou de klant zichzelf per ongeluk uitloggen
-    // door zijn eigen wachtwoord te wijzigen. Zelfde aanpak als WooCommerce's
-    // eigen "Wachtwoord wijzigen"-veld op de standaard accountpagina.
+    // wp_set_password() vernietigt alle sessies incl. de huidige — zonder dit
+    // logt de klant zichzelf uit bij het wijzigen van zijn eigen wachtwoord.
     wp_set_auth_cookie( $user_id, true );
 
     wp_send_json_success( [ 'message' => __( 'Wachtwoord gewijzigd.', 'mk-cart-popup' ) ] );
@@ -542,6 +520,17 @@ add_action( 'wp_ajax_mkcp_account_change_password', function() {
 
 
 // ── AJAX: adres opslaan (aanmaken of bewerken) ────────────────────────────────
+
+/**
+ * Eén adresveld uit de POST: sanitizen én afkappen op de kolomlengte uit
+ * account-db.php. Zonder clamp weigert MySQL in strict mode de hele rij bij een
+ * te lange waarde (stille mislukking voor de klant) of kapt 'ie zelf af.
+ * mb_substr telt tekens, net als VARCHAR(n).
+ */
+function mkcp_account_address_field( string $key, int $max ): string {
+    $value = isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : '';
+    return function_exists( 'mb_substr' ) ? mb_substr( $value, 0, $max ) : substr( $value, 0, $max );
+}
 
 add_action( 'wp_ajax_mkcp_account_address_save', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) {
@@ -570,20 +559,20 @@ add_action( 'wp_ajax_mkcp_account_address_save', function() {
 
     $data = [
         'user_id'             => $user_id,
-        'label'               => isset( $_POST['label'] ) ? sanitize_text_field( wp_unslash( $_POST['label'] ) ) : '',
+        'label'               => mkcp_account_address_field( 'label', 100 ),
         'type'                => 'both',
         'is_business'         => ! empty( $_POST['is_business'] ) ? 1 : 0,
-        'company'             => isset( $_POST['company'] ) ? sanitize_text_field( wp_unslash( $_POST['company'] ) ) : '',
-        'vat_number'          => isset( $_POST['vat_number'] ) ? sanitize_text_field( wp_unslash( $_POST['vat_number'] ) ) : '',
-        'first_name'          => isset( $_POST['first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['first_name'] ) ) : '',
-        'last_name'           => isset( $_POST['last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['last_name'] ) ) : '',
-        'address_1'           => isset( $_POST['address_1'] ) ? sanitize_text_field( wp_unslash( $_POST['address_1'] ) ) : '',
-        'address_2'           => isset( $_POST['address_2'] ) ? sanitize_text_field( wp_unslash( $_POST['address_2'] ) ) : '',
-        'postcode'            => isset( $_POST['postcode'] ) ? sanitize_text_field( wp_unslash( $_POST['postcode'] ) ) : '',
-        'city'                => isset( $_POST['city'] ) ? sanitize_text_field( wp_unslash( $_POST['city'] ) ) : '',
+        'company'             => mkcp_account_address_field( 'company', 200 ),
+        'vat_number'          => mkcp_account_address_field( 'vat_number', 30 ),
+        'first_name'          => mkcp_account_address_field( 'first_name', 100 ),
+        'last_name'           => mkcp_account_address_field( 'last_name', 100 ),
+        'address_1'           => mkcp_account_address_field( 'address_1', 200 ),
+        'address_2'           => mkcp_account_address_field( 'address_2', 200 ),
+        'postcode'            => mkcp_account_address_field( 'postcode', 20 ),
+        'city'                => mkcp_account_address_field( 'city', 100 ),
         'state'               => '',
-        'country'             => isset( $_POST['country'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_POST['country'] ) ) ) : '',
-        'phone'               => isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '',
+        'country'             => strtoupper( mkcp_account_address_field( 'country', 2 ) ),
+        'phone'               => mkcp_account_address_field( 'phone', 30 ),
         'is_default_billing'  => ! empty( $_POST['is_default_billing'] ) ? 1 : 0,
         'is_default_shipping' => ! empty( $_POST['is_default_shipping'] ) ? 1 : 0,
         'updated_at'          => current_time( 'mysql' ),
@@ -639,10 +628,9 @@ add_action( 'wp_ajax_mkcp_account_address_delete', function() {
     global $wpdb;
     $wpdb->delete( $wpdb->prefix . 'mkcp_addresses', [ 'id' => $existing->id, 'user_id' => $user_id ], [ '%d', '%d' ] );
 
-    // Verwijderen van een adres dat aan een bestaande bestelling ten grondslag
-    // ligt is veilig: WooCommerce slaat bij elke order zijn eigen adres-
-    // snapshot op (billing_*/shipping_* order-meta), losstaand van dit
-    // adresboek — zie Account-plan, sectie 9.
+    // Veilig om te verwijderen ook als een order dit adres gebruikte:
+    // WooCommerce slaat per order zijn eigen adres-snapshot op
+    // (billing_*/shipping_* order-meta), los van dit adresboek.
     if ( function_exists( 'mkcp_account_clear_dashboard_stats_cache' ) ) mkcp_account_clear_dashboard_stats_cache( $user_id );
 
     wp_send_json_success( [

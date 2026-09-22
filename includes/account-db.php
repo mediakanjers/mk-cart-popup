@@ -2,17 +2,15 @@
 /**
  * MK Cart Popup — Account database (Fase 1, stap 2)
  *
- * Vijf nieuwe tabellen voor de Account-omgeving: wishlists (+items),
- * adresboek, notificaties en retour-aanvragen. Volgt exact het
- * dbDelta-migratiepatroon van includes/abandoned-cart.php (versienummer in
- * een optie, expliciete ALTER TABLE-stappen bij toekomstige versiebumps,
- * geen database-FOREIGN KEY-constraints — integriteit op applicatieniveau,
- * consistent met de rest van deze codebase).
+ * Vijf tabellen voor de Account-omgeving: wishlists (+items), adresboek,
+ * notificaties en retour-aanvragen. Volgt het dbDelta-migratiepatroon van
+ * includes/abandoned-cart.php — geen FOREIGN KEY-constraints, integriteit op
+ * applicatieniveau.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'MKCP_ACCOUNT_DB_VERSION', '1.1' );
+define( 'MKCP_ACCOUNT_DB_VERSION', '1.2' );
 
 
 function mkcp_account_install_tables() {
@@ -43,14 +41,14 @@ function mkcp_account_install_tables() {
         KEY user_id (user_id)
     ) {$charset};";
 
-    // Reverse lookup op product_id: de dagelijkse prijsdaling-cron (Account-
-    // plan, sectie 7/14) moet efficiënt "wie heeft product X gewishlist"
-    // kunnen beantwoorden zonder alle wishlists te doorlopen.
+    // KEY product_id: de dagelijkse prijsdaling-cron moet efficiënt "wie
+    // heeft product X gewishlist" kunnen beantwoorden zonder alle wishlists
+    // te doorlopen.
     //
-    // 1.0 → 1.1: target_price toegevoegd (klant kiest zelf een gewenste
-    // prijs i.p.v. alleen "waarschuw bij elke daling" t.o.v. price_at_add).
-    // Puur een nieuwe, losse kolom — dbDelta voegt 'm toe zonder bestaande
-    // data te raken, geen losse ALTER TABLE nodig.
+    // 1.0 → 1.1: target_price toegevoegd. 1.1 → 1.2: notify_via_email/
+    // notify_via_dashboard toegevoegd (voorheen één vlag voor beide kanalen),
+    // default 1 zodat bestaand gedrag ongewijzigd blijft — puur nieuwe
+    // kolommen, dbDelta voegt ze toe zonder bestaande data te raken.
     $wishlist_items_sql = "CREATE TABLE {$wishlist_items_table} (
         id                      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         wishlist_id             BIGINT UNSIGNED NOT NULL,
@@ -61,6 +59,8 @@ function mkcp_account_install_tables() {
         target_price            DECIMAL(10,2)   DEFAULT NULL,
         notify_price_drop       TINYINT(1)      NOT NULL DEFAULT 0,
         notify_back_in_stock    TINYINT(1)      NOT NULL DEFAULT 0,
+        notify_via_email        TINYINT(1)      NOT NULL DEFAULT 1,
+        notify_via_dashboard    TINYINT(1)      NOT NULL DEFAULT 1,
         last_notified_price_at  DATETIME        DEFAULT NULL,
         last_notified_stock_at  DATETIME        DEFAULT NULL,
         added_at                DATETIME        NOT NULL,
@@ -95,9 +95,8 @@ function mkcp_account_install_tables() {
         KEY user_id (user_id)
     ) {$charset};";
 
-    // Samengestelde index (user_id, is_read, created_at) t.b.v. zowel de
-    // "aantal ongelezen"-badge als de gesorteerde lijstweergave — beide zijn
-    // de enige twee queries die deze tabel ooit zal krijgen.
+    // Index (user_id, is_read, created_at) dekt zowel de "ongelezen"-badge
+    // als de gesorteerde lijstweergave.
     $notifications_sql = "CREATE TABLE {$notifications_table} (
         id                   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         user_id              BIGINT UNSIGNED NOT NULL,
@@ -150,19 +149,15 @@ add_action( 'plugins_loaded', function() {
 
 
 // ── Opschoning bij het verwijderen van een gebruiker ──────────────────────────
-//
-// Zonder deze hook zou een via wp-admin/WP-CLI verwijderde klant wishlists/
-// adressen/notificaties achterlaten die aan niemand meer gekoppeld zijn —
-// zie Account-plan, sectie 15 (GDPR, "admin-geïnitieerde verwijdering").
-// Retour-aanvragen worden bewust NIET verwijderd maar geanonimiseerd
-// (user_id = 0), dezelfde reden als bij orders: de boekhoudkundige koppeling
-// aan order_id moet blijven bestaan.
+// Zonder deze hook zou een verwijderde klant wishlists/adressen/notificaties
+// achterlaten die aan niemand meer gekoppeld zijn (GDPR). Retour-aanvragen
+// worden geanonimiseerd i.p.v. verwijderd — de boekhoudkundige koppeling aan
+// order_id moet blijven bestaan.
 
 /**
  * Verwijdert/anonimiseert alle Account-eigen data van een klant — gedeeld
  * door de admin-geïnitieerde delete_user-hook hieronder ÉN de zelfservice
- * "Account verwijderen"-flow (includes/account-gdpr.php), zodat er maar één
- * plek is die weet welke tabellen hierbij horen.
+ * "Account verwijderen"-flow (includes/account-gdpr.php).
  */
 function mkcp_account_purge_user_data( int $user_id ): void {
     global $wpdb;
@@ -181,10 +176,36 @@ function mkcp_account_purge_user_data( int $user_id ): void {
     $wpdb->delete( $wpdb->prefix . 'mkcp_wishlists', [ 'user_id' => $user_id ], [ '%d' ] );
     $wpdb->delete( $wpdb->prefix . 'mkcp_addresses', [ 'user_id' => $user_id ], [ '%d' ] );
     $wpdb->delete( $wpdb->prefix . 'mkcp_notifications', [ 'user_id' => $user_id ], [ '%d' ] );
-    // Retour-aanvragen NIET verwijderen maar anonimiseren (user_id = 0) —
-    // dezelfde reden als bij orders: de boekhoudkundige koppeling aan
-    // order_id moet blijven bestaan (Account-plan, sectie 15).
+    // Anonimiseren i.p.v. verwijderen: koppeling aan order_id moet blijven bestaan.
     $wpdb->update( $wpdb->prefix . 'mkcp_return_requests', [ 'user_id' => 0 ], [ 'user_id' => $user_id ], [ '%d' ], [ '%d' ] );
+
+    // Productreviews: naam en e-mailadres staan als losse kolommen op de
+    // comment (niet dynamisch via user_id opgehaald), dus zonder deze stap
+    // blijven ze na verwijdering gewoon onder de review staan. De reviewTEKST
+    // zelf blijft: die heeft waarde voor andere klanten en is geen
+    // persoonsgegeven van de auteur.
+    $comment_ids = $wpdb->get_col( $wpdb->prepare(
+        "SELECT comment_ID FROM {$wpdb->comments} WHERE user_id = %d",
+        $user_id
+    ) );
+    if ( $comment_ids ) {
+        $wpdb->update(
+            $wpdb->comments,
+            [
+                'comment_author'       => __( 'Voormalige klant', 'mk-cart-popup' ),
+                'comment_author_email' => '',
+                'comment_author_url'   => '',
+                'comment_author_IP'    => '',
+                'user_id'              => 0,
+            ],
+            [ 'user_id' => $user_id ],
+            [ '%s', '%s', '%s', '%s', '%d' ],
+            [ '%d' ]
+        );
+        // Direct-SQL-update laat de comment-cache staan: die zou anders de oude
+        // naam/e-mail blijven serveren tot de cache vanzelf vervalt.
+        clean_comment_cache( $comment_ids );
+    }
 }
 
 add_action( 'delete_user', function( $user_id ) {

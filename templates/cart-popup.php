@@ -39,6 +39,32 @@ $min_remaining     = ( $min_order > 0 ) ? max( 0.0, $min_order - $cart_subtotal_
 
 $btw_split = ! empty( $config['btw_split'] );
 
+// A1: link naar de accountpagina in de header-iconenrij. Ook zichtbaar voor
+// uitgelogde bezoekers (mits de Account-omgeving als geheel actief is voor
+// deze site, mkcp_account_feature_enabled()) — WooCommerce's eigen
+// "Mijn account"-pagina toont vanzelf een inlogformulier aan uitgelogde
+// bezoekers en het echte dashboard aan ingelogde klanten, dus dezelfde URL
+// werkt voor beide gevallen zonder een apart login-mechanisme nodig te
+// hebben. Alleen het label/icoon-tekstje hieronder verschilt per staat.
+$account_link_url  = '';
+$account_link_name = '';
+if (
+    ! empty( $config['account_link_enabled'] )
+    && function_exists( 'mkcp_account_feature_enabled' ) && mkcp_account_feature_enabled()
+) {
+    $account_link_url = get_permalink( wc_get_page_id( 'myaccount' ) );
+    if ( is_user_logged_in() ) {
+        $current_user       = wp_get_current_user();
+        $account_link_name  = $current_user->first_name ?: $current_user->display_name;
+    }
+}
+
+// B1: vertrouwensbadge — puur admin-ingevoerde waarden, geen live API-
+// koppeling. Alleen tonen als er ook echt een score is ingevuld.
+$trust_badge_active = ! empty( $config['trust_badge_enabled'] )
+    && function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium' )
+    && (float) ( $config['trust_badge_rating'] ?? 0 ) > 0;
+
 // Eerstvolgende bezorgdatum (premium) — hergebruikt de bezorgdatum-planner die
 // al op de checkoutpagina draait (includes/delivery-date.php); geen los
 // datum-algoritme voor de winkelwagen.
@@ -136,6 +162,68 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
         <?php do_action( 'mkcp_after_header', $config ); ?>
 
         <div class="mk-cart-popup__body">
+
+        <!-- mk-cart-popup__utility-row bundelt de BTW-switch met de header-
+             iconen (account-link, A1) op één regel — hier BUITEN de
+             "$cart_count > 0"-check hieronder gerenderd, want inloggen/naar
+             je account gaan moet ook mogelijk zijn met een lege winkelwagen
+             (stond hij eerst binnen die check, dus verdween de hele rij
+             zodra het mandje leeg was). Alleen gerenderd als minstens één
+             van beide daadwerkelijk iets toont, zodat er geen lege balk
+             overblijft als alles is uitgezet. -->
+        <?php if ( $btw_split || $account_link_url ) : ?>
+        <div class="mk-cart-popup__utility-row">
+            <?php if ( $btw_split ) : ?>
+            <div class="mk-cart-popup__btw-switch">
+                <?php
+                // Eigen, nieuwe klassen (niet de gedeelde .mk-cart-popup__btw-
+                // pills/-opt) — die twee-knoppen-pillen blijven ONGEWIJZIGD
+                // bestaan voor de checkout-eigen BTW-switch (includes/
+                // checkout-frontend.php hergebruikt letterlijk diezelfde
+                // classes/CSS). Hier in de popup wordt het een echte,
+                // klikbare-overal toggle i.p.v. twee onzichtbare halve-
+                // breedte knopjes waar je heel precies op moest mikken.
+                ?>
+                <label class="mk-cart-popup__btw-toggle">
+                    <input type="checkbox" class="js-mkcp-btw-toggle" aria-label="<?php esc_attr_e( 'Inclusief BTW', 'mk-cart-popup' ); ?>">
+                    <span class="mk-cart-popup__btw-toggle-track">
+                        <span class="mk-cart-popup__btw-toggle-thumb">
+                            <svg class="mk-cart-popup__btw-toggle-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </span>
+                    </span>
+                </label>
+                <span class="mk-cart-popup__btw-label"><?php esc_html_e( 'Inclusief BTW', 'mk-cart-popup' ); ?></span>
+            </div>
+            <?php endif; ?>
+
+            <?php if ( $account_link_url ) : ?>
+            <div class="mk-cart-popup__utility-icons">
+                <?php
+                // De decoratieve winkelwagen-icoontje ernaast is geschrapt
+                // op verzoek — overbodig/verwarrend zolang je de
+                // winkelwagen sowieso al open hebt staan.
+                //
+                // Ook zichtbaar voor uitgelogde bezoekers (zie
+                // $account_link_url hierboven), met eigen tekst per
+                // staat: "Inloggen" uitgelogd, een persoonlijke groet met
+                // voornaam ingelogd — i.p.v. alleen een kaal icoontje.
+                // Kleiner icoon, geen cirkel-achtergrond meer omheen.
+                $account_link_label = $account_link_name
+                    ? sprintf( /* translators: %s: voornaam van de klant */ __( 'Hoi %s — naar account', 'mk-cart-popup' ), $account_link_name )
+                    : __( 'Inloggen', 'mk-cart-popup' );
+                ?>
+                <a href="<?php echo esc_url( $account_link_url ); ?>" class="mk-cart-popup__utility-icon mk-cart-popup__utility-icon--account" aria-label="<?php echo esc_attr( $account_link_label ); ?>" title="<?php echo esc_attr( $account_link_label ); ?>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span class="mk-cart-popup__utility-icon-label"><?php echo esc_html( $account_link_label ); ?></span>
+                </a>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
 
         <?php if ( $cart_count > 0 ) : ?>
 
@@ -434,18 +522,33 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
             <div class="mk-cart-popup__divider mk-cart-popup__divider--side" aria-hidden="true"></div>
             <div class="mk-cart-popup__col-side">
 
-            <!-- Incl/excl-BTW-pillen + gratis-verzendbalk staan hier zodat ze in de
-                 split-layout in de samenvatting-kolom terechtkomen i.p.v. los boven de
-                 productlijst. Beide hebben een vaste order (cart-popup.scss) zodat ze
-                 in de normale (niet-gesplitste) modus toch bovenaan blijven staan. -->
-            <?php if ( $btw_split ) : ?>
-            <div class="mk-cart-popup__btw-switch">
-                <span class="mk-cart-popup__btw-label"><?php esc_html_e( 'Prijzen tonen:', 'mk-cart-popup' ); ?></span>
-                <div class="mk-cart-popup__btw-pills">
-                    <button type="button" class="mk-cart-popup__btw-opt js-mkcp-btw" data-pref="incl"><?php esc_html_e( 'Incl. BTW', 'mk-cart-popup' ); ?></button>
-                    <button type="button" class="mk-cart-popup__btw-opt js-mkcp-btw" data-pref="excl"><?php esc_html_e( 'Excl. BTW', 'mk-cart-popup' ); ?></button>
-                </div>
-            </div>
+            <?php if ( $trust_badge_active ) :
+                $trust_rating       = round( (float) $config['trust_badge_rating'], 1 );
+                $trust_review_count = (int) ( $config['trust_badge_review_count'] ?? 0 );
+                $trust_url          = $config['trust_badge_url'] ?? '';
+                $trust_tag          = $trust_url ? 'a' : 'div';
+            ?>
+            <<?php echo esc_html( $trust_tag ); ?> <?php if ( $trust_url ) : ?>href="<?php echo esc_url( $trust_url ); ?>" target="_blank" rel="noopener nofollow"<?php endif; ?> class="mk-cart-popup__trust-badge">
+                <span class="mk-cart-popup__trust-badge-stars" aria-hidden="true">
+                    <?php
+                    // Vijf sterren, deels gevuld via clip-path op basis van het
+                    // percentage — geen los "halve ster"-icoon nodig.
+                    for ( $i = 1; $i <= 5; $i++ ) :
+                        $fill_pct = max( 0, min( 100, ( $trust_rating - ( $i - 1 ) ) * 100 ) );
+                        ?>
+                        <span class="mk-cart-popup__trust-star" style="--mkcp-star-fill: <?php echo esc_attr( $fill_pct ); ?>%">
+                            <svg class="mk-cart-popup__trust-star-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/></svg>
+                            <svg class="mk-cart-popup__trust-star-fill" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/></svg>
+                        </span>
+                    <?php endfor; ?>
+                </span>
+                <span class="mk-cart-popup__trust-badge-text">
+                    <?php echo esc_html( number_format_i18n( $trust_rating, 1 ) ); ?>
+                    <?php if ( $trust_review_count > 0 ) : ?>
+                        <span class="mk-cart-popup__trust-badge-count">(<?php echo esc_html( number_format_i18n( $trust_review_count ) ); ?>)</span>
+                    <?php endif; ?>
+                </span>
+            </<?php echo esc_html( $trust_tag ); ?>>
             <?php endif; ?>
 
             <?php if ( $config['free_shipping_bar'] && $threshold > 0 ) : ?>
@@ -735,5 +838,68 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
         </div>
 
     </div>
+
+    <?php
+    // K1/J4: sleepgreep om de breedte aan te passen (desktop) — eigen
+    // instelling (style_resize_enabled), los van de uitklap-knop hierboven
+    // (style_expand_enabled): een winkelier kan slepen apart uitzetten
+    // terwijl de knop blijft bestaan, of andersom.
+    //
+    // BUG gefixt (1): $app_mode is GEEN "is dit een telefoon"-detectie, het
+    // is puur de admin-instelling "Mobiele app-ervaring" — CSS-media-queries
+    // bepalen pas écht of de bottom-sheet-stijl toeslaat (@media max-width:
+    // 782px, cart-popup.scss).
+    //
+    // BUG gefixt (2): stond eerst ÍN .mk-cart-popup__drawer, die zelf
+    // overflow:hidden heeft (nodig voor afgeronde hoeken/interne scroll-
+    // gebieden). Alles wat over de rand naar buiten stak (bewust, voor het
+    // "half op de rand"-effect) werd daardoor afgesneden — en de rest viel
+    // over de productlijst heen. Nu een sibling ván de drawer i.p.v. een
+    // kind ervan, gepositioneerd via CSS met dezelfde --mkcp-width-variabele
+    // als de drawer zelf (zie "K1: breedte-sleepgreep" in cart-popup.scss en
+    // "K1: breedte-schuifmechanisme" in cart-popup.js) — blijft zo altijd
+    // exact gesynchroniseerd, per style_position-variant.
+    if ( function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium' ) && ! empty( $config['style_resize_enabled'] ) ) :
+        // Combi-greep: als "volledig scherm" ook aan staat, krijgt de
+        // sleepgreep er een klein knopje bovenin bij (los, eigen klik-doel)
+        // waarmee je zonder slepen direct naar volledige breedte kunt —
+        // bovenop de al bestaande knop in de header, niet in de plaats
+        // daarvan (bewuste keuze: header-knop blijft de primaire, toegankelijke
+        // ingang; dit is puur een sneltoegang op de plek waar je toch al aan
+        // het slepen bent).
+        $show_expand_in_grip = ! empty( $config['style_expand_enabled'] );
+    ?>
+    <?php
+    // Toetsenbord-toegankelijkheid: was aria-hidden + niet-focusbaar (dus
+    // onbereikbaar voor toetsenbord-/screenreader-gebruikers). Nu een echte
+    // role="slider": Pijl-links/rechts en Home/End werken via de keydown-
+    // handler in cart-popup.js (die dezelfde MKCP_RESIZE_MIN/snapThreshold
+    // hergebruikt als de sleep-logica). aria-valuenow/-min/-max worden bij
+    // het openen en tijdens het aanpassen door JS bijgewerkt (zie
+    // syncResizeAria() in cart-popup.js) — de waarden hier zijn alleen een
+    // eerste render vóór JS draait.
+    //
+    // data-min-width geeft de ondergrens dóór aan JS: MKCP_RESIZE_MIN_WIDTH
+    // (mk-cart-popup.php) is de enige bron van waarheid, zodat de winkelier-
+    // instelling, deze template en de sleeplogica nooit uit elkaar kunnen
+    // lopen doordat iemand er maar één van aanpast.
+    ?>
+    <div class="mk-cart-popup__resize-handle js-mkcp-resize-handle<?php echo $show_expand_in_grip ? ' mk-cart-popup__resize-handle--combo' : ''; ?>" role="slider" tabindex="0" aria-orientation="horizontal" aria-label="<?php esc_attr_e( 'Breedte van de winkelwagen', 'mk-cart-popup' ); ?>" aria-valuemin="<?php echo (int) MKCP_RESIZE_MIN_WIDTH; ?>" data-min-width="<?php echo (int) MKCP_RESIZE_MIN_WIDTH; ?>" title="<?php esc_attr_e( 'Sleep, of gebruik de pijltjestoetsen, om de winkelwagen breder of smaller te maken', 'mk-cart-popup' ); ?>">
+        <span class="mk-cart-popup__resize-handle-grip<?php echo $show_expand_in_grip ? ' mk-cart-popup__resize-handle-grip--combo' : ''; ?>">
+            <?php if ( $show_expand_in_grip ) : ?>
+            <button type="button" class="mk-cart-popup__resize-handle-expand-btn js-mkcp-expand-toggle" tabindex="-1" aria-hidden="true" aria-pressed="false" title="<?php esc_attr_e( 'Volledig scherm', 'mk-cart-popup' ); ?>">
+                <svg class="mk-cart-popup__expand-icon-expand" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+                <svg class="mk-cart-popup__expand-icon-collapse" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                </svg>
+            </button>
+            <span class="mk-cart-popup__resize-handle-divider" aria-hidden="true"></span>
+            <?php endif; ?>
+            <span class="mk-cart-popup__resize-handle-dots" aria-hidden="true"></span>
+        </span>
+    </div>
+    <?php endif; ?>
 
 </div>

@@ -17,7 +17,9 @@
     /* Layout */
     --mkcp-width  : 500px;
     --mkcp-z      : 10000000;
-    --mkcp-anim   : 460ms cubic-bezier(0.22, 1, 0.36, 1);
+    // Sneller/snappier op verzoek (was 460ms, voelde traag aan) — zelfde
+    // easing-curve behouden, alleen de duur verkort.
+    --mkcp-anim   : 300ms cubic-bezier(0.22, 1, 0.36, 1);
 
     /* Surface */
     --mkcp-bg      : #ffffff;
@@ -153,7 +155,7 @@
  * juist om toetsenbordnavigatie — zonder eigen ring hierboven is voor die
  * gebruiker onzichtbaar waar de focus staat. :focus-visible i.p.v. :focus,
  * zodat een muisklik geen ring geeft, alleen Tab-navigatie. */
-#mk-cart-popup :is(a, button, input, select, textarea):focus-visible {
+#mk-cart-popup :is(a, button, input, select, textarea, [role="slider"]):focus-visible {
     outline       : 2px solid var(--mkcp-accent);
     outline-offset: 2px;
 }
@@ -170,6 +172,278 @@
 .mk-cart-popup--pos-center.is-expanded .mk-cart-popup__drawer {
     max-width : 96vw;
     max-height: 92vh;
+}
+
+/* ── K1: breedte-sleepgreep ───────────────────────────────────────────────────
+ * Smalle, onopvallende strook, half over de rand van de drawer — alleen echt
+ * opvallend (via de hover-highlight) wanneer je 'm nodig hebt. Blijft ook
+ * zichtbaar/bruikbaar in .is-expanded (100vw), en verdwijnt op smalle
+ * schermen (@media max-width: 782px hieronder; drag-to-resize is geen mobiel
+ * interactiepatroon, de bestaande __grabber daar is verticaal, voor de
+ * bottom-sheet).
+ *
+ * BUGFIX: stond eerst ín .mk-cart-popup__drawer zelf — die heeft overflow:
+ * hidden (nodig voor afgeronde hoeken/interne scroll-gebieden), en clipte
+ * dus alles wat over de rand naar buiten stak. Nu een SIBLING van de drawer
+ * (templates/cart-popup.php, na de drawer in de markup) i.p.v. een kind
+ * ervan: geen overflow-clipping meer, en geen overlap meer met de
+ * productlijst (die eerder zichtbaar ónder de capsule lag toen 'm nog binnen
+ * de drawer's eigen linkerkolom stond).
+ *
+ * Positie wordt berekend uit --mkcp-width — dezelfde variabele die de drawer
+ * zijn breedte geeft (config.php / K1-sleeplogica in cart-popup.js zet 'm op
+ * de gedeelde ouder #mk-cart-popup) — zodat drawer en greep altijd exact
+ * gesynchroniseerd blijven zonder dat JS de greep zelf hoeft te positioneren.
+ */
+// J4: voorheen volledig onzichtbaar (transparante achtergrond, alleen een
+// 2px-lijntje bij hover) — vandaar "geen idee hoe het werkt". Nu een blijvend
+// zichtbaar (subtiel) greep-icoontje, dat pas nadrukkelijker wordt bij hover/
+// focus i.p.v. pas dan zichtbaar te wórden.
+.mk-cart-popup__resize-handle {
+    --mkcp-rh-offset: 8px; // halve breedte van de hitbox — overschreven door --combo hieronder
+
+    position   : absolute;
+    top        : 0;
+    bottom     : 0;
+    // Standaard (en --pos-right, geen eigen override nodig): drawer zit rechts
+    // vast (right:0, breedte via --mkcp-width) — de greep dus ook rechts-
+    // gepositioneerd, zodat 'ie automatisch meeschuift als de breedte
+    // verandert, zonder dat JS zelf hoeft bij te sturen.
+    right      : calc(var(--mkcp-width) - var(--mkcp-rh-offset));
+    width      : calc(var(--mkcp-rh-offset) * 2);
+    cursor     : ew-resize;
+    z-index    : 2;
+    touch-action: none;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+
+    // BUGFIX: als sibling van de drawer (overflow-clip-fix hierboven) volgde
+    // deze greep alleen nog de visibility van de #mk-cart-popup-root (instant
+    // aan, met vertraging pas uit ná de sluit-animatie) — maar niet de eigen
+    // opacity/transform-transitie van .mk-cart-popup__drawer. Verscheen/
+    // verdween daardoor "los" van de popup i.p.v. gelijk ermee te faden. Nu
+    // een eigen opacity-transitie met dezelfde duur (--mkcp-anim) en
+    // dezelfde .is-open-trigger als de drawer, zodat ze precies gelijk
+    // oplopen.
+    opacity   : 0;
+    transition: opacity var(--mkcp-anim);
+    pointer-events: none;
+}
+
+.is-open .mk-cart-popup__resize-handle {
+    opacity       : 1;
+    pointer-events: auto;
+}
+
+// --pos-left: drawer zit links vast (left:0) — de greep hoort dus aan de
+// rand die de pagina IN wijst (de rechterkant van de drawer), niet aan de
+// letterlijke linkerrand van het scherm. Was voorheen niet apart afgehandeld
+// (bekend, nooit gecontroleerd gaatje) — nu meteen goed gezet, samen met de
+// overflow-clip-fix hierboven.
+.mk-cart-popup--pos-left .mk-cart-popup__resize-handle {
+    right: auto;
+    left : calc(var(--mkcp-width) - var(--mkcp-rh-offset));
+}
+
+// --pos-center: drawer is gecentreerd (left:50% + translateX(-50%)) i.p.v.
+// aan een rand vast te zitten — de linkerrand ligt dus op 50% min de halve
+// breedte.
+.mk-cart-popup--pos-center .mk-cart-popup__resize-handle {
+    right: auto;
+    left : calc(50% - (var(--mkcp-width) / 2) - var(--mkcp-rh-offset));
+}
+
+// .is-expanded (100vw): bij de standaard/--pos-right/--pos-left-varianten
+// ligt de rand dan letterlijk op de schermrand (x=0 of x=100vw) — een greep
+// die daar gecentreerd overheen hangt, hangt voor de helft onbereikbaar
+// buiten het scherm. Schuift daarom volledig naar binnen i.p.v. gecentreerd
+// over de rand te blijven staan. (--pos-center blijft ongemoeid: die clampt
+// zelf al naar max 96vw/92vh, dus de rand raakt de schermrand nooit echt.)
+// :not(--pos-center) hier is geen stijl-keuze maar noodzakelijk voor de
+// specificiteit: zonder die uitsluiting heeft deze regel evenveel klassen
+// (dus evenveel specificiteit) als de .mk-cart-popup--pos-center-regel
+// hierboven, en zou de brondvolgorde 'm laten winnen — waardoor de
+// centrerings-formule van pos-center in expanded-modus per ongeluk
+// overschreven zou worden door deze "schuif naar de schermrand"-regel.
+// BUGFIX: had right/left hier per ongeluk omgedraaid — de drawer (default/
+// --pos-right) zit ZELF al vast aan right:0, dus de grijpbare rand (waar de
+// drawer overgaat in de rest van de pagina) is de LINKERkant, x=0. Met
+// right:0 kwam de greep in plaats daarvan op de rand te staan waar de
+// drawer toch al aan vastzit — helemaal rechts, precies verkeerd om.
+.is-expanded:not(.mk-cart-popup--pos-center) .mk-cart-popup__resize-handle {
+    left : 0;
+    right: auto;
+}
+
+// pos-left is het spiegelbeeld: de drawer zit vast aan left:0, dus de
+// grijpbare rand ligt juist rechts (x=100vw).
+//
+// De extra :not(--pos-center) is géén stijl-keuze maar puur een specificiteits-
+// verhoging: zonder die derde klasse heeft deze regel exact evenveel klassen
+// als de :not()-regel hierboven (een :not()-argument telt als volwaardige
+// klasse), en zou puur de bronvolgorde bepalen welke van de twee wint. Dat
+// patroon — twee gelijk-specifieke regels waarbij alleen de volgorde het
+// goede resultaat gaf — is deze sessie al twee keer als bug teruggekomen
+// (de omgedraaide left/right hierboven én de pos-center-overschrijving), dus
+// hier bewust ondubbelzinnig gemaakt. --pos-left en --pos-center sluiten
+// elkaar uit, dus de uitsluiting is altijd waar en verandert niets aan het
+// gedrag.
+.mk-cart-popup--pos-left.is-expanded:not(.mk-cart-popup--pos-center) .mk-cart-popup__resize-handle {
+    right: 0;
+    left : auto;
+}
+
+// Herzien: vlak op de drawer-rand (flex-centered in de hitbox, dus precies
+// op de grens tussen drawer en backdrop) i.p.v. er half overheen "zwevend".
+// Compacter (smaller + korter) en met een zachte halo/ring i.p.v. een harde
+// rand, zodat 'ie op elke achtergrond (licht, donker, foto) voldoende opvalt
+// zonder een duidelijk zichtbaar kader te tekenen.
+.mk-cart-popup__resize-handle-grip {
+    position       : relative;
+    width          : 5px;
+    height         : 36px;
+    border-radius  : 999px;
+    background     : var(--mkcp-light2);
+    box-shadow     : 0 0 0 3px color-mix(in srgb, var(--mkcp-bg) 85%, transparent);
+    transition     : background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+}
+
+// Twee stippen i.p.v. drie — leest nog steeds als grijpbaar, maar oogt
+// rustiger op een greep die al smaller/korter is. Eigen element i.p.v.
+// ::before, want in de --combo-variant hieronder moet 'm los van het
+// expand-knopje/streepje gepositioneerd kunnen worden.
+.mk-cart-popup__resize-handle-dots {
+    position     : relative;
+    width        : 2.5px;
+    height       : 2.5px;
+    border-radius: 50%;
+    background   : var(--mkcp-bg);
+    box-shadow   : 0 -5px 0 var(--mkcp-bg), 0 5px 0 var(--mkcp-bg);
+    transition   : background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-grip,
+.mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-grip,
+.mkcp-cart-resizing .mk-cart-popup__resize-handle-grip {
+    background   : var(--mkcp-accent);
+    box-shadow   : 0 0 0 3px color-mix(in srgb, var(--mkcp-accent) 20%, transparent);
+    transform    : scaleX(1.4);
+}
+
+.mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-dots,
+.mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-dots,
+.mkcp-cart-resizing .mk-cart-popup__resize-handle-dots {
+    background: #fff;
+    box-shadow: 0 -5px 0 #fff, 0 5px 0 #fff;
+}
+
+/* ── Combi-variant: sleepgreep + volledig-scherm-knopje in 1 capsule ──────────
+ * Alleen aanwezig als beide instellingen (style_resize_enabled +
+ * style_expand_enabled) aan staan. Capsule blijft altijd wit/neutraal — alleen
+ * de losse onderdelen (knopje, stippen) reageren op hover — zodat het duidelijk
+ *2 aparte klikdoelen blijft i.p.v. 1 groot gekleurd blok. */
+.mk-cart-popup__resize-handle--combo {
+    --mkcp-rh-offset: 13px; // moet in sync blijven met de breedte van --grip-combo hieronder (2x = 26px)
+    width: 26px;
+}
+
+.mk-cart-popup__resize-handle-grip--combo {
+    width          : 22px;
+    height         : 66px;
+    border-radius  : 999px;
+    background     : var(--mkcp-bg);
+    box-shadow     : 0 3px 14px rgba(0, 0, 0, .22), 0 0 0 1px rgba(0, 0, 0, .05);
+    flex-direction : column;
+    align-items    : center;
+    justify-content: flex-start;
+    padding        : 7px 0;
+    transform      : none; // overschrijft de scaleX-hover van de basisklasse hierboven
+
+    // BUGFIX: de stippen gebruiken standaard --mkcp-bg (wit) — logisch op de
+    // vorige dunne, grijze pil (wit contrasteert daar prima), maar de combi-
+    // capsule zélf is ook --mkcp-bg (wit), dus de stippen waren onzichtbaar
+    // (wit op wit). Eigen kleuren i.p.v. de generieke .mk-cart-popup__resize-
+    // handle-dots-regels hierboven: grijs in rust, accentkleur bij hover
+    // (i.p.v. wit — de capsule zelf kleurt bij de combo-variant nooit vol
+    // accent, zie de hover-regel hieronder, dus wit zou daar alsnog wegvallen).
+    .mk-cart-popup__resize-handle-dots {
+        margin    : auto 0; // verticaal gecentreerd in de ruimte ónder knopje+streepje
+        background: var(--mkcp-light2);
+        box-shadow: 0 -5px 0 var(--mkcp-light2), 0 5px 0 var(--mkcp-light2);
+    }
+}
+
+.mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-grip--combo,
+.mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-grip--combo,
+.mkcp-cart-resizing .mk-cart-popup__resize-handle-grip--combo {
+    background: var(--mkcp-bg);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .3), 0 0 0 1px rgba(0, 0, 0, .05);
+    transform : none;
+}
+
+.mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-grip--combo .mk-cart-popup__resize-handle-dots,
+.mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-grip--combo .mk-cart-popup__resize-handle-dots,
+.mkcp-cart-resizing .mk-cart-popup__resize-handle-grip--combo .mk-cart-popup__resize-handle-dots {
+    background: var(--mkcp-accent);
+    box-shadow: 0 -5px 0 var(--mkcp-accent), 0 5px 0 var(--mkcp-accent);
+}
+
+.mk-cart-popup__resize-handle-expand-btn {
+    width          : 18px;
+    height         : 18px;
+    border-radius  : 50%;
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    border         : none;
+    background     : none;
+    padding        : 0;
+    cursor         : pointer;
+    color          : var(--mkcp-text-light);
+    transition     : background-color 150ms ease, color 150ms ease;
+    flex-shrink    : 0;
+
+    svg {
+        width  : 11px;
+        height : 11px;
+        display: block;
+    }
+
+    &:hover {
+        background: var(--mkcp-accent-soft);
+        color     : var(--mkcp-accent);
+    }
+
+    .mk-cart-popup__expand-icon-collapse { display: none; }
+    .is-expanded & {
+        color: var(--mkcp-accent);
+        .mk-cart-popup__expand-icon-expand   { display: none; }
+        .mk-cart-popup__expand-icon-collapse { display: block; }
+    }
+}
+
+.mk-cart-popup__resize-handle-divider {
+    width      : 10px;
+    height     : 1px;
+    background : var(--mkcp-light2);
+    margin-top : 6px;
+    flex-shrink: 0;
+}
+
+/* Tijdens het slepen: geen tekst-selectie en geen transition-vertraging op de
+ * breedte, anders "sleept" de drawer met merkbare lag achter de muis aan. */
+body.mkcp-cart-resizing {
+    user-select: none;
+
+    .mk-cart-popup__drawer { transition: none; }
+}
+
+@media (max-width: 782px) {
+    .mk-cart-popup__resize-handle { display: none; }
 }
 
 /* ── Split-layout in volledig-scherm modus: 50% producten / 25% cross-sell /
@@ -197,7 +471,7 @@
  * te halen in de (geflatte) flex-context van .mk-cart-popup__body. In de
  * zijbalk zelf (waar ze sowieso al als eerste kinderen staan) verandert dit
  * niets. */
-.mk-cart-popup__btw-switch {
+.mk-cart-popup__utility-row {
     order: -20;
 }
 
@@ -944,13 +1218,10 @@
 
 
 /* ── Item list ────────────────────────────────────────────────────────────── */
-
 .mk-cart-popup__items-header {
     display        : flex;
     justify-content: space-between;
-    padding        : var(--mkcp-space-sm) var(--mkcp-space-outer);
-    border-bottom  : 1px solid var(--mkcp-light1);
-
+    padding        : var(--mkcp-space-sm) var(--mkcp-space-outer) 0;
     span {
         font-size      : var(--mkcp-font-xs);
         text-transform : uppercase;
@@ -976,7 +1247,6 @@
     gap                  : 1em;
     align-items          : start;
     padding-bottom       : var(--mkcp-space-inner);
-
     &:last-child {
         border-bottom : none;
         padding-bottom: 0;
@@ -985,7 +1255,6 @@
 
 .mk-cart-popup__item-image {
     display: block;
-
     img {
         width        : var(--mkcp-img-size);
         height       : var(--mkcp-img-size);
@@ -999,7 +1268,6 @@
     display       : flex;
     flex-direction: column;
     gap           : 0;
-
     .variation {
         display               : grid;
         grid-template-columns : auto 1fr;
@@ -1014,21 +1282,18 @@
         margin                : 4px 0 0;
         padding               : 0;
         line-height: 1.4;
-
         dt {
             font-weight : 500;
             white-space : nowrap;
             padding     : 0;
             margin      : 0;
         }
-
         dd {
             margin      : 0;
             padding     : 0;
             color       : var(--mkcp-text);
             font-weight : 400;
         }
-
         p {
             margin  : 0;
             padding : 0;
@@ -1038,7 +1303,6 @@
 
 .mk-cart-popup__item-name-wrap {
     position: relative;
-
     &::after {
         content      : attr(data-name);
         position     : absolute;
@@ -1061,7 +1325,6 @@
         transition   : opacity 150ms;
         z-index      : 10;
     }
-
     &:hover::after {
         opacity: 1;
     }
@@ -1825,7 +2088,7 @@ form.cart.mk-loading {
     .mk-cart-popup__header       { padding: 1em; }
     .mk-cart-popup__progress     { padding: var(--mkcp-space-sm) 1em; }
     .mk-cart-popup__items-header { padding: 10px 1em var(--mkcp-space-sm); }
-    .mk-cart-popup__btw-switch   { padding: var(--mkcp-space-sm) 1em; }
+    .mk-cart-popup__utility-row  { padding: var(--mkcp-space-sm) 1em; }
     .mk-cart-popup__saved        { padding: var(--mkcp-space-sm) 1em; }
 }
 
@@ -2169,59 +2432,370 @@ form.cart.mk-loading {
 }
 
 
-/* ── BTW switch pill ──────────────────────────────────────────────────────── */
+/* ── Utility-rij: BTW-switch + header-iconen (account-link e.d.) ──────────── */
 
-.mk-cart-popup__btw-switch {
+.mk-cart-popup__utility-row {
     display        : flex;
     align-items    : center;
     justify-content: space-between;
+    gap            : 12px;
     padding        : var(--mkcp-space-sm) var(--mkcp-space-outer);
     border-bottom  : 1px solid var(--mkcp-light1);
     flex-shrink    : 0;
 }
 
-.mk-cart-popup__btw-label {
-    font-size  : var(--mkcp-font-sm);
+.mk-cart-popup__utility-icons {
+    display    : flex;
+    align-items: center;
+    gap        : 10px;
+    margin-left: auto;
+}
+
+.mk-cart-popup__utility-icon {
+    display        : inline-flex;
+    align-items    : center;
+    justify-content: center;
+    width          : 40px;
+    height         : 40px;
+    border-radius  : 50%;
+    border         : 1.5px solid var(--mkcp-light2);
+    background     : var(--mkcp-bg);
+    color          : var(--mkcp-text-light);
+    box-shadow     : 0 1px 3px rgba(0, 0, 0, .08);
+    transition     : background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 150ms ease;
+
+    svg { width: 20px; height: 20px; }
+}
+
+a.mk-cart-popup__utility-icon:hover,
+a.mk-cart-popup__utility-icon:focus-visible {
+    background  : var(--mkcp-accent);
+    border-color: var(--mkcp-accent);
+    color       : #fff;
+    transform   : translateY(-1px);
+}
+
+// A1-restyle: account-link kreeg een eigen tekstlabel (Inloggen / persoon-
+// lijke groet), dus geen ronde icoon-only-knop meer — kleiner icoon, geen
+// cirkel-achtergrond, gewoon een tekst-link met icoontje ervoor.
+.mk-cart-popup__utility-icon--account {
+    width          : auto;
+    height         : auto;
+    padding        : 0;
+    border          : none;
+    background      : transparent;
+    box-shadow      : none;
+    gap             : 6px;
+    color           : var(--mkcp-text);
+    font-size       : var(--mkcp-font-sm);
+    font-weight     : 500;
+    text-decoration : none !important;
+
+    svg { width: 16px; height: 16px; flex-shrink: 0; }
+}
+
+a.mk-cart-popup__utility-icon--account:hover,
+a.mk-cart-popup__utility-icon--account:focus-visible {
+    background : transparent;
+    border-color: transparent;
+    color      : var(--mkcp-accent);
+    transform  : none;
+}
+
+.mk-cart-popup__utility-icon-label {
+    white-space: nowrap;
+    overflow   : hidden;
+    text-overflow: ellipsis;
+    max-width  : 160px;
+}
+
+
+/* ── Vertrouwensbadge (B1) — puur admin-ingevoerde sterrenscore, geen live
+ * API-koppeling. Vijf sterren met een per-ster clip-path-vulling op basis van
+ * --mkcp-star-fill (0–100%), zodat ook decimale scores (bv. 4.7) een half-
+ * gevulde ster tonen zonder een los "halve ster"-icoon nodig te hebben. ──── */
+
+.mk-cart-popup__trust-badge {
+    display        : flex;
+    align-items    : center;
+    gap            : 8px;
+    padding        : 6px var(--mkcp-space-outer);
+    border-bottom  : 1px solid var(--mkcp-light1);
+    flex-shrink    : 0;
+    color          : var(--mkcp-text);
+    text-decoration: none !important;
+}
+
+.mk-cart-popup__trust-badge-stars {
+    display: inline-flex;
+    gap    : 1px;
+}
+
+.mk-cart-popup__trust-star {
+    position     : relative;
+    display      : inline-block;
+    width        : 13px;
+    height       : 13px;
+
+    svg {
+        position: absolute;
+        inset   : 0;
+        width   : 100%;
+        height  : 100%;
+        display : block;
+    }
+}
+
+// Twee identieke sterren gestapeld: een grijze "leeg"-laag eronder, en een
+// gele "gevuld"-laag erboven die met clip-path wordt afgeknipt op het
+// --mkcp-star-fill-percentage (PHP berekent dit per ster) — zo tonen ook
+// decimale scores (bv. 4.7) een deels gevulde ster, zonder een los half-
+// ster-icoon nodig te hebben.
+.mk-cart-popup__trust-star-bg   { fill: var(--mkcp-light2); }
+
+.mk-cart-popup__trust-star-fill {
+    fill      : #f5a623;
+    clip-path : inset(0 calc(100% - var(--mkcp-star-fill, 0%)) 0 0);
+}
+
+.mk-cart-popup__trust-badge-text {
+    font-size  : var(--mkcp-font-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mk-cart-popup__trust-badge-count {
+    font-weight: 400;
     color      : var(--mkcp-text-light);
 }
 
+
+/* ── BTW switch (echte schuifknop, geen tekstpillen meer) ─────────────────── */
+/* De twee &lt;button&gt;'s (.js-mkcp-btw, data-pref="incl"/"excl") blijven bestaan
+ * in de markup — bewust ongewijzigd, want assets/checkout-btw.js's
+ * window.mkcpBtwSwitch.lock()/unlock() (BTW-verlegging bij een geldig
+ * BTW-nummer op checkout) en assets/cart-popup.js's syncBtw() vertrouwen
+ * allebei op exact deze twee knoppen + data-pref + .is-active/:disabled.
+ * Alleen de VISUELE laag verandert hier: de knoppen worden onzichtbare,
+ * even grote klikvlakken over een geanimeerde schuifknop-track/-duimpje,
+ * aangestuurd door de .is-btw-incl/.is-btw-excl-klasse die syncBtw() al op
+ * de popup-root zet. */
+
+.mk-cart-popup__btw-switch {
+    display    : flex;
+    align-items: center;
+    gap        : 8px;
+}
+
+.mk-cart-popup__btw-label {
+    font-size  : var(--mkcp-font-sm);
+    color      : var(--mkcp-text);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
 .mk-cart-popup__btw-pills {
+    position     : relative;
     display      : flex;
-    background   : var(--mkcp-bg);
-    border       : 1px solid var(--mkcp-light2);
-    border-radius: 7px;
-    padding      : 2px;
-    gap          : 2px;
+    flex-shrink  : 0;
+    width        : 38px;
+    height       : 21px;
+    padding      : 0;
+    background   : var(--mkcp-light2);
+    border       : none;
+    border-radius: 999px;
+    transition   : background-color 150ms ease;
+
+    &::after {
+        content      : '';
+        position     : absolute;
+        top          : 2px;
+        left         : 2px;
+        width        : 17px;
+        height       : 17px;
+        border-radius: 50%;
+        background   : #fff;
+        box-shadow   : 0 1px 3px rgba(0, 0, 0, .25);
+        transition   : transform 150ms ease;
+        pointer-events: none;
+    }
+
+    &:has(.mk-cart-popup__btw-opt:disabled) {
+        opacity       : .5;
+        pointer-events: none;
+    }
+}
+
+// Omgewisseld op verzoek: "incl. BTW" (de gebruikelijke/standaardstand) is nu
+// de "aan"-stand — groene baan + duimpje rechts, het gangbare schakelaar-
+// idioom — i.p.v. voorheen andersom (duimpje bewoog alleen bij "excl.",
+// incl. bleef altijd links staan, wat verwarrend/traag aanvoelde).
+.is-btw-incl .mk-cart-popup__btw-pills {
+    background: var(--mkcp-accent);
+
+    &::after { transform: translateX(17px); }
+}
+
+/* ── Winkelwagenpopup-eigen BTW-toggle — losse, nieuwe classes (de pillen
+ * hierboven blijven voor de checkout-eigen switch bestaan, ongewijzigd).
+ * Klikbaar over de hele component (label+input), niet meer twee precieze
+ * halve-breedte knopjes — en een duimpje dat bewust GROTER is dan de baan
+ * zelf en er een beetje "uitvalt", met een stevige/springerige animatie. ── */
+.mk-cart-popup__btw-toggle {
+    position   : relative;
+    display    : inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor     : pointer;
+    // Ruimte reserveren voor het uitstekende duimpje (4px boven/onder de
+    // baan) zodat het niets anders in de rij raakt/afsnijdt.
+    padding    : 4px 0;
+
+    input {
+        position: absolute;
+        inset   : 0;
+        margin  : 0;
+        opacity : 0;
+        cursor  : pointer;
+        z-index : 1;
+    }
+}
+
+.mk-cart-popup__btw-toggle-track {
+    display      : block;
+    width        : 34px;
+    height       : 18px;
+    border-radius: 999px;
+    background   : var(--mkcp-light2);
+    // Lichte inset-schaduw i.p.v. een platte kleurvlak — geeft de baan wat
+    // diepte, alsof het bolletje er echt "in" ligt.
+    box-shadow   : inset 0 1px 3px rgba(0, 0, 0, .15);
+    transition   : background-color 220ms ease;
+}
+
+.mk-cart-popup__btw-toggle-thumb {
+    position     : absolute;
+    top          : 50%;
+    left         : -1px;
+    width        : 20px;
+    height       : 20px;
+    border-radius: 50%;
+    background   : #fff;
+    box-shadow   : 0 2px 6px rgba(0, 0, 0, .28), 0 0 0 1px rgba(0, 0, 0, .04);
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    // "Dikke" veerachtige overshoot i.p.v. een kale lineaire schuif — de
+    // duidelijk langere duur (was 150ms bij de oude pillen) + de overshoot-
+    // curve geven het net dat stevige/tastbare gevoel, ook nu op dit
+    // compactere formaat (was eerst te fors uitgevallen).
+    transition   : transform 320ms cubic-bezier(.34, 1.56, .64, 1);
+    transform    : translateY(-50%);
+    pointer-events: none;
+
+    // Ripple: een kort uitdijend, wegvallend rondje vanuit het bolletje zelf
+    // op het moment van klikken (assets/cart-popup.js zet/verwijdert
+    // .is-rippling). ::before i.p.v. een los element — puur decoratief, geen
+    // extra markup nodig.
+    &::before {
+        content      : '';
+        position     : absolute;
+        top          : 50%;
+        left         : 50%;
+        width        : 100%;
+        height       : 100%;
+        border-radius: 50%;
+        background   : var(--mkcp-accent);
+        opacity      : 0;
+        transform    : translate(-50%, -50%) scale(1);
+        pointer-events: none;
+    }
+
+    &.is-rippling::before {
+        animation: mkcpBtwRipple 420ms ease-out;
+    }
+}
+
+@keyframes mkcpBtwRipple {
+    0%   { opacity: .35; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0;   transform: translate(-50%, -50%) scale(2.8); }
+}
+
+// Klein vinkje in het bolletje, alleen zichtbaar (infade) als de switch aan
+// staat — i.p.v. een kaal wit bolletje in beide standen.
+.mk-cart-popup__btw-toggle-check {
+    width     : 10px;
+    height    : 10px;
+    color     : var(--mkcp-accent);
+    opacity   : 0;
+    transition: opacity 180ms ease;
+}
+
+.js-mkcp-btw-toggle:checked ~ .mk-cart-popup__btw-toggle-track {
+    background: var(--mkcp-accent);
+}
+
+.js-mkcp-btw-toggle:checked ~ .mk-cart-popup__btw-toggle-track .mk-cart-popup__btw-toggle-thumb {
+    transform: translateY(-50%) translateX(16px);
+}
+
+.js-mkcp-btw-toggle:checked ~ .mk-cart-popup__btw-toggle-track .mk-cart-popup__btw-toggle-check {
+    opacity: 1;
+}
+
+// Kleine "squish" tijdens het indrukken — tactiele feedback, veert bij het
+// loslaten weer terug open dankzij dezelfde spring-transition hierboven.
+.js-mkcp-btw-toggle:active ~ .mk-cart-popup__btw-toggle-track .mk-cart-popup__btw-toggle-thumb {
+    transform: translateY(-50%) scale(.85);
+}
+
+.js-mkcp-btw-toggle:checked:active ~ .mk-cart-popup__btw-toggle-track .mk-cart-popup__btw-toggle-thumb {
+    transform: translateY(-50%) translateX(16px) scale(.85);
+}
+
+.js-mkcp-btw-toggle:focus-visible ~ .mk-cart-popup__btw-toggle-track {
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .15), 0 0 0 3px var(--mkcp-accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mk-cart-popup__btw-toggle-thumb,
+    .mk-cart-popup__btw-toggle-track,
+    .mk-cart-popup__btw-toggle-check {
+        transition: none;
+    }
+
+    .mk-cart-popup__btw-toggle-thumb.is-rippling::before {
+        animation: none;
+    }
 }
 
 .mk-cart-popup__btw-opt {
-    padding       : 4px 12px;
-    font-size     : var(--mkcp-font-xs);
-    font-weight   : 500;
-    font-family   : inherit;
-    border        : none;
-    background    : transparent;
-    cursor        : pointer;
-    border-radius : 5px;
-    color         : var(--mkcp-text-light);
-    transition    : background 150ms, color 150ms, box-shadow 150ms;
-    line-height   : 1.4;
-    white-space   : nowrap;
+    position     : absolute;
+    top          : 0;
+    width        : 50%;
+    height       : 100%;
+    padding      : 0;
+    margin       : 0;
+    border       : none;
+    background   : transparent;
+    cursor       : pointer;
+    border-radius: 999px;
 
-    &.is-active {
-        background: var(--mkcp-primary);
-        color     : #fff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
-    }
+    // Visueel verborgen tekst, wel nog voorgelezen door screenreaders —
+    // zelfde soort techniek als een .screen-reader-text-klasse.
+    color        : transparent;
+    font-size    : 0;
+    white-space  : nowrap;
+    overflow     : hidden;
 
-    // Vergrendelde staat (bv. checkout: BTW-verlegging bij een geldig
-    // BTW-nummer, zie window.mkcpBtwSwitch.lock() in checkout-btw.js) — blijft
-    // de .is-active-kleur tonen (welke stand geforceerd is), maar gedempt.
-    &:disabled {
-        opacity        : .45;
-        cursor         : not-allowed;
-        pointer-events : none;
-    }
+    // Klikvlakken volgen de duimpje-eindpositie: "incl." eindigt rechts
+    // (thumb translateX(17px), zie .is-btw-incl hierboven), dus dat klikvlak
+    // hoort ook rechts te zitten — anders klik je links en springt het
+    // duimpje naar rechts, wat verkeerd om aanvoelt.
+    &[data-pref="excl"] { left: 0; }
+    &[data-pref="incl"] { left: 50%; }
+
+    &:disabled { cursor: not-allowed; }
 }
 
 

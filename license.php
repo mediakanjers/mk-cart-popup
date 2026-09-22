@@ -188,7 +188,11 @@ function mkcp_license_tier(): string {
  */
 function mkcp_license_has( string $required ): bool {
     $hierarchy = [ 'none' => 0, 'basic' => 1, 'premium' => 2 ];
-    return ( $hierarchy[ mkcp_license_tier() ] ?? 0 ) >= ( $hierarchy[ $required ] ?? 1 );
+    // Onbekende $required-waarde (typefout in een aanroep) mag nooit stilzwijgend
+    // op 'basic' terugvallen — dat zou een premium-feature kunnen vrijgeven.
+    // Restrictief: onbekend = geen toegang.
+    if ( ! isset( $hierarchy[ $required ] ) ) return false;
+    return ( $hierarchy[ mkcp_license_tier() ] ?? 0 ) >= $hierarchy[ $required ];
 }
 
 /**

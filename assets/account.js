@@ -20,24 +20,14 @@
     var bottomNav = document.querySelector('.mkcp-account-bottomnav');
     if (!content || !nav) return;
 
-    // Zolang er een fragment aan het laden is, kan er geen tweede navigatie
-    // gestart worden — zonder deze guard vuurt elke klik zijn eigen fetch,
-    // en "wint" niet per se de fetch van de laatst-geklikte tab (fetches
-    // ronden niet gegarandeerd af in de volgorde waarin ze gestart zijn).
-    // Bij meerdere snelle kliks zag je daardoor na het laden alsnog een
-    // paar keer achter elkaar van tab wisselen, ongeacht welke tab je als
-    // laatste had aangeklikt.
+    // Guard tegen een tweede navigatie tijdens het laden — fetches ronden niet
+    // gegarandeerd af in startvolgorde, dus zonder dit kon een snelle dubbele
+    // klik alsnog op de verkeerde tab uitkomen.
     var isLoading = false;
 
-    // ── Gestylede bevestigingsdialoog (i.p.v. window.confirm()) ──────────────
-    //
-    // Belooft-gebaseerd i.p.v. synchroon zoals window.confirm() dat was —
-    // elke aanroeper wacht nu op mkcpConfirm(...).then(ok => ...) i.p.v. een
-    // regel verderop meteen te lezen. Focus gaat terug naar de knop die de
-    // dialoog opende (lastTrigger), Escape/backdrop-klik = annuleren, Tab
-    // blijft binnen de twee knoppen (er zijn er maar twee, dus een volledige
-    // FOCUSABLE_SELECTOR-achtige lijst zoals bij de checkout-login-modal is
-    // hier overkill).
+    // Gestylede bevestigingsdialoog i.p.v. synchroon window.confirm() — belooft-
+    // gebaseerd (mkcpConfirm(...).then(ok => ...)). Focus terug naar de knop die
+    // de dialoog opende, Escape/backdrop = annuleren, Tab cyclet tussen de twee knoppen.
     var confirmModal = document.getElementById('mkcp-account-confirm');
     var confirmMessage = document.getElementById('mkcp-account-confirm-message');
     var confirmOkBtn = document.getElementById('mkcp-account-confirm-ok');
@@ -53,16 +43,43 @@
         if (confirmResolve) { confirmResolve(result); confirmResolve = null; }
     }
 
-    function mkcpConfirm(message, confirmLabel) {
+    // message mag ook een object zijn ({ intro, items, outro }) voor een
+    // gestylede opsomming i.p.v. platte \n-regels — vooralsnog alleen gebruikt
+    // door de account-verwijderen-bevestiging, andere aanroepers geven een string.
+    function renderConfirmMessage(message) {
+        if (typeof message === 'string') {
+            confirmMessage.textContent = message;
+            return;
+        }
+        var html = '';
+        if (message.intro) html += '<strong class="mkcp-account-confirm__intro">' + escapeHtml(message.intro) + '</strong>';
+        if (message.items && message.items.length) {
+            html += '<ul class="mkcp-account-confirm__list">' +
+                message.items.map(function (item) { return '<li>' + escapeHtml(item) + '</li>'; }).join('') +
+                '</ul>';
+        }
+        if (message.outro) html += '<span class="mkcp-account-confirm__outro">' + escapeHtml(message.outro) + '</span>';
+        confirmMessage.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function mkcpConfirm(message, confirmLabel, danger) {
         if (!confirmModal || !confirmMessage || !confirmOkBtn) {
-            // Vangnet als de modal-markup onverhoopt ontbreekt — dan liever
-            // terugvallen op het oude gedrag dan de actie stilzwijgend nooit
-            // te laten bevestigen.
-            return Promise.resolve(window.confirm(message));
+            // Vangnet als de modal-markup ontbreekt: terugvallen op window.confirm
+            // i.p.v. de actie stilzwijgend nooit te laten bevestigen.
+            return Promise.resolve(window.confirm(typeof message === 'string' ? message : message.intro));
         }
         confirmLastTrigger = document.activeElement;
-        confirmMessage.textContent = message;
+        renderConfirmMessage(message);
         confirmOkBtn.textContent = confirmLabel || confirmOkBtn.textContent;
+        // Extra visuele nadruk (rode rand/icoon) alleen voor onomkeerbare acties
+        // zoals account verwijderen; andere bevestigingen blijven neutraal.
+        confirmModal.classList.toggle('mkcp-account-confirm--danger', !!danger);
         confirmModal.removeAttribute('inert');
         confirmModal.classList.add('is-open');
         confirmOkBtn.focus();
@@ -76,7 +93,6 @@
         confirmModal.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { closeConfirm(false); return; }
             if (e.key !== 'Tab') return;
-            // Twee knoppen, dus simpelweg tussen die twee laten cyclen.
             var focusables = [confirmCancelBtn, confirmOkBtn];
             var idx = focusables.indexOf(document.activeElement);
             e.preventDefault();
@@ -87,17 +103,11 @@
         });
     }
 
-    // ── "Retour aanvragen"/"Schrijf een review" als volwaardige popup ────────
-    //
-    // Deze formulieren staan al (verborgen) server-side klaar per item, zie
-    // account-returns.php/account-reviews.php — i.p.v. ze inline te tonen
-    // onder de knop (het vorige gedrag) worden ze nu als gecentreerde modal
-    // getoond. Bewust GEEN DOM-verplaatsing naar een losse modal-container
-    // buiten #mkcp-account-content: de submit-/klik-afhandeling hieronder is
-    // gedelegeerd op die content-container, en een form die daarbuiten komt
-    // te hangen zou die listeners missen. position:fixed werkt prima op een
-    // element dat gewoon binnen #mkcp-account-content blijft staan — er zit
-    // geen transform/filter op een tussenliggende ouder die dat zou breken.
+    // "Retour aanvragen"/"Schrijf een review" als gecentreerde modal. Formulieren
+    // staan al verborgen server-side per item (account-returns.php/account-
+    // reviews.php). Bewust GEEN DOM-verplaatsing naar een losse container buiten
+    // #mkcp-account-content: de klik-/submit-afhandeling is daarop gedelegeerd,
+    // en position:fixed werkt hier prima zonder die verplaatsing.
     var formModalBackdrop = null;
 
     function getFormModalBackdrop() {
@@ -155,10 +165,8 @@
         }
     }
 
-    // Route-vorm: #/{fragment} of #/{fragment}/{id} (bv. #/orders/123 voor
-    // een bestelling-detail, Account-plan sectie 12). Alleen dat ene extra
-    // segment wordt ondersteund — geen volwaardige sub-routing nodig zolang
-    // er maar één view is (Bestellingen) die een detail-ID gebruikt.
+    // Route-vorm: #/{fragment} of #/{fragment}/{id} (bv. #/orders/123). Alleen
+    // dat ene extra segment wordt ondersteund, geen volwaardige sub-routing.
     function currentRoute() {
         var hash = window.location.hash.replace(/^#\/?/, '');
         var parts = hash ? hash.split('/') : [];
@@ -168,23 +176,47 @@
         };
     }
 
-    // Server rendert het badge-aantal alleen bij de eerste paginalading —
-    // hierna houdt de client 'm bij op elk moment dat een melding (of alle
-    // meldingen) als gelezen gemarkeerd wordt, zonder de hele pagina te
-    // herladen.
+    // Server rendert het badge-aantal alleen bij eerste paginalading; hierna
+    // houdt de client 'm bij zonder page-reload.
     function updateNavBadge(count) {
-        // Zowel de sidebar- als de mobiele bottom-nav-badge delen deze class
-        // (twee aparte DOM-plekken voor dezelfde teller, zie account-page.php).
+        // Sidebar- én mobiele bottom-nav-badge delen deze class (account-page.php).
         document.querySelectorAll('.js-mkcp-account-nav-badge').forEach(function (badge) {
             badge.textContent = String(count);
             badge.hidden = count <= 0;
         });
     }
 
+    // Bewust geen setFormStatus() voor acties die #mkcp-account-content daarna
+    // vervangen — die statusregel zou meteen weer uit de DOM verdwijnen. Deze
+    // toast leeft op <body>, dus overleeft een content-swap.
+    var accountToastTimer = null;
+    function showAccountToast(message, type) {
+        var toast = document.getElementById('mkcp-account-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'mkcp-account-toast';
+            toast.className = 'mkcp-account-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.classList.remove('is-error');
+        if (type === 'error') toast.classList.add('is-error');
+        // Animatie retriggeren, ook bij snel achter elkaar meerdere toasts.
+        toast.classList.remove('is-visible');
+        void toast.offsetWidth;
+        toast.classList.add('is-visible');
+
+        clearTimeout(accountToastTimer);
+        accountToastTimer = setTimeout(function () {
+            toast.classList.remove('is-visible');
+        }, type === 'error' ? 4000 : 2600);
+    }
+
     function setActiveNavLink(fragment) {
-        // Sidebar én mobiele bottom-nav zijn twee losse <nav>-elementen (zie
-        // account-page.php) die dezelfde [data-route]-links delen — allebei
-        // bijwerken, niet alleen de sidebar.
+        // Sidebar én mobiele bottom-nav delen dezelfde [data-route]-links —
+        // allebei bijwerken, niet alleen de sidebar.
         var links = document.querySelectorAll('#mkcp-account-nav [data-route], .mkcp-account-bottomnav [data-route]');
         var activeLabel = null;
         for (var i = 0; i < links.length; i++) {
@@ -197,9 +229,8 @@
                 links[i].removeAttribute('aria-current');
             }
         }
-        // Kruimelpad in de topbar (account-page.php) — alleen de sidebar-
-        // links hebben data-route-label (de bottom-nav-links niet), vandaar
-        // de "eerste gevonden label wint"-guard hierboven.
+        // Kruimelpad in de topbar — alleen sidebar-links hebben data-route-label,
+        // vandaar de "eerste gevonden label wint"-guard hierboven.
         var crumbCurrent = document.querySelector('.mkcp-account-topbar__crumb-current');
         if (crumbCurrent && activeLabel) crumbCurrent.textContent = activeLabel;
     }
@@ -218,13 +249,10 @@
             '</div>';
     }
 
-    // Skeleton-placeholder per fragment — de vorm volgt globaal de kaarten/
-    // rijen die daadwerkelijk op die pagina staan (bento-rij op het
-    // Dashboard, rijen bij Bestellingen, een kaartengrid bij Wishlist/
-    // Adressen, ...) i.p.v. overal dezelfde drie kale kaarten te tonen.
-    // Bewust een nieuw patroon t.o.v. de bestaande mk-loading-dim-class: die
-    // blijft voor kleine, sub-seconde formulier-acties (opslaan/toevoegen),
-    // een skeleton is voor het laden van een hele view (Account-plan, sectie 4).
+    // Skeleton-placeholder per fragment — de vorm volgt de kaarten/rijen die
+    // daadwerkelijk op die pagina staan i.p.v. overal dezelfde drie kale kaarten.
+    // Los van de bestaande mk-loading-dim-class: die blijft voor kleine formulier-
+    // acties, een skeleton is voor het laden van een hele view.
     function skeletonRepeat(n, className) {
         var html = '';
         for (var i = 0; i < n; i++) html += '<div class="' + className + '"></div>';
@@ -255,9 +283,7 @@
             body = '<div class="mkcp-skeleton__chips">' + skeletonRepeat(2, 'mkcp-skeleton__chip') + '</div>' +
                 skeletonRepeat(5, 'mkcp-skeleton__row');
         } else {
-            // Accountgegevens, bestelling-detail, en elke toekomstige route
-            // zonder eigen vorm hierboven — drie kale kaarten is nog steeds
-            // beter dan niets.
+            // Elke route zonder eigen vorm hierboven — drie kale kaarten is beter dan niets.
             body = skeletonRepeat(3, 'mkcp-skeleton__card');
         }
 
@@ -288,10 +314,19 @@
             .then(function (res) { return res.json(); })
             .then(function (json) {
                 if (json && json.success && json.data && typeof json.data.html === 'string') {
+                    // Zachte overgang bij routewissel via de bestaande is-loading-
+                    // opacity-transitie: dimmen, HTML erin, pas een frame later
+                    // terugzetten zodat de browser de tussenstand eerst commit't
+                    // (zelfde dubbele-rAF-truc als de fullscreen-toggle in cart-popup.js).
+                    content.classList.add('is-loading');
                     content.innerHTML = json.data.html;
-                    // #/addresses/new (Dashboard-quickaction "Adres toevoegen")
-                    // opent het toevoeg-formulier meteen, i.p.v. dat de klant
-                    // eerst zelf nog op "+ Adres toevoegen" moet klikken.
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            content.classList.remove('is-loading');
+                        });
+                    });
+                    // #/addresses/new opent het toevoeg-formulier meteen i.p.v.
+                    // dat de klant zelf op "+ Adres toevoegen" moet klikken.
                     if (fragment === 'addresses' && id === 'new') {
                         var addToggle = document.getElementById('mkcp-address-add-toggle');
                         if (addToggle) addToggle.click();
@@ -315,17 +350,17 @@
                 nav.classList.remove('is-loading');
                 if (bottomNav) bottomNav.classList.remove('is-loading');
                 content.removeAttribute('aria-busy');
-                content.classList.remove('is-loading');
+                // content's 'is-loading' wordt hier bewust NIET verwijderd — dat
+                // zou de dubbele-rAF-fade hierboven tenietdoen (finally() draait
+                // vóór de rAF-callbacks). Het success-pad ruimt 'm zelf op.
             });
     }
 
     function navigate() {
         var route = currentRoute();
         setActiveNavLink(route.fragment);
-        // Vers binnenkomen op de bestellingenlijst (via de nav, niet via onze
-        // eigen filter/paginering-knoppen) reset het filter/zoek-geheugen —
-        // anders lijkt de lijst "kapot" (leeg/gefilterd) als je terugkomt
-        // vanaf een andere tab met een oud filter nog actief.
+        // Vers binnenkomen via de nav reset het filter/zoek-geheugen — anders
+        // lijkt de lijst "kapot" als je terugkomt met een oud filter nog actief.
         if (route.fragment === 'orders' && !route.id && typeof ordersState !== 'undefined') {
             ordersState.status = '';
             ordersState.search = '';
@@ -337,35 +372,26 @@
     function guardNavClick(e) {
         var link = e.target.closest('[data-route]');
         if (!link) return;
-        // Tijdens het laden van een fragment de klik gewoon negeren — de
-        // browser mag de hash dan niet eens zetten, anders zou de
-        // hashchange-listener hieronder alsnog een nieuwe fetch starten.
+        // Klik tijdens het laden negeren, anders zou de hashchange-listener
+        // hieronder alsnog een tweede fetch starten.
         if (isLoading) {
             e.preventDefault();
             return;
         }
-        // Laat de browser de hash gewoon zetten (href="#/...") — de
-        // hashchange-listener hieronder handelt de rest af, geen
-        // preventDefault() nodig.
+        // Browser zet de hash zelf (href="#/..."), hashchange-listener handelt de rest af.
     }
     nav.addEventListener('click', guardNavClick);
     if (bottomNav) bottomNav.addEventListener('click', guardNavClick);
 
     window.addEventListener('hashchange', function () {
-        // Vangnet voor navigatie buiten een klik om (terug/vooruit-knop,
-        // handmatig de URL aanpassen) — zelfde reden als hierboven: geen
-        // tweede fetch starten zolang de vorige nog bezig is.
+        // Vangnet voor navigatie buiten een klik om (terug/vooruit-knop, handmatige URL).
         if (isLoading) return;
         navigate();
     });
 
 
-    // ── Formulieren: Accountgegevens / Wachtwoord / Adressen (Fase 1, stap 3) ──
-    //
     // Eén generieke POST-helper + inline statusfeedback per formulier, i.p.v.
-    // hetzelfde bouwsteentje losjes te dupliceren per formulier (zelfde les
-    // als de eerder-geconsolideerde mkcpFieldStatus-duplicatie in checkout).
-
+    // dat bouwsteentje per formulier te dupliceren.
     function postAction(action, formEl) {
         var body = new URLSearchParams(new FormData(formEl));
         body.set('action', action);
@@ -394,8 +420,7 @@
         return fallback;
     }
 
-    // Accountgegevens: toon het "huidig wachtwoord"-veld alleen als het
-    // e-mailadres daadwerkelijk wijzigt (Account-plan, sectie 8).
+    // Toon het "huidig wachtwoord"-veld alleen als het e-mailadres daadwerkelijk wijzigt.
     content.addEventListener('input', function (e) {
         if (e.target.id === 'mkcp-profile-email') {
             var form = e.target.closest('form');
@@ -473,20 +498,21 @@
             e.preventDefault();
             setFormStatus(form, null, '');
             var submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.disabled = true;
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('is-loading'); }
             postAction('mkcp_account_return_request', form).then(function (json) {
                 if (json && json.success && json.data && typeof json.data.html === 'string') {
-                    // Volledige order-detail opnieuw renderen — de zojuist
-                    // ingediende aanvraag toont zich dan meteen als status-
-                    // badge i.p.v. het formulier, geen aparte DOM-patch nodig.
+                    // Volledige order-detail herrenderen: de aanvraag toont zich
+                    // dan meteen als statusbadge, geen aparte DOM-patch nodig.
                     content.innerHTML = json.data.html;
+                    showAccountToast('Retour-aanvraag verstuurd.');
+                    if (typeof json.data.unread_count === 'number') updateNavBadge(json.data.unread_count);
                 } else {
                     setFormStatus(form, 'error', errorMessage(json, 'Versturen mislukt.'));
-                    if (submitBtn) submitBtn.disabled = false;
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('is-loading'); }
                 }
             }).catch(function () {
                 setFormStatus(form, 'error', 'Versturen mislukt.');
-                if (submitBtn) submitBtn.disabled = false;
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('is-loading'); }
             });
             return;
         }
@@ -495,7 +521,7 @@
             e.preventDefault();
             setFormStatus(form, null, '');
             var reviewSubmitBtn = form.querySelector('button[type="submit"]');
-            if (reviewSubmitBtn) reviewSubmitBtn.disabled = true;
+            if (reviewSubmitBtn) { reviewSubmitBtn.disabled = true; reviewSubmitBtn.classList.add('is-loading'); }
             postAction('mkcp_account_review_submit', form).then(function (json) {
                 if (json && json.success && json.data && typeof json.data.html === 'string') {
                     content.innerHTML = json.data.html;
@@ -504,11 +530,11 @@
                     form.hidden = true;
                 } else {
                     setFormStatus(form, 'error', errorMessage(json, 'Versturen mislukt.'));
-                    if (reviewSubmitBtn) reviewSubmitBtn.disabled = false;
+                    if (reviewSubmitBtn) { reviewSubmitBtn.disabled = false; reviewSubmitBtn.classList.remove('is-loading'); }
                 }
             }).catch(function () {
                 setFormStatus(form, 'error', 'Versturen mislukt.');
-                if (reviewSubmitBtn) reviewSubmitBtn.disabled = false;
+                if (reviewSubmitBtn) { reviewSubmitBtn.disabled = false; reviewSubmitBtn.classList.remove('is-loading'); }
             });
             return;
         }
@@ -526,9 +552,7 @@
         }
     });
 
-    // Kleine POST-helper voor de simpele "actie -> herlaad hele fragment"-
-    // knoppen hieronder (verwijderen/delen/naar-cart) — geen los formulier
-    // nodig, gewoon een paar velden.
+    // Kleine POST-helper voor simpele "actie -> herlaad fragment"-knoppen (verwijderen/delen/naar-cart).
     function postSimple(action, fields) {
         var body = new URLSearchParams();
         body.set('action', action);
@@ -542,11 +566,8 @@
         }).then(function (res) { return res.json(); });
     }
 
-    // ── Bestellingen: statusfilter + zoeken ──────────────────────────────────
-    //
-    // Client-side bijgehouden state (i.p.v. in de hash) — zelfde reden als de
-    // bestaande paginering: geen bookmarkbare filter-URL's nodig voor dit
-    // MVP, gewoon het fragment opnieuw ophalen met andere parameters.
+    // Bestellingen: statusfilter + zoeken, client-side state i.p.v. in de hash —
+    // geen bookmarkbare filter-URL's nodig, gewoon het fragment herophalen.
     var ordersState = { status: '', search: '', page: 1 };
     var ordersSearchTimer = null;
 
@@ -559,10 +580,8 @@
         body.set('status', ordersState.status);
         body.set('search', ordersState.search);
 
-        // Elke respons vervangt het hele fragment (dus ook het zoekveld zelf)
-        // — zonder dit verloor het veld na elke toetsaanslag de focus/cursor,
-        // wat aanvoelde alsof zoeken niet werkte (je kon niet doortypen
-        // zonder telkens opnieuw te klikken).
+        // Elke respons vervangt het hele fragment (dus ook het zoekveld) — zonder
+        // dit verloor het veld na elke toetsaanslag focus/cursor, alsof zoeken niet werkte.
         var searchWasFocused = document.activeElement && document.activeElement.id === 'mkcp-orders-search';
         var searchCursorPos = searchWasFocused ? document.activeElement.selectionStart : null;
         var searchWrap = document.querySelector('.mkcp-order-search');
@@ -589,10 +608,8 @@
                     }
                     return;
                 }
-                // Zonder deze tak bleef een mislukte/geweigerde aanvraag (bv.
-                // sessie verlopen) onzichtbaar — de knop leek dan simpelweg
-                // niets te doen, terwijl er in werkelijkheid wél iets
-                // misging, alleen nooit getoond werd.
+                // Zonder deze tak bleef een geweigerde aanvraag (bv. sessie verlopen)
+                // onzichtbaar — de knop leek dan niets te doen.
                 var code = json && json.data && json.data.code;
                 if (code === 'session_expired') {
                     showSessionExpired();
@@ -615,13 +632,8 @@
         }
     }
 
-    // ── Wishlist bulk-acties ──────────────────────────────────────────────────
-    //
-    // Elke wishlist (er kan meer dan één zijn) heeft zijn eigen bulkbar en
-    // houdt zijn eigen selectie bij — een vinkje in lijst A telt niet mee
-    // voor lijst B's balk. .mkcp-wishlist-list is de gedeelde ouder van zowel
-    // de checkboxes als de bijbehorende bulkbar (zie account-wishlist.php).
-
+    // Wishlist bulk-acties: elke wishlist heeft zijn eigen bulkbar en selectie —
+    // .mkcp-wishlist-list is de gedeelde ouder van checkboxes en bulkbar.
     function wishlistSelectedIds(scopeEl) {
         if (!scopeEl) return [];
         var listEl = scopeEl.closest ? (scopeEl.classList.contains('mkcp-wishlist-list') ? scopeEl : scopeEl.closest('.mkcp-wishlist-list')) : null;
@@ -654,11 +666,8 @@
 
     function fillAddressForm(addressForm, data) {
         Object.keys(data).forEach(function (key) {
-            // data.id komt van het adres-record (kolom "id"), maar het
-            // verborgen veld in het formulier heet "address_id" — zonder
-            // deze mapping bleef dat veld bij het bewerken altijd leeg, en
-            // werd elke "opslaan" dus als NIEUW adres verwerkt (insert
-            // i.p.v. update) — vandaar de dubbele adressen na bewerken.
+            // data.id (kolom "id") ↔ formulierveld "address_id" — zonder deze
+            // mapping werd elke "opslaan" als NIEUW adres verwerkt i.p.v. update.
             var fieldName = key === 'id' ? 'address_id' : key;
             var field = addressForm.querySelector('[name="' + fieldName + '"]');
             if (!field) return;
@@ -671,13 +680,8 @@
     }
 
     content.addEventListener('click', function (e) {
-        // .closest() i.p.v. een directe id-check op e.target — de tegel
-        // heeft geneste <span>-iconen/labels die het grootste deel van het
-        // klikoppervlak innemen, dus een klik daarop miste voorheen dit
-        // element compleet (e.target.id was dan leeg) en deed zichtbaar
-        // niets. Zelfde laadspinner-conventie als elders (icoon tijdelijk
-        // vervangen door een draaiend rondje) omdat scrollIntoView + de
-        // fade-in van het formulier merkbaar tijd kosten.
+        // .closest() i.p.v. directe id-check: geneste <span>-iconen/labels nemen
+        // het grootste deel van het klikoppervlak in, dus e.target.id was vaak leeg.
         var addToggleBtn = e.target.closest('#mkcp-address-add-toggle');
         if (addToggleBtn) {
             var form = document.getElementById('mkcp-address-form');
@@ -737,9 +741,52 @@
             return;
         }
 
-        // Paginering binnen de bestellingenlijst: bewust géén hash-wijziging
-        // (geen bookmarkbare paginanummers nodig voor dit MVP) — gewoon het
-        // fragment opnieuw ophalen met een page-parameter.
+        var returnBulkBtn = e.target.closest('.js-mkcp-return-bulk-submit');
+        if (returnBulkBtn) {
+            var bulkbarEl = returnBulkBtn.closest('.mkcp-return-bulkbar');
+            var itemIds = Array.prototype.map.call(
+                bulkbarEl.parentElement.querySelectorAll('.js-mkcp-return-bulk-select:checked'),
+                function (cb) { return cb.getAttribute('data-item-id'); }
+            );
+            if (!itemIds.length) return;
+
+            var bulkReason = bulkbarEl.querySelector('.js-mkcp-return-bulk-reason');
+            var bulkNote = bulkbarEl.querySelector('.js-mkcp-return-bulk-note');
+            returnBulkBtn.disabled = true;
+
+            var bulkBody = new URLSearchParams();
+            bulkBody.set('action', 'mkcp_account_return_request_bulk');
+            bulkBody.set('nonce', mkcp_account_params.nonce);
+            bulkBody.set('order_id', bulkbarEl.getAttribute('data-order-id'));
+            bulkBody.set('reason', bulkReason ? bulkReason.value : '');
+            bulkBody.set('reason_note', bulkNote ? bulkNote.value : '');
+            itemIds.forEach(function (id) { bulkBody.append('item_ids[]', id); });
+
+            fetch(mkcp_account_params.ajax_url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: bulkBody.toString()
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (json) {
+                    if (json && json.success && json.data && typeof json.data.html === 'string') {
+                        content.innerHTML = json.data.html;
+                        showAccountToast(itemIds.length === 1 ? 'Retour-aanvraag verstuurd.' : itemIds.length + ' retour-aanvragen verstuurd.');
+                        if (typeof json.data.unread_count === 'number') updateNavBadge(json.data.unread_count);
+                    } else {
+                        showAccountToast(errorMessage(json, 'Versturen mislukt.'), 'error');
+                        returnBulkBtn.disabled = false;
+                    }
+                })
+                .catch(function () {
+                    showAccountToast('Versturen mislukt.', 'error');
+                    returnBulkBtn.disabled = false;
+                });
+            return;
+        }
+
+        // Paginering: bewust géén hash-wijziging, gewoon het fragment herophalen met page-parameter.
         var pageBtn = e.target.closest('.js-mkcp-orders-page');
         if (pageBtn) {
             ordersState.page = parseInt(pageBtn.getAttribute('data-page'), 10) || 1;
@@ -854,6 +901,21 @@
                     content.innerHTML = json.data.html;
                 }
             });
+            return;
+        }
+
+        // D2: alles selecteren/deselecteren in één klik — knoptekst wisselt
+        // mee zodat 'm ook meteen weer alles kan deselecteren.
+        var selectAllBtn = e.target.closest('.js-mkcp-wishlist-select-all');
+        if (selectAllBtn) {
+            var selectAllListEl = selectAllBtn.closest('.mkcp-wishlist-list');
+            if (selectAllListEl) {
+                var checkboxes = selectAllListEl.querySelectorAll('.js-mkcp-wishlist-select');
+                var allChecked = checkboxes.length > 0 && Array.prototype.every.call(checkboxes, function (cb) { return cb.checked; });
+                Array.prototype.forEach.call(checkboxes, function (cb) { cb.checked = !allChecked; });
+                selectAllBtn.textContent = allChecked ? 'Alles selecteren' : 'Alles deselecteren';
+                updateWishlistBulkbar(selectAllListEl);
+            }
             return;
         }
 
@@ -997,8 +1059,18 @@
             var deleteBtn2 = e.target;
             var deleteStatus = deleteBtn2.parentElement.querySelector('[data-form-status="delete-account"]');
             mkcpConfirm(
-                'Weet je zeker dat je je account definitief wilt verwijderen? Je ontvangt een bevestigingsmail — pas na het klikken op de link daarin wordt je account echt verwijderd.',
-                'Ja, verwijder mijn account'
+                {
+                    intro: 'Dit kan niet ongedaan worden gemaakt. Bij bevestiging verdwijnen definitief:',
+                    items: [
+                        'Je bestelgeschiedenis-koppeling',
+                        'Je wishlist',
+                        'Al je retouraanvragen',
+                        'Al je meldingen'
+                    ],
+                    outro: 'Je ontvangt hierna een bevestigingsmail — pas na het klikken op de link daarin wordt je account echt verwijderd.'
+                },
+                'Ja, verwijder mijn account',
+                true
             ).then(function (ok) {
                 if (!ok) return;
                 deleteBtn2.disabled = true;
@@ -1020,13 +1092,54 @@
         }
 
         if (e.target.id === 'mkcp-notif-mark-all') {
-            e.target.disabled = true;
+            var markAllBtn = e.target;
+            markAllBtn.disabled = true;
+            markAllBtn.classList.add('is-loading');
             postSimple('mkcp_account_notif_read_all', {}).then(function (json) {
                 if (json && json.success && json.data && typeof json.data.html === 'string') {
                     content.innerHTML = json.data.html;
                     updateNavBadge(json.data.unread_count);
+                } else {
+                    markAllBtn.disabled = false;
+                    markAllBtn.classList.remove('is-loading');
+                    showAccountToast('Kon meldingen niet bijwerken, probeer het opnieuw.', 'error');
                 }
-            }).catch(function () { e.target.disabled = false; });
+            }).catch(function () {
+                markAllBtn.disabled = false;
+                markAllBtn.classList.remove('is-loading');
+                showAccountToast('Kon meldingen niet bijwerken, probeer het opnieuw.', 'error');
+            });
+            return;
+        }
+
+        // F1: "Toon meer" — haalt de volgende 50 meldingen op en voegt ze aan
+        // de bestaande lijst toe (geen volledige fragment-herrender, dat zou
+        // een eventueel actief filter resetten).
+        var loadMoreBtn = e.target.closest('.js-mkcp-notif-load-more');
+        if (loadMoreBtn) {
+            loadMoreBtn.disabled = true;
+            loadMoreBtn.classList.add('is-loading');
+            postSimple('mkcp_account_notifications_load_more', { offset: loadMoreBtn.getAttribute('data-offset') || '0' }).then(function (json) {
+                if (json && json.success && json.data && typeof json.data.html === 'string') {
+                    var list = document.getElementById('mkcp-notif-list');
+                    if (list) list.insertAdjacentHTML('beforeend', json.data.html);
+                    if (json.data.has_more) {
+                        loadMoreBtn.setAttribute('data-offset', String(json.data.next_offset));
+                        loadMoreBtn.disabled = false;
+                        loadMoreBtn.classList.remove('is-loading');
+                    } else {
+                        loadMoreBtn.closest('.mkcp-notif-load-more-wrap').remove();
+                    }
+                } else {
+                    loadMoreBtn.disabled = false;
+                    loadMoreBtn.classList.remove('is-loading');
+                    showAccountToast('Kon meldingen niet laden, probeer het opnieuw.', 'error');
+                }
+            }).catch(function () {
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.classList.remove('is-loading');
+                showAccountToast('Kon meldingen niet laden, probeer het opnieuw.', 'error');
+            });
             return;
         }
 
@@ -1093,13 +1206,23 @@
         if (e.target.classList.contains('js-mkcp-wishlist-share-toggle')) {
             var wlId2 = e.target.closest('.mkcp-wishlist-list').getAttribute('data-wishlist-id');
             var checkbox = e.target;
+            var switchLabel = checkbox.closest('.mkcp-switch');
+            var wasChecked = checkbox.checked;
             checkbox.disabled = true;
-            postSimple('mkcp_account_wishlist_share_toggle', { wishlist_id: wlId2, enabled: checkbox.checked ? '1' : '' }).then(function (json) {
+            if (switchLabel) switchLabel.classList.add('is-loading');
+            postSimple('mkcp_account_wishlist_share_toggle', { wishlist_id: wlId2, enabled: wasChecked ? '1' : '' }).then(function (json) {
                 if (json && json.success && json.data && typeof json.data.html === 'string') {
                     content.innerHTML = json.data.html;
+                    showAccountToast(wasChecked ? 'Deel-link gegenereerd.' : 'Delen uitgezet.', 'success');
                 } else {
                     checkbox.disabled = false;
+                    if (switchLabel) switchLabel.classList.remove('is-loading');
+                    showAccountToast('Kon dit niet opslaan, probeer het opnieuw.', 'error');
                 }
+            }).catch(function () {
+                checkbox.disabled = false;
+                if (switchLabel) switchLabel.classList.remove('is-loading');
+                showAccountToast('Kon dit niet opslaan, probeer het opnieuw.', 'error');
             });
             return;
         }
@@ -1111,7 +1234,9 @@
             var priceInput = e.target;
             var itemId4 = priceInput.closest('.mkcp-wishlist-item').getAttribute('data-item-id');
             priceInput.classList.remove('is-saved');
+            priceInput.disabled = true;
             postSimple('mkcp_account_wishlist_item_target_price', { item_id: itemId4, target_price: priceInput.value }).then(function (json) {
+                priceInput.disabled = false;
                 if (json && json.success) {
                     // target_price_display komt al met komma opgemaakt van de
                     // server — niet target_price zelf gebruiken, dat is een
@@ -1122,7 +1247,48 @@
                     priceInput.value = (json.data && json.data.target_price === null) ? '' : ( display || '' );
                     priceInput.classList.add('is-saved');
                     setTimeout(function () { priceInput.classList.remove('is-saved'); }, 1500);
+
+                    // F2: bevestigingszin direct bijwerken (welk e-mailadres,
+                    // welke prijs) zonder de kaart opnieuw te renderen.
+                    var confirmEl = priceInput.closest('.mkcp-wishlist-item__target-price').querySelector('.js-mkcp-wishlist-target-price-confirm');
+                    if (confirmEl && json.data && typeof json.data.confirm_text === 'string') {
+                        confirmEl.textContent = json.data.confirm_text;
+                    }
+                    // D2: naast de inline bevestigingsregel ook even een toast,
+                    // zodat het echt in beeld springt i.p.v. alleen een kleine
+                    // tekstwijziging die je makkelijk mist.
+                    showAccountToast((json.data && json.data.confirm_text) || 'Streefprijs opgeslagen.', 'success');
+                } else {
+                    showAccountToast('Kon streefprijs niet opslaan, probeer het opnieuw.', 'error');
                 }
+            }).catch(function () {
+                priceInput.disabled = false;
+                showAccountToast('Kon streefprijs niet opslaan, probeer het opnieuw.', 'error');
+            });
+            return;
+        }
+
+        // E-mail- en dashboardmelding los aan/uit per wishlist-item (F1) —
+        // net als de streefprijs hierboven bewust geen fragment-herrender,
+        // gewoon direct opslaan.
+        if (e.target.classList.contains('js-mkcp-wishlist-notify-channel')) {
+            var channelCb = e.target;
+            var wasChecked = channelCb.checked;
+            channelCb.disabled = true;
+            postSimple('mkcp_account_wishlist_item_notify_channel', {
+                item_id: channelCb.getAttribute('data-item-id'),
+                channel: channelCb.getAttribute('data-channel'),
+                enabled: wasChecked ? 1 : 0
+            }).then(function (json) {
+                channelCb.disabled = false;
+                if (! (json && json.success)) {
+                    channelCb.checked = ! wasChecked;
+                    showAccountToast('Kon voorkeur niet opslaan, probeer het opnieuw.', 'error');
+                }
+            }).catch(function () {
+                channelCb.disabled = false;
+                channelCb.checked = ! wasChecked;
+                showAccountToast('Kon voorkeur niet opslaan, probeer het opnieuw.', 'error');
             });
             return;
         }
@@ -1133,6 +1299,25 @@
         if (e.target.classList.contains('js-mkcp-wishlist-select')) {
             var listEl = e.target.closest('.mkcp-wishlist-list');
             updateWishlistBulkbar(listEl);
+            return;
+        }
+
+        // Zelfde "toon/verberg puur op basis van aantal aangevinkt"-principe
+        // als de wishlist-bulkbar hierboven, nu voor retour-selectie per
+        // bestelling (een order kan meerdere producten hebben, elk met hun
+        // eigen checkbox + bulkbar-instantie).
+        if (e.target.classList.contains('js-mkcp-return-bulk-select')) {
+            var returnCard = e.target.closest('.mkcp-dash-card');
+            var bulkbar = returnCard ? returnCard.querySelector('.mkcp-return-bulkbar') : null;
+            if (!bulkbar) return;
+            var checked = returnCard.querySelectorAll('.js-mkcp-return-bulk-select:checked');
+            bulkbar.hidden = checked.length === 0;
+            var countEl = bulkbar.querySelector('.mkcp-return-bulkbar__count');
+            if (countEl) {
+                countEl.textContent = checked.length === 1
+                    ? '1 product geselecteerd'
+                    : checked.length + ' producten geselecteerd';
+            }
             return;
         }
 
@@ -1223,12 +1408,10 @@
     // i.p.v. een vaste waarde die alleen voor één van de twee klopte.
     function initDashScrollers() {
         document.querySelectorAll('.mkcp-dash-scroller').forEach(function (wrap) {
-            if (wrap.dataset.mkcpNavBound) return;
             var track = wrap.querySelector('.mkcp-dash-product-scroller, .mkcp-wishlist-items');
             var prevBtn = wrap.querySelector('.mkcp-dash-scroller__nav--prev');
             var nextBtn = wrap.querySelector('.mkcp-dash-scroller__nav--next');
             if (!track || !(prevBtn || nextBtn)) return;
-            wrap.dataset.mkcpNavBound = '1';
 
             function stepSize() {
                 var firstCard = track.firstElementChild;
@@ -1242,13 +1425,24 @@
                 if (nextBtn) nextBtn.disabled = track.scrollLeft >= (track.scrollWidth - track.clientWidth - 4);
             }
 
-            if (prevBtn) prevBtn.addEventListener('click', function () {
-                track.scrollBy({ left: -stepSize() * 2, behavior: 'smooth' });
-            });
-            if (nextBtn) nextBtn.addEventListener('click', function () {
-                track.scrollBy({ left: stepSize() * 2, behavior: 'smooth' });
-            });
-            track.addEventListener('scroll', updateNavState);
+            // J4-fix: "Onlangs bekeken" wordt pas ná deze eerste rondgang
+            // asynchroon gevuld (leeg/hidden op het moment van binden) — de
+            // knop-disabled-state moet dus ELKE keer herberekend worden, ook
+            // als de listeners al eerder gebonden zijn, anders blijven de
+            // pijltjes voorgoed uitgeschakeld vanaf die lege eerste bind.
+            // Alleen het ÉÉNMALIG toevoegen van de click/scroll-listeners
+            // blijft achter de mkcpNavBound-guard, om dubbele bindingen (en
+            // dus dubbele scrollstappen per klik) te voorkomen.
+            if (!wrap.dataset.mkcpNavBound) {
+                wrap.dataset.mkcpNavBound = '1';
+                if (prevBtn) prevBtn.addEventListener('click', function () {
+                    track.scrollBy({ left: -stepSize() * 2, behavior: 'smooth' });
+                });
+                if (nextBtn) nextBtn.addEventListener('click', function () {
+                    track.scrollBy({ left: stepSize() * 2, behavior: 'smooth' });
+                });
+                track.addEventListener('scroll', updateNavState);
+            }
             updateNavState();
         });
     }
@@ -1279,6 +1473,44 @@
             document.documentElement.setAttribute('data-mkcp-theme', next);
             try { localStorage.setItem('mkcp_account_theme', next); } catch (e) {}
         });
+    }
+
+    // ── C2: winkelwagen-teller live bijwerken, geen paginaherlaad nodig ──────
+    //
+    // #mk-cart-popup (assets/cart-popup.js) zet zijn eigen actuele aantal in
+    // het data-cart-count-attribuut en vuurt daarna 'wc_fragments_refreshed'
+    // op document.body (jQuery-event, geen native DOM-event — vandaar hier
+    // ook via jQuery geluisterd i.p.v. addEventListener). Elke actie die het
+    // mandje wijzigt (ook vanuit de Account-omgeving zelf, zie added_to_cart
+    // hierboven) loopt uiteindelijk via diezelfde route.
+    function mkcpUpdateCartCountUI() {
+        var popupEl = document.getElementById('mk-cart-popup');
+        var count = popupEl ? parseInt(popupEl.getAttribute('data-cart-count') || '0', 10) : 0;
+        if (isNaN(count)) count = 0;
+
+        var cartIcon = document.getElementById('mkcp-account-cart-icon');
+        if (cartIcon) {
+            var badge = cartIcon.querySelector('.mkcp-account-cart-icon__badge');
+            if (badge) badge.textContent = String(count);
+            cartIcon.hidden = count < 1;
+        }
+
+        var teaser = document.querySelector('.mkcp-dash-header__cart-teaser');
+        if (teaser) {
+            if (count < 1) {
+                teaser.remove();
+            } else {
+                var textEl = teaser.querySelector('.js-mkcp-cart-teaser-text');
+                var template = count === 1 ? teaser.getAttribute('data-singular') : teaser.getAttribute('data-plural');
+                if (textEl && template) {
+                    textEl.textContent = template.replace('%d', String(count));
+                }
+            }
+        }
+    }
+
+    if (window.jQuery) {
+        window.jQuery(document.body).on('wc_fragments_refreshed added_to_cart removed_from_cart', mkcpUpdateCartCountUI);
     }
 
     // Script staat in de footer (na de DOM), dus 'DOMContentLoaded' is op dit

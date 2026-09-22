@@ -34,11 +34,45 @@ $gray-light: #5b6472;
 body.mkcp-distraction-free-checkout {
     margin      : 0;
     padding     : 0;
+    min-height  : 100vh;
+    // Vangnet tegen horizontale overflow op mobiel: blockUI's laadoverlay
+    // (zie de AJAX-laadfeedback-regels verderop) berekent zijn breedte soms
+    // net iets ruimer dan de viewport, wat zonder dit een korte, rare
+    // horizontale scroll/verschuiving van de hele pagina liet zien tijdens
+    // "Totalen bijwerken…".
+    overflow-x  : hidden;
     font-family : -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size   : 16px;
     line-height : 1.5;
     color       : var(--mkcp-text, $text);
     background  : var(--mkcp-bg, #fff);
+
+    // Lichte accenttint i.p.v. het neutrale --mkcp-light-grijs voor het hele
+    // rechterpaneel (paginasplitsing + besteltabel + de kaarten die daar
+    // bewust mee matchen) — grijs oogde te passief/dood voor dit stuk van de
+    // pagina. Bewust een LOKALE variabele (niet --mkcp-light zelf overschrijven),
+    // want die wordt door talloze andere, ongerelateerde elementen in de rest
+    // van de plugin (popup, account-tab, bedankpagina) gebruikt.
+    --mkcp-co-panel-bg: color-mix(in srgb, var(--mkcp-accent, #{$accent}) 5%, #fff);
+
+    // Links wit (paginakleur), rechts de --mkcp-light-achtergrond, over de
+    // VOLLEDIGE pagina (niet alleen het grid-vak) — de header erboven heeft
+    // zijn eigen ondoorzichtige achtergrond en dekt dit vanzelf af, dus die
+    // blijft gewoon wit. De omslagpositie volgt hier rekenkundig exact waar
+    // de rechterkolom in .woocommerce-checkout hieronder begint: het midden
+    // van de kolom-tussenruimte (48px), binnen .mkcp-checkout-main's
+    // max-width (1200px) + horizontale padding (24px) + de vaste
+    // rechterkolombreedte (400px) — dus geen los, hardgecodeerd percentage
+    // dat bij een andere layout-breedte niet meer zou kloppen.
+    @media (min-width: 901px) {
+        background: linear-gradient(
+            to right,
+            var(--mkcp-bg, #fff) 0,
+            var(--mkcp-bg, #fff) calc(50vw + min(100vw, 1200px) / 2 - 448px),
+            var(--mkcp-co-panel-bg) calc(50vw + min(100vw, 1200px) / 2 - 448px),
+            var(--mkcp-co-panel-bg) 100%
+        );
+    }
 
     *,
     *::before,
@@ -325,8 +359,28 @@ body.mkcp-distraction-free-checkout {
         min-width  : 0;
     }
 
-    /* Left column — blok 1: formulier + verzendadres */
+    /* Left column — blok 1: formulier + verzendadres
+       grid-row:2 hier is een BEWUSTE dubbeling met .mkcp-login-and-details
+       hierboven, niet overbodig: de wrapper daar wordt door
+       mkcpSwitcher.ensure() (checkout-frontend.php) alleen aangemaakt zodra
+       minstens één van de twee schakelaar-triggers (login-formulier of
+       "account aanmaken?"-checkbox) daadwerkelijk draait — en beide bevatten
+       een bewuste early-return zodra de bezoeker al is ingelogd, want
+       WooCommerce rendert dan geen van beide blokken (form-login.php /
+       form-billing.php tonen die markup alleen aan gasten). Voor een
+       ingelogde klant bestaat .mkcp-login-and-details dus NOOIT, en valt
+       #customer_details terug op de "> * { grid-column:1 }"-vangnet
+       hierboven — die zet wél de kolom maar NIET de rij, waardoor het
+       element zonder deze regel in de eerste (dan lege) rij auto-plaatst en
+       de hele rechterkolom (#order_review, vast op grid-row:2) omlaag duwt
+       met precies de hoogte van #customer_details: de geconstateerde
+       witruimte na inloggen. Staat de wrapper er wél (uitgelogde bezoeker),
+       dan is #customer_details geen direct grid-kind meer en wordt deze
+       regel simpelweg genegeerd — geen dubbele werking, puur een vangnet
+       voor het geval de wrapper ontbreekt. */
     #customer_details {
+        grid-column   : 1;
+        grid-row      : 2;
         min-width     : 0;
         border        : 1.5px solid #e8eaf0;
         border-radius : 14px;
@@ -347,8 +401,19 @@ body.mkcp-distraction-free-checkout {
     #order_review {
         grid-column   : 2;
         grid-row      : 2 / span 10;
+        // Grid-items krijgen standaard min-width:auto (respecteert het
+        // min-content van de inhoud) — zonder deze override kan bv. een
+        // lang productattribuut (variatie-"pil") de kolom breder duwen dan
+        // de viewport, wat op mobiel een horizontale overflow gaf en (na de
+        // overflow-x:hidden-vangnet op body) de prijzen rechts onbereikbaar
+        // maakte. .shop_table had dit al, #order_review zelf nog niet.
+        min-width     : 0;
         position      : sticky;
         top           : 50px;
+        // Wat lucht tussen de linkerrand van de grijze achtergrond en de
+        // inhoud (tabel/BTW-switch/betaaliconen/cross-sell zitten allemaal
+        // hierbinnen genest, dus dit werkt voor alles in één keer).
+        padding-left  : 20px;
         // background    : #fff;
         // border        : 1.5px solid #e8eaf0;
         // border-radius : 14px;
@@ -688,6 +753,237 @@ body.mkcp-distraction-free-checkout .form-row {
         background-position: right 12px center;
         background-size    : 18px 18px;
     }
+
+    // Bij een mislukte validatie scrollt/focust JS (checkout-frontend.php,
+    // mkcp_scrollToFirstInvalid) automatisch naar het EERSTE foute veld —
+    // deze korte shake op dat moment maakt "waarom lukt het niet"-gevoel
+    // concreet: het veld dat aandacht nodig heeft is niet alleen rood/
+    // gemarkeerd, het beweegt ook even. JS zet/verwijdert .mkcp-shake zelf
+    // (met een geforceerde reflow ertussen) zodat de animatie ook opnieuw
+    // afspeelt bij een tweede mislukte poging op hetzelfde veld.
+    &.mkcp-shake {
+        animation: mkcp-shake .4s ease;
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
+    }
+}
+
+@keyframes mkcp-shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+}
+
+// E-mail-typo-suggestie ("Bedoelde je gmail.com?") onder #billing_email —
+// zelfde stijl-taal als .mkcp-error-summary hierboven (klikbaar, geen eigen
+// kader), zie checkout-frontend.php voor de JS (mkcp_addEmailTypoSuggestion).
+body.mkcp-distraction-free-checkout .mkcp-email-typo-hint {
+    display    : block;
+    min-height : 1.4em; // voorkomt dat het veld eronder springt zodra de hint verschijnt
+    margin-top : 5px;
+    padding    : 0;
+    border     : none;
+    background : none;
+    color      : var(--mkcp-accent, $accent);
+    // Zelfde lettergrootte als de content-builder-tekst onder een veld en
+    // de telefoon-waarschuwing hierboven (.mkcp-phone-warning) - consistente
+    // "kleine toelichting onder een veld"-stijl door de hele checkout heen.
+    font-size  : 11.5px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor     : pointer;
+    opacity    : 1;
+    transition : opacity 150ms ease;
+
+    &:hover { opacity: .8; }
+
+    &--hidden {
+        opacity       : 0 !important;
+        pointer-events: none;
+    }
+}
+
+// Zachte waarschuwing onder telefoonvelden bij een onverwacht aantal cijfers
+// (zie mkcp_bindPhoneWarning, checkout-frontend.php) - amber i.p.v. de
+// accentkleur van de e-mail-hint hierboven: dit is een vermoeden, geen
+// klikbare correctie, dus geen underline/cursor:pointer.
+body.mkcp-distraction-free-checkout .mkcp-phone-warning {
+    display    : block;
+    min-height : 1.4em;
+    margin-top : 5px;
+    color      : #e29320;
+    // Zelfde lettergrootte als de content-builder-tekst onder een veld
+    // (.mkcp-zone-render--field .mkcp-block--text, checkout.scss ~4238) -
+    // consistente "kleine toelichting onder een veld"-stijl door de hele
+    // checkout heen.
+    font-size  : 11.5px;
+    font-weight: 600;
+    opacity    : 1;
+    transition : opacity 150ms ease;
+
+    &--hidden {
+        opacity       : 0 !important;
+        pointer-events: none;
+    }
+}
+
+// Klikbare landvlag naast het telefoonveld (mkcp_bindPhoneCountryPicker,
+// checkout-frontend.php) - alleen op de telefoonvelden gescoped, niet op
+// .woocommerce-input-wrapper in het algemeen (dat zou elk veld raken).
+// Los element i.p.v. background-image: zie de JS-comment voor de reden
+// (autofill-achtergrond van de browser overschildert een background-image).
+body.mkcp-distraction-free-checkout {
+    #billing_phone_field, #shipping_phone_field {
+        input.input-text { padding-left: 40px; }
+
+        // Het zwevende label (checkout.scss, .form-row label, left:14px)
+        // zou anders precies onder de vlag vallen - meeschuiven.
+        label { left: 40px; }
+
+        // display:block i.p.v. de standaard inline <span>: zonder dit is
+        // de gerenderde hoogte van de wrapper voor absolute-positionering-
+        // doeleinden onbetrouwbaar (te weinig hoogte -> vlag hing te hoog).
+        // .form-row zelf werd geprobeerd als alternatief, maar bleek EXTRA
+        // hoogte t.o.v. het zichtbare veld te hebben (vlag te laag) - dit,
+        // gecombineerd met de wrapper (die exact rond de input zit), is de
+        // combinatie die wél klopt.
+        .woocommerce-input-wrapper { position: relative; display: block; }
+    }
+
+    // Compact, rond vlagicoontje + apart chevron-badge - de eerdere
+    // volledig-hoogte kleurstrook (uitgerekte vlag, geen vaste maat) oogde
+    // niet mooi en was bovendien afhankelijk van de exacte (onbetrouwbare)
+    // hoogte van de omliggende wrapper. Dit is klein en vast van formaat,
+    // dus onafhankelijk van welke hoogte de wrapper ook rapporteert.
+    .mkcp-phone-country-flag {
+        position      : absolute;
+        left          : 8px;
+        top           : 50%;
+        transform     : translateY(-50%);
+        display       : flex;
+        padding       : 0;
+        margin        : 0;
+        border         : none;
+        background     : none;
+        cursor         : pointer;
+        border-radius  : 50%;
+        opacity        : 1;
+        transition     : opacity 150ms ease, box-shadow 150ms ease;
+
+        &:hover  { box-shadow: 0 0 0 3px rgba(0, 0, 0, .06); }
+        &:focus-visible {
+            outline       : 2px solid var(--mkcp-accent, $accent);
+            outline-offset: 2px;
+        }
+
+        &__icon {
+            width         : 22px;
+            height        : 22px;
+            border-radius : 50%;
+            overflow      : hidden;
+            box-shadow    : 0 0 0 1px rgba(0, 0, 0, .15);
+            display       : flex;
+        }
+
+        // preserveAspectRatio="xMidYMid slice" op de SVG (checkout-
+        // frontend.php) doet het cover-kroppen - hier alleen de cirkel
+        // vullen.
+        &__icon svg { width: 100%; height: 100%; display: block; }
+
+        &__chevron {
+            position       : absolute;
+            right          : -3px;
+            bottom         : -3px;
+            width          : 14px;
+            height         : 14px;
+            display        : flex;
+            align-items    : center;
+            justify-content: center;
+            background     : var(--mkcp-bg, #fff);
+            border-radius  : 50%;
+            box-shadow     : 0 1px 3px rgba(0, 0, 0, .25);
+            color          : var(--mkcp-text-light, $gray-mid);
+            transition     : transform 150ms ease;
+
+            svg { width: 8px; height: 8px; }
+        }
+
+        &--open &__chevron {
+            transform: rotate(180deg);
+        }
+
+        // Pas zichtbaar zodra er een nummer wordt ingetypt (zie JS) - geen
+        // land-icoontje tonen voor een nog leeg veld.
+        &--hidden {
+            opacity       : 0 !important;
+            pointer-events: none;
+        }
+    }
+
+    // Popover-paneel met de 3 landen - zelfde kaartstijl (achtergrond/rand/
+    // radius/schaduw) als de rest van checkout (vgl. .mkcp-addr-picker__card),
+    // hier simpel: 3 rijen, geen carousel nodig.
+    .mkcp-phone-country-panel {
+        position      : absolute;
+        left           : 0;
+        top            : calc(100% + 6px);
+        z-index        : 20; // boven de scroll-hint-chevron (z-index:2) en overige veldcontent
+        min-width      : 170px;
+        background     : var(--mkcp-bg, #fff);
+        border         : 1.5px solid #e8eaf0;
+        border-radius  : 12px;
+        box-shadow     : 0 6px 20px rgba(0, 0, 0, .12);
+        padding        : 6px;
+        display        : flex;
+        flex-direction : column;
+        gap            : 2px;
+
+        &--hidden { display: none; }
+    }
+
+    .mkcp-phone-country-option {
+        display        : flex;
+        align-items    : center;
+        gap            : 10px;
+        width          : 100%;
+        padding        : 8px 10px;
+        border         : none;
+        background     : none;
+        border-radius  : 8px;
+        cursor         : pointer;
+        font           : inherit;
+        font-size      : 14px;
+        color          : var(--mkcp-text, #1a1a2e);
+        text-align     : left;
+
+        &:hover, &:focus-visible {
+            background: color-mix(in srgb, var(--mkcp-accent, #{$accent}) 8%, transparent);
+            outline   : none;
+        }
+
+        &__flag { display: flex; flex: 0 0 auto; }
+        &__flag svg { display: block; width: 18px; height: 12px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
+
+        &__name { flex: 1 1 auto; }
+
+        &__check {
+            display: none;
+            flex   : 0 0 auto;
+            color  : var(--mkcp-accent, $accent);
+
+            svg { width: 15px; height: 15px; }
+        }
+
+        &.is-selected {
+            font-weight: 600;
+
+            .mkcp-phone-country-option__check { display: flex; }
+        }
+    }
 }
 
 
@@ -793,12 +1089,17 @@ body.mkcp-distraction-free-checkout {
     }
 }
 
-/* Shipping toggle */
+/* Shipping toggle — icoon + tekst links, toggle-switch rechts (zelfde
+   idioom als de BTW-switch elders in de checkout). Markup (icoon + track/
+   thumb/check) wordt eenmalig toegevoegd door mkcpEnhanceShipToggle() in
+   checkout-frontend.php; de echte <input type="checkbox"> blijft functioneel
+   maar wordt hier puur visueel verstopt. */
 body.mkcp-distraction-free-checkout #ship-to-different-address {
-    label {
+    label.mkcp-ship-toggle {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         font-size: 14px;
         font-weight: 500;
         color: var(--mkcp-text, #1a1a1a);
@@ -809,32 +1110,111 @@ body.mkcp-distraction-free-checkout #ship-to-different-address {
         margin: 0;
         transition: border-color .15s, background .15s;
         background: var(--mkcp-bg, #fff);
+
+        // Dit label deelt ook .woocommerce-form__label-for-checkbox.checkbox
+        // (de generieke checkbox-stijl voor voorwaarden-/account-vinkjes
+        // elders in de checkout, zie die regel verderop in dit bestand) — die
+        // regel tekent zelf óók een ::before-vierkantje. Zonder deze reset
+        // bleef dat kale checkbox-vierkantje links naast het icoon staan,
+        // los van de nieuwe toggle-switch rechts.
         &::before {
-            content: "";
-            width: 22px;
-            height: 22px;
-            border: 1px solid #c4c4c4;
-            border-radius: 3px;
-            -webkit-box-shadow: inset 0 0 0 2px var(--mkcp-bg, #fff);
-            box-shadow: inset 0 0 0 2px var(--mkcp-bg, #fff);
-            background-color: var(--mkcp-bg, #fff);
-            -webkit-transition: 300ms;
-            transition: 300ms;
-        }
-        &:has(input:checked) {
-            border-color: var(--mkcp-accent, $accent);
-            &::before {
-                border-color       : var(--mkcp-accent, $accent);
-                background-color   : var(--mkcp-accent, $accent);
-                background-image   : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-                background-repeat  : no-repeat;
-                background-position: center;
-                background-size    : 14px 14px;
-            }
+            content: none;
         }
     }
     input[type="checkbox"] {
-        display: none;
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        width: auto;
+        height: auto;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 1;
+    }
+}
+
+.mkcp-ship-toggle__icon {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    color: var(--mkcp-text-muted, #8a8f98);
+}
+
+.mkcp-ship-toggle__track {
+    display: block;
+    flex-shrink: 0;
+    order: -1;
+    width: 34px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--mkcp-light2, #e5e7eb);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .15);
+    transition: background-color 220ms ease;
+}
+
+.mkcp-ship-toggle__thumb {
+    position: relative;
+    top: -1px;
+    left: -1px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .28), 0 0 0 1px rgba(0, 0, 0, .04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 320ms cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.mkcp-ship-toggle__check {
+    width: 10px;
+    height: 10px;
+    color: var(--mkcp-accent, $accent);
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+
+label.mkcp-ship-toggle:has(input:checked) {
+    .mkcp-ship-toggle__track { background: var(--mkcp-accent, $accent); }
+    .mkcp-ship-toggle__thumb { transform: translateX(16px); }
+    .mkcp-ship-toggle__check { opacity: 1; }
+}
+
+/* Optisch "aan de bezorglocatie-box vast" i.p.v. een eigen los kaartje —
+   maar bewust GEEN DOM-nesting (zie de uitgebreide toelichting bij stap 1b
+   in checkout-frontend.php: het vinkje ín de box nesten maakte 'm kwetsbaar
+   voor WooCommerce's periodieke kaart-opruiming, met "vinkje soms spoorloos
+   weg na laden" tot gevolg). In plaats daarvan: de box krijgt via JS de
+   klasse --ship-toggle-below zodra het vinkje als (veilige) sibling ná de
+   kaart staat, en beide krijgen hier matchende kleur/ronding zodat het er
+   zonder tussenruimte doorlopend uitziet. */
+.mkcp-pu-location.mkcp-pu-location--ship-toggle-below {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    margin-bottom: 0;
+
+    p { margin-bottom: 0; }
+}
+
+body.mkcp-distraction-free-checkout .mkcp-co-section--delivery #ship-to-different-address {
+    // .mkcp-dd-wrap (de kaart-wrapper waar de bezorglocatie-box ín zit, zie
+    // delivery-date.scss) heeft zelf een vaste margin-bottom van 20px. Was
+    // hier eerst met -20px teruggetrokken voor een volledig naadloze
+    // aansluiting op de box erboven; nu bewust een eigen los kaartje (met
+    // duidelijke marge + eigen bovenrand), dus geen negatieve margin meer.
+    margin: 8px 0 0;
+
+    label.mkcp-ship-toggle {
+        padding: 8px 10px;
+        border: 1px solid var(--mkcp-dd-accent-border, #d7dee8);
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+        background: var(--mkcp-dd-accent-tint, #eef2f7);
+        font-size: 12.5px;
+        margin-bottom: 10px;
     }
 }
 
@@ -922,18 +1302,15 @@ body.mkcp-distraction-free-checkout {
             display : none !important;
         }
     }
-}
 
-
-/* ── Adreskeuze uit het Account-adresboek (includes/checkout-address-picker.php) ──
- * Compacte kaarten boven de factuur-/verzendvelden voor ingelogde klanten met
- * opgeslagen adressen — kies een kaart en de volledige veldenset klapt dicht
- * (.mkcp-fields-collapsed). Zelfde "next level" kaartstijl als de bezorgen/
- * afhalen-kaarten in shipping-choice.scss (icoon-badge, schaduw, ronde
- * checkmark-badge die in-/uitzoomt) — hier met de eigen --mkcp-accent-token
- * i.p.v. shipping-choice's losse --mkcp-sc-accent, zodat het als onderdeel
- * van dezelfde checkout-kleurtaal oogt. */
-body.mkcp-distraction-free-checkout {
+    /* ── Adreskeuze uit het Account-adresboek (includes/checkout-address-picker.php) ──
+     * Compacte kaarten boven de factuur-/verzendvelden voor ingelogde klanten met
+     * opgeslagen adressen — kies een kaart en de volledige veldenset klapt dicht
+     * (.mkcp-fields-collapsed). Zelfde "next level" kaartstijl als de bezorgen/
+     * afhalen-kaarten in shipping-choice.scss (icoon-badge, schaduw, ronde
+     * checkmark-badge die in-/uitzoomt) — hier met de eigen --mkcp-accent-token
+     * i.p.v. shipping-choice's losse --mkcp-sc-accent, zodat het als onderdeel
+     * van dezelfde checkout-kleurtaal oogt. */
     .mkcp-addr-picker {
         margin : 0 0 16px;
     }
@@ -1160,11 +1537,11 @@ body.mkcp-distraction-free-checkout #order_review {
         min-width     : 0;
         display       : table;
         overflow      : hidden;
-        background: var(--mkcp-light, #f5f5f5);
-        border        : 1.5px solid #e8eaf0;
-        border-radius : 14px;
-        padding       : 24px 20px;
-        box-shadow    : 0 1px 4px rgba(0, 0, 0, .04);
+        background: var(--mkcp-co-panel-bg);
+        border        : none;
+        border-radius : 0;
+        padding       : 0;
+        box-shadow    : none;
     }
 }
 
@@ -1214,11 +1591,41 @@ body.mkcp-distraction-free-checkout .shop_table.woocommerce-checkout-review-orde
         letter-spacing : .5px;
         border-top     : none;
         padding-top    : 0;
-        padding-bottom : 8px;
+        padding-bottom : 4px;
         text-align     : left;
 
         &.product-total {
             text-align : right;
+        }
+    }
+
+    // Geen lijntje meer tussen de kop (PRODUCT/TOTAAL) en de eerste rij, dus
+    // ook wat minder lucht ertussen.
+    tbody tr:first-child {
+        th, td {
+            border-top  : none;
+            padding-top : 4px;
+        }
+    }
+
+    // Lijntjes tussen de productregels onderling weg — de scheiding komt nu
+    // via één lijn onder de BTW-switch (zie hieronder) i.p.v. onder elk
+    // product apart. Subtotaal/verzendkosten/totaal-rijen behouden gewoon
+    // hun eigen scheidingslijn.
+    .cart_item {
+        th, td {
+            border-top: none;
+        }
+    }
+
+    // Alleen het lijntje bóven Subtotaal blijft staan — de rijen daarna
+    // (verzendkosten/afhalen/eventuele fees/totaal) krijgen geen eigen
+    // scheidingslijn meer, en staan iets dichter op elkaar (minder padding).
+    .cart-subtotal ~ tr {
+        th, td {
+            border-top  : none;
+            padding-top   : 6px;
+            padding-bottom: 6px;
         }
     }
 
@@ -1234,6 +1641,192 @@ body.mkcp-distraction-free-checkout .shop_table.woocommerce-checkout-review-orde
         td {
             text-align: right;
         }
+    }
+
+    // Scrollbare productlijst bij veel items — subtotaal/verzendkosten/totaal
+    // (tfoot) blijven altijd zichtbaar, alleen de productregels (tbody)
+    // scrollen. thead/tbody/tfoot elk apart display:table geven (i.p.v. de
+    // hele tabel display:block) behoudt de bestaande table-layout:fixed-
+    // kolombreedtes (product-total 85px etc. hierboven) — met display:flex
+    // op cellen was dat eerder al fout gegaan (zie toelichting bij
+    // td.product-name hieronder), vandaar bewust GEEN flex hier.
+    display : block;
+
+    thead, tbody, tfoot {
+        display : block;
+        width   : 100%;
+    }
+
+    thead tr, tbody tr, tfoot tr {
+        display      : table;
+        width        : 100%;
+        table-layout : fixed;
+    }
+
+    tbody {
+        max-height : 420px;
+        overflow-y : auto;
+
+        // Scrollbalk zelf onzichtbaar (als lelijk ervaren) — de hint dat er
+        // meer te scrollen valt komt in plaats daarvan van de fade-out
+        // hieronder (klasse wordt server-side niets, puur JS: mkcp_
+        // updateScrollHint() in checkout-frontend.php zet 'm alleen aan
+        // zolang er ECHT meer content onder de vouw staat).
+        scrollbar-width    : none;
+        -ms-overflow-style : none;
+        &::-webkit-scrollbar { width : 0; height : 0; display : none; }
+
+        // Simpele fade-out — het pijltje zit niet meer in deze tbody (zie
+        // .mkcp-review-scroll-shell/.mkcp-scroll-hint-chevron-overlay
+        // hieronder), dus geen "reserveer ruimte"-gedoe meer nodig: deze
+        // mask-image kan nooit meer met het pijltje botsen, ze delen geen
+        // gemaskeerd element meer.
+        &.mkcp-scroll-hint {
+            mask-image            : linear-gradient(to bottom, #000 calc(100% - 70px), rgba(0, 0, 0, .3) calc(100% - 35px), transparent 100%);
+            -webkit-mask-image    : linear-gradient(to bottom, #000 calc(100% - 70px), rgba(0, 0, 0, .3) calc(100% - 35px), transparent 100%);
+        }
+    }
+
+    // Kopjes die de client-side groepering (mkcp_groupFulfillmentRows() in
+    // checkout-frontend.php) invoegt tussen "wordt verzonden"- en "wordt
+    // afgehaald"-producten. Eerst een uppercase badge-met-achtergrond-stijl
+    // geprobeerd (generieke "dashboard-label"-look) — paste niet bij de
+    // rest van de plugin. Nu dezelfde typografie als de verzendkeuze-
+    // kaarten (.mkcp-sc-card-title, src/scss/shipping-choice.scss): gewone
+    // hoofdletters, geen achtergrondblok, plus hetzelfde icoon als op de
+    // filter-tabs hierboven zodat het duidelijk bij elkaar hoort.
+    tr.mkcp-fulfil-header {
+        td {
+            display        : flex;
+            align-items    : center;
+            gap            : 6px;
+            padding        : 14px 0 6px;
+            font-size      : 14.5px;
+            font-weight    : 600;
+            color          : #111827;
+            border-top     : 1px solid var(--mkcp-light1, $light1);
+
+            svg {
+                width      : 15px;
+                height     : 15px;
+                flex-shrink: 0;
+                stroke     : var(--mkcp-accent, $accent);
+            }
+        }
+
+        &:first-child td {
+            padding-top : 0;
+            border-top  : none;
+        }
+    }
+
+    // Filterschakelaar (mkcp_checkout_render_fulfillment_filter_pills()) —
+    // renderen vóór de tabel, tussen de BTW-switch en het orderoverzicht.
+    // Hergebruikt letterlijk de mkcp-checkout-switcher/mkcp-switcher-tab-
+    // classes van de "Ik ben al klant / Ik ben nieuw"-switcher (regel
+    // ~2264 hieronder) — geen eigen CSS meer nodig, alleen wat kleine
+    // ruimte-correcties omdat deze switcher IN de kolom staat i.p.v. erboven.
+}
+
+// Strak-passende wikkel-div ALLEEN om de tabel (checkout-frontend.php,
+// priority 9/11 op woocommerce_checkout_order_review) — het ankerpunt voor
+// het los zwevende pijltje hieronder. Bewust NIET #order_review (bevat ook
+// BTW-switch/filterschakelaar erboven) — dat te grote, onvoorspelbare
+// ankerpunt was de kern van eerdere mislukte pogingen. Top-level regel (niet
+// genest in het tabel-blok hierboven) — de shell zit óm de tabel heen, dus
+// nesten zou een niet-bestaande "tabel > shell"-relatie hebben geïmpliceerd.
+body.mkcp-distraction-free-checkout .mkcp-review-scroll-shell {
+    position: relative;
+}
+
+body.mkcp-distraction-free-checkout .mkcp-scroll-hint-chevron-overlay {
+    position       : absolute;
+    left           : 50%;
+    transform      : translateX(-50%);
+    z-index        : 2;
+    pointer-events : none;
+    line-height    : 0em;
+
+    svg {
+        width  : 22px;
+        height : 22px;
+        padding: 4px;
+        background   : var(--mkcp-co-panel-bg, #fff);
+        border : 1.5px solid var(--mkcp-light1, $light1);
+        border-radius: 100px;
+        box-shadow   : 0 1px 4px rgba(0, 0, 0, .1);
+        stroke : var(--mkcp-text-light, $gray-light);
+        transition: transform .2s ease;
+    }
+
+    // Onderaan gescrold: pijltje wijst omhoog i.p.v. te verdwijnen — laat
+    // zien dat je weer terug kan scrollen.
+    &.mkcp-scroll-hint-chevron-overlay--up svg {
+        transform: rotate(180deg);
+    }
+}
+
+// WPFactory (BTW-plugin) blokkeert bij een BTW-nummer-check of landwissel
+// #order_review rechtstreeks (zie de blockUI-laadfeedback-regels verderop
+// in dit bestand, rond ":has(#mkcp-co-review-body .blockUI...)" — dezelfde
+// blokkade). De positie van het pijltje (mkcp_positionScrollHintChevron,
+// checkout-frontend.php) wordt herrekend op 'updated_checkout', maar tijdens
+// dít venster is de layout nog niet klaar (WooCommerce's eigen resultaat kan
+// nog niet binnen zijn) — een net-vóór-dat-venster berekende positie kan dan
+// tijdelijk niet meer kloppen. Simpelweg verbergen zolang deze blokkade
+// actief is, i.p.v. proberen te positioneren op instabiele data: zodra de
+// blokkade weg is triggert de eigen 'updated_checkout'-afhandeling toch al
+// een verse, correcte herberekening.
+#order_review.woocommerce-checkout-review-order:has(> .blockUI.blockOverlay) .mkcp-scroll-hint-chevron-overlay {
+    display: none !important;
+}
+
+// LET OP specificiteit: de basisregels hierboven (.mkcp-switcher-tab e.d.)
+// staan allemaal onder "body.mkcp-distraction-free-checkout" — zonder
+// diezelfde prefix hier verloor de override het altijd van de basisregel
+// (dat was de vorige, mislukte poging: padding/flex/hoogte bleven gewoon de
+// oude waarden, vandaar de tekst-wrap, te veel witruimte en het balkje dat
+// als een dun lijntje bovenin bleef hangen i.p.v. een gevuld blokje).
+body.mkcp-distraction-free-checkout .mkcp-fulfil-switcher {
+    margin: -4px 0 12px; // BTW-switch erboven laat al genoeg lucht, en minder ruimte eronder dan de standaard 16px
+
+    // Content-brede tabs i.p.v. de gelijke 1/3-segmenten van de login/
+    // account-switcher hierboven — "Alles (8)" is een stuk korter dan
+    // "Verzonden (5)"/"Afhalen (3)", dus gelijke segmenten lieten zowel het
+    // schuivende balkje als de langste tekst (die daardoor moest afbreken)
+    // niet passen.
+    .mkcp-switcher-tabs {
+        justify-content: space-between;
+        padding        : 3px;
+        gap            : 2px;
+    }
+
+    .mkcp-switcher-tab {
+        flex           : 0 0 auto;
+        padding        : 7px 10px;
+        border-radius  : 9px;
+        position       : relative;
+        z-index        : 1; // boven het schuivende achtergrondblokje
+        white-space    : nowrap; // "Verzonden (5)" mag nooit afbreken naar 2 regels
+
+        svg { width: 14px; height: 14px; }
+    }
+
+    // Gevuld achtergrondblokje i.p.v. de dunne onderlijn van de login/
+    // account-switcher — beter zichtbare "actieve staat" zoals gevraagd,
+    // en volgt (via JS, mkcp_initFulfilIndicators()) de gemeten breedte/
+    // positie van de actieve knop i.p.v. een vast segment.
+    .mkcp-switcher-indicator {
+        top           : 3px;
+        bottom        : 3px;
+        height        : auto;
+        border-radius : 9px;
+        background    : color-mix(in srgb, var(--mkcp-accent, $accent) 12%, transparent);
+    }
+
+    .mkcp-switcher-tab.is-selected {
+        color: var(--mkcp-accent, $accent);
+        svg { stroke: var(--mkcp-accent, $accent); }
     }
 }
 
@@ -1314,14 +1907,18 @@ body.mkcp-distraction-free-checkout .shop_table {
             border-top             : 1px solid var(--mkcp-light1, $light1);
             font-size              : 11.5px;
             clear                  : both;
+            min-width              : 0;
             dt {
                 margin      : 0;
                 font-weight : 500;
                 color       : var(--mkcp-text-light, $gray-mid);
+                min-width   : 0;
             }
             dd {
-                margin : 0;
-                color  : var(--mkcp-text, #1f2937);
+                margin       : 0;
+                min-width    : 0;
+                overflow-wrap: anywhere;
+                color        : var(--mkcp-text, #1f2937);
                 p { margin: 0; }
             }
         }
@@ -1375,11 +1972,13 @@ body.mkcp-distraction-free-checkout .shop_table {
 
     tfoot .order-total {
         th, td {
-            font-size   : 16px;
-            font-weight : 700;
-            color       : var(--mkcp-text, $text);
-            border-top  : 1.5px solid var(--mkcp-light1, $light1);
-            padding-top : 12px;
+            font-size     : 16px;
+            font-weight   : 700;
+            color         : var(--mkcp-text, $text);
+            border-top    : 1.5px solid var(--mkcp-light1, $light1);
+            padding-top   : 12px;
+            border-bottom : 1.5px solid var(--mkcp-light1, $light1);
+            padding-bottom: 12px;
         }
 
         td small {
@@ -1485,24 +2084,141 @@ body.mkcp-distraction-free-checkout .mkcp-co-unit-price {
 /* ── BTW switch: checkout overrides ──────────────────────────────────────── */
 
 body.mkcp-distraction-free-checkout {
+    // Geen eigen kader/achtergrond/padding meer — de rechterkolom heeft al
+    // de --mkcp-light-achtergrond (zie body-achtergrond hierboven), dus dit
+    // hoeft geen los "kaartje" meer te zijn: gewoon vrij op die achtergrond,
+    // net als het orderoverzicht eronder.
     .mk-cart-popup__btw-switch {
         width         : 100%;
-        background    : var(--mkcp-light, #f5f5f5);
-        border        : 1px solid var(--mkcp-light1, $light1);
-        border-radius : 8px;
         font-size     : 13px;
-        padding: 5px 20px;
-        margin-bottom: 20px;
+        padding       : 0 0 16px;
+        margin-bottom : 20px;
+        border-bottom : 1px solid var(--mkcp-light1, $light1);
     }
 
     .mk-cart-popup__btw-label {
         font-size : 13px;
     }
+}
 
-    .mk-cart-popup__btw-opt {
-        font-size : 12px;
-        padding   : 3px 10px;
+
+/* ── Cross-sell onder het orderoverzicht ─────────────────────────────────── */
+
+.mkcp-co-crosssell {
+    margin-top   : 0px;
+    padding-top  : 14px;
+    border-top   : 1px solid var(--mkcp-light1, $light1);
+}
+
+.mkcp-co-crosssell__title {
+    margin     : 0 0 10px;
+    font-size  : 13px;
+    font-weight: 600;
+    color      : var(--mkcp-text, $text);
+}
+
+.mkcp-co-crosssell__list {
+    display       : flex;
+    flex-direction: column;
+    gap           : 16px;
+}
+
+.mkcp-co-crosssell__item {
+    display    : flex;
+    align-items: center;
+    gap        : 10px;
+}
+
+.mkcp-co-crosssell__img {
+    flex-shrink  : 0;
+    width        : 44px;
+    height       : 44px;
+    border-radius: 6px;
+    overflow     : hidden;
+    display      : block;
+    border       : 1px solid var(--mkcp-light1, $light1);
+
+    img {
+        width     : 100%;
+        height    : 100%;
+        object-fit: cover;
+        display   : block;
     }
+}
+
+.mkcp-co-crosssell__info {
+    flex       : 1;
+    min-width  : 0;
+    display    : flex;
+    flex-direction: column;
+    gap        : 2px;
+}
+
+.mkcp-co-crosssell__name {
+    font-size      : 13px;
+    font-weight    : 500;
+    color          : var(--mkcp-text, $text);
+    text-decoration: none !important;
+    white-space    : nowrap;
+    overflow       : hidden;
+    text-overflow  : ellipsis;
+}
+
+.mkcp-co-crosssell__price {
+    font-size: 12px;
+    color    : var(--mkcp-text-light, $gray-mid);
+}
+
+.mkcp-co-crosssell__atc,
+.mkcp-co-crosssell__view {
+    flex-shrink  : 0;
+    display      : inline-flex;
+    align-items  : center;
+    justify-content: center;
+}
+
+.mkcp-co-crosssell__atc {
+    width        : 32px;
+    height       : 32px;
+    border-radius: 50%;
+    border       : 1.5px solid var(--mkcp-light1, $light1);
+    background   : #fff;
+    color        : var(--mkcp-accent, $accent);
+    cursor       : pointer;
+    transition   : background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+
+    svg { width: 16px; height: 16px; }
+
+    &:hover,
+    &:focus-visible {
+        background  : var(--mkcp-accent, $accent);
+        border-color: var(--mkcp-accent, $accent);
+        color       : #fff;
+        transform   : translateY(-1px);
+    }
+
+    &.is-loading {
+        opacity       : .6;
+        pointer-events: none;
+    }
+
+    &.is-added {
+        color       : #fff;
+        background  : var(--mkcp-accent, $accent);
+        border-color: var(--mkcp-accent, $accent);
+    }
+}
+
+.mkcp-co-crosssell__view {
+    padding      : 0 10px;
+    height       : 32px;
+    border-radius: 999px;
+    border       : 1.5px solid var(--mkcp-light1, $light1);
+    font-size    : 12px;
+    font-weight  : 500;
+    color        : var(--mkcp-text, $text);
+    text-decoration: none !important;
+    white-space  : nowrap;
 }
 
 
@@ -1538,14 +2254,15 @@ body.mkcp-distraction-free-checkout {
 /* BTW note */
 body.mkcp-distraction-free-checkout .mkcp-btw-note {
     display     : block;
-    font-size   : 11px;
+    font-size   : 9px;
     font-weight : 400;
     color       : var(--mkcp-text-light, $gray-mid);
     margin-top  : 2px;
 }
 
 body.mkcp-distraction-free-checkout #order_review .mkcp-btw-note.mkcp-btw-excl-only {
-    display : none;
+    display   : none;
+    font-size : 9px;
 }
 
 body.mkcp-distraction-free-checkout.is-btw-excl #order_review {
@@ -1556,11 +2273,16 @@ body.mkcp-distraction-free-checkout.is-btw-excl #order_review {
 /* Tax label */
 body.mkcp-distraction-free-checkout .mkcp-tax-label {
     display     : block;
-    font-size   : 11px;
+    font-size   : 9px;
     font-weight : 400;
     color       : var(--mkcp-text-light, $gray-mid);
     width       : fit-content;
     margin-left : auto;
+}
+
+body.mkcp-distraction-free-checkout .shop_table tfoot .order-total td small {
+    margin-top: 0px;
+    font-size: 9px;
 }
 
 /* Tax row dual labels */
@@ -1586,34 +2308,38 @@ body.mkcp-distraction-free-checkout #payment {
         padding    : 0;
         display    : flex;
         flex-direction: column;
-        gap        : 8px;
+        gap        : 4px;
     }
 
+    // Ronde, accent-gevulde selectie-indicator i.p.v. het vierkante
+    // checkbox-vinkje — zelfde visuele taal als de bezorgen/afhalen-kaarten
+    // (.mkcp-sc-card-check in shipping-choice.scss), voor een minder
+    // "formulier"-achtige, meer bij de rest van de pagina passende lijst.
+    // Ook compactere padding/tussenruimte: de oorspronkelijke rijen namen
+    // te veel ruimte in voor wat in essentie een simpele keuzelijst is.
     .wc_payment_method > label {
         display        : flex;
         align-items    : center;
         gap            : 10px;
-        font-size      : 14px;
+        font-size      : 13.5px;
         font-weight    : 500;
         color          : var(--mkcp-text, $text);
         cursor         : pointer;
-        padding        : 11px 13px;
+        padding        : 9px 12px;
         border         : 1px solid var(--mkcp-light1, $light1);
-        border-radius  : 6px;
+        border-radius  : 8px;
         margin         : 0;
         transition     : border-color .15s, background .15s;
         background     : var(--mkcp-bg, #fff);
         &::before {
             content: "";
-            width: 22px;
-            height: 22px;
-            border: 1px solid #c4c4c4;
-            border-radius: 3px;
-            -webkit-box-shadow: inset 0 0 0 2px var(--mkcp-bg, #fff);
-            box-shadow: inset 0 0 0 2px var(--mkcp-bg, #fff);
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            border: 1.5px solid #c4c4c4;
+            border-radius: 999px;
             background-color: var(--mkcp-bg, #fff);
-            -webkit-transition: 300ms;
-            transition: 300ms;
+            transition: 200ms;
         }
         &:hover {
             border-color : var(--mkcp-accent, $accent);
@@ -1634,18 +2360,27 @@ body.mkcp-distraction-free-checkout #payment {
                 background-image   : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
                 background-repeat  : no-repeat;
                 background-position: center;
-                background-size    : 14px 14px;
+                background-size    : 11px 11px;
             }
         }
     }
 
+    // Vast, wit omkaderd formaat voor elk betaal-icoontje — de icoontjes
+    // liepen sterk uiteen in eigen formaat/achtergrond (sommige gateways
+    // leveren een gekleurd logo, andere een wit vlak), wat rommelig oogde
+    // naast elkaar. object-fit:contain voorkomt vervorming ongeacht de
+    // eigen verhouding van het brongogo. Bewust GEEN eigen kadertje (wit
+    // vlak/rand) om het icoontje — dat gaf kaart-in-kaart-in-kaart samen met
+    // de rand van de rij eromheen. Gewoon vrij op de rij-achtergrond.
     .wc_payment_method img {
         height     : 22px;
-        width      : auto;
+        width      : 38px;
+        object-fit : contain;
         margin-left: auto!important;
-        max-width  : 46px;
         display    : inline-block;
         margin     : 0;
+        padding    : 0;
+        background : none;
         border     : none;
         box-shadow : none;
     }
@@ -1814,60 +2549,285 @@ body.mkcp-distraction-free-checkout p.woocommerce-invalid .woocommerce-form__lab
     border-color: #c0392b;
 }
 
-// Wrapper waar checkout-frontend.php's JS de melding in plaatst (zie
-// mkcpMoveLoginToggle()) — puur voor de tussenruimte t.o.v. #customer_details
-// eronder, de melding zelf regelt haar eigen opmaak (zie hieronder).
-body.mkcp-distraction-free-checkout .mkcp-login-area {
+// K4: gesegmenteerde schakelaar als TRIGGER voor de twee popups (i.p.v. de
+// eerdere twee losse pillen) — de tabs zelf tonen geen inhoud meer inline,
+// een klik opent nog steeds de bijbehorende modal (mkcpOpenLoginModal() /
+// mkcpOpenAccountModal(), checkout-frontend.php), alleen ziet de trigger er
+// nu als 1 samenhangend kader uit i.p.v. twee losse concurrerende kaarten.
+// Na een klik blijft de gekozen tab als "geselecteerd" gemarkeerd (welke
+// van de twee je laatst hebt gebruikt), met een vloeiend meeschuivend
+// accent-balkje onderin — de "switch"-animatie.
+body.mkcp-distraction-free-checkout .mkcp-checkout-switcher {
     margin-bottom: 16px;
+    border       : 1.5px solid #e8eaf0;
+    border-radius: 14px;
+    background   : var(--mkcp-co-panel-bg, #f8f9fb);
+    box-shadow   : 0 1px 4px rgba(0, 0, 0, .04);
+    overflow     : hidden; // houdt het schuivende accent-balkje binnen de afgeronde hoeken
 }
 
-// De melding zelf herstijlen nu ze niet meer over de volle paginabreedte
-// zweeft maar netjes in de linkerkolom past — de zware glass-/schaduw-
-// behandeling van de generieke .woocommerce-info-regel (bedoeld voor een
-// los, boven alles zwevend bannertje) oogt hier te log naast de rest van
-// de checkout-kaarten. Een slanke balk in dezelfde rand/radius-taal als
-// #customer_details past beter bij "in de stijl van de checkout".
-body.mkcp-distraction-free-checkout .woocommerce-form-login-toggle .woocommerce-info {
+// WooCommerce's eigen "Terugkerende klant?"-melding + link (global/
+// form-login.php) deed vroeger het openklappen — die taak ligt nu bij de
+// tab hierboven, dus verdwijnt WC's eigen versie volledig i.p.v. hem te
+// herstijlen (twee dingen die hetzelfde doen zou weer verwarrend zijn).
+body.mkcp-distraction-free-checkout .woocommerce-form-login-toggle {
+    display: none !important;
+}
+
+body.mkcp-distraction-free-checkout .mkcp-switcher-tabs {
+    display : flex;
+    position: relative; // ankerpunt voor .mkcp-switcher-indicator hieronder
+
+    // Vaste volgorde (login altijd eerst) via CSS "order" i.p.v. te
+    // vertrouwen op welk van de twee onafhankelijke scripts (checkout-
+    // frontend.php) zijn tab het eerst toevoegt — die volgorde is niet
+    // gegarandeerd.
+    [data-target="login"]   { order: 1; }
+    [data-target="account"] { order: 2; }
+}
+
+// Het schuivende accent-balkje — 1 gedeeld element i.p.v. losse randjes per
+// tab, zodat de overgang tussen de twee ook echt als een vloeiende
+// beweging leesbaar is (translateX) i.p.v. twee losse kleurwissels die
+// toevallig tegelijk gebeuren. Breedte/positie volgen het aantal + de
+// volgorde van de tabs (zie mkcpUpdateSwitcherIndicator() in
+// checkout-frontend.php) — werkt dus vanzelf ook goed als er maar 1 tab is.
+body.mkcp-distraction-free-checkout .mkcp-switcher-indicator {
+    position  : absolute;
+    bottom    : 0;
+    left      : 0;
+    height    : 2px;
+    background: var(--mkcp-accent, $accent);
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1), width .3s cubic-bezier(.4, 0, .2, 1);
+    pointer-events: none;
+}
+
+body.mkcp-distraction-free-checkout .mkcp-switcher-tab {
+    position       : relative; // ankerpunt voor de .is-confirmed-badge hieronder
+    flex           : 1 1 0;
     display        : flex;
     align-items    : center;
-    gap            : 14px;
-    padding        : 14px 18px;
-    border         : 1.5px solid #e8eaf0;
-    border-radius  : 12px;
-    background     : var(--mkcp-bg, #fff);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow     : 0 1px 4px rgba(0, 0, 0, .04);
-    margin-bottom  : 0;
-    transition     : box-shadow .15s, border-color .15s;
+    justify-content: center;
+    gap            : 8px;
+    padding        : 13px 16px;
+    border         : none;
+    background     : transparent;
+    color          : var(--mkcp-text-light, $gray-light);
+    font-size      : 13px;
+    font-weight    : 600;
+    font-family    : inherit;
+    cursor         : pointer;
+    transition     : color .15s, background-color .15s;
+
+    svg {
+        width : 16px;
+        height: 16px;
+        flex-shrink: 0;
+        transition: stroke .15s;
+    }
+
+    // Losse pijl aan het eind — maakt in één oogopslag duidelijk dat de tab
+    // een actie is (er gebeurt iets bij een klik), niet zomaar een label.
+    // Kleiner dan het voorste icoon en met wat extra ruimte ervoor, zodat
+    // het als "leidt ergens heen" leest i.p.v. als een tweede gelijkwaardig
+    // icoon. Schuift een fractie op bij hover, zelfde microinteractie als
+    // de knoppen die hiervoor in de pillen zaten.
+    &__chevron {
+        width      : 13px;
+        height     : 13px;
+        margin-left: 2px;
+        opacity    : .7;
+        transition : stroke .15s, transform .15s, opacity .15s;
+    }
 
     &:hover {
-        border-color: rgba(46, 125, 50, .3);
-        box-shadow  : 0 4px 14px rgba(20, 20, 30, .07);
+        color: var(--mkcp-text, $text);
+
+        .mkcp-switcher-tab__chevron {
+            opacity  : 1;
+            transform: translateX(2px);
+        }
     }
 
-    // Icoon als echt flex-item i.p.v. absoluut gepositioneerd — geen
-    // padding-left-magisch-getal meer nodig om ruimte te reserveren, en
-    // altijd correct verticaal gecentreerd ongeacht of de tekst op één of
-    // twee regels valt (bv. op smallere schermen). Groene tint i.p.v. WC's
-    // eigen blauw, zodat het bij de rest van de site-huisstijl past.
-    &::before {
-        content            : '';
-        position           : static;
-        flex-shrink        : 0;
-        width              : 34px;
-        height             : 34px;
-        margin             : 0;
-        border-radius      : 50%;
-        background-color   : color-mix(in srgb, var(--mkcp-primary, var(--mkcp-accent, $accent)) 12%, transparent);
-        border             : 1px solid color-mix(in srgb, var(--mkcp-primary, var(--mkcp-accent, $accent)) 22%, transparent);
-        background-image   : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232e7d32' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='16' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'/%3E%3C/svg%3E");
-        background-repeat  : no-repeat;
-        background-position: center;
-        background-size    : 17px 17px;
-        animation          : none; // de eigen intro-pop-animatie (mkcp-notice-badge-in) hoort bij de losse, over de pagina zwevende variant — hier al onderdeel van een rustige, statische balk
+    // Geselecteerd = laatst gebruikte keuze (welke popup je 't laatst hebt
+    // geopend) — het accent-balkje zelf schuift ernaartoe (indicator
+    // hierboven), hier alleen de tekst-/icoonkleur.
+    &.is-selected {
+        color: var(--mkcp-text, $text);
+        svg { stroke: var(--mkcp-accent, $accent); }
+        .mkcp-switcher-tab__chevron { opacity: 1; }
     }
-    &::after { display: none; } // geen accentbalkje meer bovenaan nodig — de rand doet het al
+
+    // BEVESTIGDE keuze (checkbox-status, checkout-frontend.php) — anders dan
+    // .is-selected hierboven (welke tab je toevallig het laatst bekeek) moet
+    // dit zichtbaar blijven ongeacht welke tab actief is of dat de popup
+    // dicht is: zonder dit signaal was "heb ik nu wel of niet voor een
+    // account gekozen?" na het sluiten van de popup niet meer te zien.
+    // Groen randje/tint (zelfde taal als een aangevinkte checkbox elders in
+    // deze checkout) + een vinkje-badge in de hoek, i.p.v. de tab-tekst
+    // alleen te laten zeggen "Ik ben nieuw" terwijl je 'm al gekozen hebt.
+    &.is-confirmed {
+        background: color-mix(in srgb, var(--mkcp-accent, $accent) 8%, transparent);
+        color     : var(--mkcp-text, $text);
+
+        svg:not(.mkcp-switcher-tab__chevron) { stroke: var(--mkcp-accent, $accent); }
+
+        &::after {
+            content         : '';
+            position        : absolute;
+            top             : 6px;
+            right           : 6px;
+            width           : 15px;
+            height          : 15px;
+            border-radius   : 50%;
+            background-color: var(--mkcp-accent, $accent);
+            box-shadow      : 0 0 0 2px var(--mkcp-co-panel-bg, #f8f9fb);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+            background-repeat  : no-repeat;
+            background-position: center;
+            background-size    : 9px 9px;
+        }
+    }
+
+    // Twee tabs naast elkaar delen een randje; zonder reset zou de rechter
+    // tab een dubbele rand krijgen (zijn eigen linkerrand + de rechterrand
+    // van de linker tab).
+    & + & {
+        border-left: 1px solid #e8eaf0;
+    }
+}
+
+/* ── Popup (login- én account-modal delen deze markup/CSS) ───────────────────
+ * checkout-frontend.php's JS verplaatst .woocommerce-form-login resp.
+ * .woocommerce-account-fields hierin i.p.v. inline te tonen — de tab-klik
+ * (K4 hierboven) opent 'm. Zelfde toegankelijke dialoog-patroon (inert/
+ * aria-hidden, focus-restore, Escape/backdrop-sluiten) als de cart-popup-
+ * drawer elders in deze plugin. Eén gedeelde .mkcp-login-modal-klasse voor
+ * beide (met een eigen #id per modal) — scheelt dubbele CSS. */
+.mkcp-login-modal {
+    position: fixed;
+    inset   : 0;
+    z-index : 100000; // boven de sticky #order_review (z-index:auto) en WC's eigen blockUI-overlays
+    display : flex;
+    align-items    : center;
+    justify-content: center;
+    padding : 20px;
+    opacity : 0;
+    visibility: hidden;
+    transition: opacity .2s ease, visibility 0s linear .2s;
+
+    &.is-open {
+        opacity   : 1;
+        visibility: visible;
+        transition: opacity .2s ease;
+    }
+}
+
+.mkcp-login-modal__backdrop {
+    position  : absolute;
+    inset     : 0;
+    background: rgba(20, 20, 30, .45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.mkcp-login-modal__dialog {
+    position     : relative;
+    width        : 100%;
+    max-width    : 580px;
+    max-height   : calc(100vh - 40px);
+    overflow-y   : auto;
+    background   : var(--mkcp-bg, #fff);
+    border-radius: 18px;
+    padding      : 28px 30px;
+    box-shadow   : 0 20px 60px rgba(20, 20, 30, .25), 0 4px 16px rgba(20, 20, 30, .12);
+    outline      : none;
+    transform    : translateY(10px) scale(.98);
+    transition   : transform .25s cubic-bezier(.22, 1, .36, 1);
+
+    // Dunne accentbalk bovenaan de dialoog — zelfde taal als de andere
+    // meldingen/kaarten in deze checkout.
+    &::before {
+        content      : '';
+        position     : absolute;
+        top          : 0;
+        left         : 0;
+        right        : 0;
+        height       : 3px;
+        border-radius: 18px 18px 0 0;
+        background   : linear-gradient(90deg, var(--mkcp-primary, var(--mkcp-accent, $accent)), rgba(46, 125, 50, .35));
+    }
+
+    .mkcp-login-modal.is-open & {
+        transform: translateY(0) scale(1);
+    }
+
+    // Kort schudden + rood randje na een mislukte inlogpoging — trekt de
+    // aandacht naar de foutmelding erboven, die anders na de volledige
+    // paginaherlaad makkelijk buiten beeld verdwijnt.
+    &.mkcp-login-shake {
+        animation : mkcp-login-shake .4s ease;
+        box-shadow: 0 20px 60px rgba(20, 20, 30, .25), 0 4px 16px rgba(20, 20, 30, .12), 0 0 0 2px rgba(220, 38, 38, .35);
+    }
+}
+
+@keyframes mkcp-login-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+}
+
+.mkcp-login-modal__close {
+    position     : absolute;
+    top          : 14px;
+    right        : 14px;
+    width        : 32px;
+    height       : 32px;
+    display      : flex;
+    align-items  : center;
+    justify-content: center;
+    padding      : 0;
+    border       : none;
+    border-radius: 50%;
+    background   : transparent;
+    color        : var(--mkcp-text-light, $gray-light);
+    cursor       : pointer;
+    transition   : background .15s, color .15s;
+
+    svg { width: 18px; height: 18px; }
+
+    &:hover {
+        background: var(--mkcp-light, #f5f5f5);
+        color     : var(--mkcp-text, $text);
+    }
+}
+
+// Scroll-lock op de achtergrond terwijl een van beide modals open staat —
+// zelfde dubbele html+body-toggle als de cart-popup-drawer (assets/
+// cart-popup.js): sommige thema's zetten hun eigen overflow op <html>, dan
+// bepaalt html (niet body) de daadwerkelijke paginascroll.
+html.mkcp-login-modal-open,
+body.mkcp-login-modal-open {
+    overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkcp-login-modal,
+    .mkcp-login-modal__dialog {
+        transition: none;
+    }
+    .mkcp-login-modal__dialog.mkcp-login-shake {
+        animation: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .mkcp-login-modal__dialog {
+        padding: 24px 20px;
+        border-radius: 14px;
+    }
 }
 
 /* ── "Terugkerende klant?"-inlogformulier ─────────────────────────────────────
@@ -1879,10 +2839,10 @@ body.mkcp-distraction-free-checkout .woocommerce-form-login-toggle .woocommerce-
  * knop, de "Onthoud mij"-checkbox (zie hierboven) en de "Wachtwoord vergeten"-
  * link, die anders kaal/browser-standaard oogden tussen de rest van deze
  * thema-gestripte checkoutpagina. */
-// Zit nu als content ín .mkcp-login-modal__dialog (zie verderop) i.p.v. los
-// op de pagina — de "kaart"-chrome (achtergrond/rand/schaduw/radius) leeft
-// daarom op de dialoog-wrapper, niet hier: anders zou je door de modal's
-// eigen backdrop-blur héén nóg een keer een glazen kaart-op-een-kaart zien.
+// Zit nu als content ín .mkcp-login-modal__dialog i.p.v. los op de pagina —
+// de "kaart"-chrome (achtergrond/rand/schaduw/radius) leeft daarom op de
+// dialoog-wrapper, niet hier: anders zou je door de modal's eigen
+// backdrop-blur héén nóg een keer een glazen kaart-op-een-kaart zien.
 body.mkcp-distraction-free-checkout .woocommerce-form-login {
     position       : relative;
 
@@ -2161,166 +3121,6 @@ body.mkcp-distraction-free-checkout .woocommerce-form-login {
     }
 }
 
-@keyframes mkcp-login-shake {
-    0%, 100% { transform: translateX(0); }
-    20%      { transform: translateX(-6px); }
-    40%      { transform: translateX(6px); }
-    60%      { transform: translateX(-4px); }
-    80%      { transform: translateX(4px); }
-}
-
-/* ── Inlog-popup ───────────────────────────────────────────────────────────
- * checkout-frontend.php's JS verplaatst .woocommerce-form-login hierin i.p.v.
- * 'm inline te laten uitklappen (WooCommerce's eigen gedrag) — zo duwt het
- * openen niets op de pagina omlaag. Zelfde toegankelijke dialoog-patroon
- * (inert/aria-hidden, focus-restore, Escape/backdrop-sluiten) als de cart-
- * popup-drawer elders in deze plugin. */
-.mkcp-login-modal {
-    position: fixed;
-    inset   : 0;
-    z-index : 100000; // boven de sticky #order_review (z-index:auto) en WC's eigen blockUI-overlays
-    display : flex;
-    align-items    : center;
-    justify-content: center;
-    padding : 20px;
-    opacity : 0;
-    visibility: hidden;
-    transition: opacity .2s ease, visibility 0s linear .2s;
-
-    &.is-open {
-        opacity   : 1;
-        visibility: visible;
-        transition: opacity .2s ease;
-    }
-}
-
-.mkcp-login-modal__backdrop {
-    position  : absolute;
-    inset     : 0;
-    background: rgba(20, 20, 30, .45);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-}
-
-.mkcp-login-modal__dialog {
-    position     : relative;
-    width        : 100%;
-    max-width    : 580px;
-    max-height   : calc(100vh - 40px);
-    overflow-y   : auto;
-    background   : var(--mkcp-bg, #fff);
-    border-radius: 18px;
-    padding      : 28px 30px;
-    box-shadow   : 0 20px 60px rgba(20, 20, 30, .25), 0 4px 16px rgba(20, 20, 30, .12);
-    outline      : none;
-    transform    : translateY(10px) scale(.98);
-    transition   : transform .25s cubic-bezier(.22, 1, .36, 1);
-
-    // Dunne accentbalk bovenaan de dialoog — zelfde taal als de andere
-    // meldingen/kaarten in deze checkout.
-    &::before {
-        content      : '';
-        position     : absolute;
-        top          : 0;
-        left         : 0;
-        right        : 0;
-        height       : 3px;
-        border-radius: 18px 18px 0 0;
-        background   : linear-gradient(90deg, var(--mkcp-primary, var(--mkcp-accent, $accent)), rgba(46, 125, 50, .35));
-    }
-
-    .mkcp-login-modal.is-open & {
-        transform: translateY(0) scale(1);
-    }
-
-    // Kort schudden + rood randje na een mislukte inlogpoging — trekt de
-    // aandacht naar de foutmelding erboven, die anders na de volledige
-    // paginaherlaad makkelijk buiten beeld verdwijnt.
-    &.mkcp-login-shake {
-        animation: mkcp-login-shake .4s ease;
-        box-shadow: 0 20px 60px rgba(20, 20, 30, .25), 0 4px 16px rgba(20, 20, 30, .12), 0 0 0 2px rgba(220, 38, 38, .35);
-    }
-}
-
-.mkcp-login-modal__close {
-    position     : absolute;
-    top          : 14px;
-    right        : 14px;
-    width        : 32px;
-    height       : 32px;
-    display      : flex;
-    align-items  : center;
-    justify-content: center;
-    padding      : 0;
-    border       : none;
-    border-radius: 50%;
-    background   : transparent;
-    color        : var(--mkcp-text-light, $gray-light);
-    cursor       : pointer;
-    transition   : background .15s, color .15s;
-
-    svg { width: 18px; height: 18px; }
-
-    &:hover {
-        background: var(--mkcp-light, #f5f5f5);
-        color     : var(--mkcp-text, $text);
-    }
-}
-
-// Scroll-lock op de achtergrond terwijl de modal open staat — zelfde
-// dubbele html+body-toggle als de cart-popup-drawer (assets/cart-popup.js):
-// sommige thema's zetten hun eigen overflow op <html>, dan bepaalt html
-// (niet body) de daadwerkelijke paginascroll.
-html.mkcp-login-modal-open,
-body.mkcp-login-modal-open {
-    overflow: hidden;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .mkcp-login-modal,
-    .mkcp-login-modal__dialog {
-        transition: none;
-    }
-    .mkcp-login-modal__dialog.mkcp-login-shake {
-        animation: none;
-    }
-}
-
-@media (max-width: 480px) {
-    .mkcp-login-modal__dialog {
-        padding: 24px 20px;
-        border-radius: 14px;
-    }
-}
-
-// Meldingsbalk ("Terugkerende klant?") herstijld als duidelijke call-to-
-// action i.p.v. een kale onderstreepte tekstlink — past beter bij de rest
-// van de knoppen-taal op deze checkout, en blijft nu de enige zichtbare
-// vertegenwoordiger van dit hele blok zolang de popup dicht is (het
-// formulier zelf zit niet meer inline op de pagina).
-body.mkcp-distraction-free-checkout .woocommerce-form-login-toggle .woocommerce-info .showlogin {
-    display        : inline-flex;
-    align-items    : center;
-    gap            : 4px;
-    margin-left    : 4px;
-    padding        : 5px 14px;
-    background     : var(--mkcp-primary, var(--mkcp-accent, $accent));
-    color          : #fff;
-    font-size      : 12px;
-    font-weight    : 600;
-    text-decoration: none;
-    border-radius  : 999px;
-    transition     : opacity .15s;
-
-    &:hover { opacity: .88; }
-
-    &::after {
-        content  : '→';
-        font-size: 13px;
-        line-height: 1;
-    }
-}
-
 // Wachtwoord tonen/verbergen-knopje — WooCommerce's eigen JS (woocommerce.js)
 // wrapt elk wachtwoordveld in <span class="password-input"> en voegt er zelf
 // een <button class="show-password-input"> aan toe, maar WooCommerce levert
@@ -2364,14 +3164,6 @@ body.mkcp-distraction-free-checkout .show-password-input {
     }
 }
 
-// .woocommerce-account-fields wordt door JS onder de besteltabel verplaatst
-// (zie mkcpMoveCreateAccount() in checkout-frontend.php) — daar staat 'm
-// los tussen de tabel en de betaalmethodes, dus wat eigen ruimte erboven
-// i.p.v. er strak tegenaan te plakken.
-body.mkcp-distraction-free-checkout .woocommerce-account-fields {
-    margin-top: 16px;
-}
-
 // Eigen toelichtingskader boven de checkbox (mkcp_checkout_createaccount_info_
 // title/_text) — bewust dezelfde kaart-stijl als #order_review .shop_table
 // hierboven (achtergrond/rand/radius/schaduw), zodat het meteen als bij elkaar
@@ -2379,7 +3171,7 @@ body.mkcp-distraction-free-checkout .woocommerce-account-fields {
 body.mkcp-distraction-free-checkout .mkcp-createaccount-info {
     margin        : 0 0 14px;
     padding       : 16px 18px;
-    background    : var(--mkcp-light, #f5f5f5);
+    background    : var(--mkcp-co-panel-bg);
     border        : 1.5px solid #e8eaf0;
     border-radius : 14px;
     box-shadow    : 0 1px 4px rgba(0, 0, 0, .04);
@@ -2489,7 +3281,10 @@ body.mkcp-distraction-free-checkout .woocommerce-checkout #place_order {
  * WooCommerce het hele formulier. */
 body.mkcp-distraction-free-checkout {
     .blockUI.blockOverlay {
-        border-radius   : 14px;
+        // Geen ronding meer — het orderoverzicht eronder heeft zelf ook geen
+        // kader/ronding/schaduw meer (vlak op de kolomachtergrond), dus een
+        // afgeronde overlay stak daar nu als een los wit blokje bovenop uit.
+        border-radius   : 0;
         background      : rgba(255, 255, 255, .72) !important;
         opacity         : 1 !important;
         backdrop-filter : blur(1.5px);
@@ -2509,9 +3304,14 @@ body.mkcp-distraction-free-checkout {
             animation        : mkcp-shimmer 1.3s ease-in-out infinite;
         }
 
+        // G2: position:fixed i.p.v. absolute — de tekst bleef anders buiten
+        // beeld zodra de klant in een lange (bv. review-)tabel gescrold had.
+        // Voorheen kreeg alleen de "bestelling plaatsen"-variant hieronder dit
+        // al, deze twee overige varianten ("totalen bijwerken"/review-tabel)
+        // nog niet.
         &::after {
             content     : "Totalen bijwerken…";
-            position    : absolute;
+            position    : fixed;
             top         : 50%;
             left        : 0;
             right       : 0;
@@ -2556,26 +3356,30 @@ body.mkcp-distraction-free-checkout {
        ongeacht hoe groot dat is. Alleen de tekst blijft in beeld (position:
        fixed) i.p.v. verticaal gecentreerd t.o.v. het hele (lange) formulier,
        wat 'm zonder scrollen buiten beeld kon plaatsen. */
+    // G2: wisselende teksten (admin-instelbaar, assets/checkout-loading-
+    // messages.js zet/ververst data-mkcp-text) i.p.v. een vaste tekst — met
+    // een zachte fade-wissel via .is-swapping (kort op 0 gezet, JS wisselt de
+    // tekst terwijl 'm onzichtbaar is, daarna weer terug).
     form.woocommerce-checkout > .blockUI.blockOverlay {
         &::after {
-            content  : "Bestelling verwerken…";
-            position : fixed;
+            content    : attr(data-mkcp-text);
+            position   : fixed;
+            transition : opacity 250ms ease;
         }
+
+        &.is-swapping::after { opacity: 0; }
     }
-}
 
+    /* ── WooCommerce notices ──────────────────────────────────────────────────── */
 
-/* ── WooCommerce notices ──────────────────────────────────────────────────── */
-
-// "Frosted glass"-kaart in plaats van een gekleurd vlak — de aanpak die
-// Apple/Stripe/Linear voor dit soort meldingen gebruiken: een halfdoorzichtig
-// wit oppervlak met blur, een haarlijn-rand, een zachte diffuse schaduw en
-// een subtiele lichtreflectie bovenin (inset highlight). Kleur wordt spaarzaam
-// ingezet — alléén een dun 3px accentrandje bovenaan en het icoon zijn
-// gekleurd, de tekst zelf blijft neutraal donkergrijs i.p.v. verzadigd rood/
-// groen/blauw. Dat is bewust: een vlak vol kleur oogt al snel als een kale
-// browser-alert, terwijl kleur als accent premium oogt.
-body.mkcp-distraction-free-checkout {
+    // "Frosted glass"-kaart in plaats van een gekleurd vlak — de aanpak die
+    // Apple/Stripe/Linear voor dit soort meldingen gebruiken: een halfdoorzichtig
+    // wit oppervlak met blur, een haarlijn-rand, een zachte diffuse schaduw en
+    // een subtiele lichtreflectie bovenin (inset highlight). Kleur wordt spaarzaam
+    // ingezet — alléén een dun 3px accentrandje bovenaan en het icoon zijn
+    // gekleurd, de tekst zelf blijft neutraal donkergrijs i.p.v. verzadigd rood/
+    // groen/blauw. Dat is bewust: een vlak vol kleur oogt al snel als een kale
+    // browser-alert, terwijl kleur als accent premium oogt.
     .woocommerce-error,
     .woocommerce-message,
     .woocommerce-info {
@@ -2703,30 +3507,9 @@ body.mkcp-distraction-free-checkout {
             animation: none;
         }
     }
-}
 
-@keyframes mkcp-notice-in {
-    from { opacity: 0; transform: translateY(-10px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
+    /* ── Coupon field ────────────────────────────────────────────────────────── */
 
-@keyframes mkcp-notice-badge-in {
-    from { opacity: 0; transform: scale(.5); }
-    to   { opacity: 1; transform: scale(1); }
-}
-
-// Lichte tegenhanger van mkcp-notice-in, voor .checkout-inline-error-message
-// (kleine tekstregel onder een veld) — kleinere beweging, geen "landing" van
-// een kaart/schaduw nodig.
-@keyframes mkcp-inline-in {
-    from { opacity: 0; transform: translateY(-2px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-
-/* ── Coupon field ────────────────────────────────────────────────────────── */
-
-body.mkcp-distraction-free-checkout {
     .checkout_coupon,
     .woocommerce-form-coupon-toggle {
         margin-bottom : 20px;
@@ -2764,6 +3547,24 @@ body.mkcp-distraction-free-checkout {
             border-color: rgba(46, 125, 50, .32);
         }
     }
+}
+
+@keyframes mkcp-notice-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes mkcp-notice-badge-in {
+    from { opacity: 0; transform: scale(.5); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+// Lichte tegenhanger van mkcp-notice-in, voor .checkout-inline-error-message
+// (kleine tekstregel onder een veld) — kleinere beweging, geen "landing" van
+// een kaart/schaduw nodig.
+@keyframes mkcp-inline-in {
+    from { opacity: 0; transform: translateY(-2px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 
@@ -2852,7 +3653,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
     align-items    : center;
     justify-content: space-between;
     width          : 100%!important;
-    background: var(--mkcp-light, #f5f5f5);
+    background: var(--mkcp-co-panel-bg);
     border         : 1.5px solid #e8eaf0;
     border-radius  : 14px;
     padding        : 10px 20px;
@@ -2910,6 +3711,8 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
 @media (max-width: 900px) {
 
     body.mkcp-distraction-free-checkout #order_review {
+        padding-left: 0px;
+
         .shop_table {
             border-radius: 0px;
         }
@@ -2928,7 +3731,16 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         }
 
         #customer_details {
-            padding: 10px 10px;
+            // grid-row:2 uit de desktop-regel hierboven (het vangnet voor
+            // ingelogde klanten zonder .mkcp-login-and-details-wrapper, zie
+            // toelichting daar) is op mobiel zinloos en zelfs schadelijk: hier
+            // regelt "order" (net als .mkcp-login-and-details/.mkcp-co-section
+            // hierboven) de volgorde in de 1-koloms grid, dus een resterende
+            // vaste grid-row:2 zou #customer_details tussen andere auto-row/
+            // order-elementen kunnen laten springen i.p.v. gewoon bovenaan
+            // (na de switcher-tabs) te blijven staan.
+            grid-row: auto;
+            padding : 10px 10px;
         }
 
         .mkcp-co-section {
@@ -2961,6 +3773,10 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
 
         .mkcp-co-payment-icons {
             padding: 10px 10px;
+        }
+
+        .mkcp-co-crosssell {
+            display : none;
         }
 
         .mkcp-co-payment-icons,
@@ -3091,7 +3907,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         display        : flex;
         align-items    : center;
         justify-content: space-between;
-        gap            : 14px;
+        gap            : 10px;
         position       : fixed;
         left           : 0;
         right          : 0;
@@ -3100,7 +3916,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         background     : var(--mkcp-bg, #fff);
         border-top     : 1.5px solid #e8eaf0;
         box-shadow     : 0 -4px 16px rgba(0, 0, 0, .08);
-        padding        : 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        padding        : 9px 14px calc(9px + env(safe-area-inset-bottom, 0px));
     }
 
     .mkcp-mobile-orderbar__total {
@@ -3112,7 +3928,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
     }
 
     .mkcp-mobile-orderbar__label {
-        font-size      : 11px;
+        font-size      : 8px;
         font-weight    : 600;
         color          : var(--mkcp-text-light, $gray-mid);
         text-transform : uppercase;
@@ -3120,7 +3936,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
     }
 
     .mkcp-mobile-orderbar__amount {
-        font-size   : 18px;
+        font-size   : 15px;
         font-weight : 700;
         color       : var(--mkcp-text, $text);
         white-space : nowrap;
@@ -3149,8 +3965,8 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         color         : #fff;
         border        : none;
         border-radius : 999px;
-        padding       : 13px 26px;
-        font-size     : 15px;
+        padding       : 6px 12px;
+        font-size     : 11px !important;
         font-weight   : 600;
         cursor        : pointer;
         transition    : opacity .15s ease;

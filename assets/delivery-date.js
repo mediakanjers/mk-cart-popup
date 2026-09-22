@@ -49,7 +49,7 @@
        (oude, zo weggegooide) kopie teruggeven. querySelectorAll + de
        LAATSTE match pakt betrouwbaar de vers-gerenderde kopie — zelfde
        aanpak als el() binnen createInstance() hieronder, hier los
-       beschikbaar voor de top-level lookups (progress/eindsamenvatting). */
+       beschikbaar voor de top-level eindsamenvatting-lookup. */
     function idLast(id) {
         var matches = document.querySelectorAll('#' + id);
         return matches.length ? matches[matches.length - 1] : null;
@@ -115,8 +115,23 @@
             return matches.length ? matches[matches.length - 1] : null;
         }
 
-        function dateInputEl() { return document.getElementById(dateFieldId); }
-        function slotInputEl() { return document.getElementById(slotFieldId); }
+        // G1-fix: getElementById() gaf hier soms de STALE kopie terug tijdens
+        // het ~80-120ms venster waarin checkout-frontend.php's mkco_reorganize()
+        // tijdelijk een oude én een nieuwe kopie van dit veld in de DOM heeft
+        // staan (zie de toelichting bij idLast()/el() hierboven) — de eerste-
+        // datum-auto-selectie bij page load schreef daardoor soms de waarde
+        // naar een node die meteen daarna verdwijnt, terwijl het ECHTE
+        // (ingediende) veld leeg bleef. Checkout gaf dan "verplicht veld"
+        // terwijl er wél een datum gekozen leek. Zelfde "laatste match"-
+        // opzoekmethode als el()/idLast() lost dit op.
+        function dateInputEl() {
+            var matches = document.querySelectorAll('#' + dateFieldId);
+            return matches.length ? matches[matches.length - 1] : null;
+        }
+        function slotInputEl() {
+            var matches = document.querySelectorAll('#' + slotFieldId);
+            return matches.length ? matches[matches.length - 1] : null;
+        }
 
         function unavailableReason(ymd, todayYMD) {
             if (ymd < todayYMD) return 'Deze datum is al voorbij';
@@ -141,7 +156,7 @@
             var vp = el('cards-viewport');
             if (!vp) return;
             var gap = 8;
-            var w = Math.floor((vp.clientWidth - gap * 1.5) / 2.5);
+            var w = Math.floor((vp.clientWidth - gap * 2.2) / 4.5);
             vp.querySelectorAll('.mkcp-dd-card').forEach(function (c) {
                 c.style.width = w + 'px';
                 c.style.minWidth = w + 'px';
@@ -172,15 +187,19 @@
             container.classList.remove('is-loading');
             container.innerHTML = '';
 
-            /* Standaard de eerste 4 datums als kaart; valt de gekozen datum
+            /* Standaard de eerste 6 datums als kaart; valt de gekozen datum
                (bv. via de kalender) verderop, dan schuift het kaarten-venster
-               door tót en met die datum. */
+               door tót en met die datum. Daarna altijd de eigen-datum-kaart
+               als laatste, ongeacht upto — die opent de kalender voor een
+               datum verder dan de getoonde reeks. */
             var selIdx = selectedDate ? DATES.indexOf(selectedDate) : -1;
-            var upto = (selIdx > 3) ? selIdx + 1 : 4;
+            var upto = (selIdx > 5) ? selIdx + 1 : 6;
 
             DATES.slice(0, upto).forEach(function (ymd) {
                 container.appendChild(buildCardEl(ymd, ymd === selectedDate));
             });
+            container.appendChild(buildOwnDateCardEl());
+            updateCalBtnState();
 
             applyCardWidths();
             updateNavState();
@@ -189,63 +208,27 @@
             if (vp) vp.addEventListener('scroll', updateNavState, { passive: true });
         }
 
-        function calBtnHtml() {
-            return '<button type="button" class="mkcp-dd-chip mkcp-dd-chip--cal" id="' + id('cal-btn') + '" ' +
-                'aria-label="Kalender openen" aria-haspopup="dialog" aria-expanded="false">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        // Eigen-datum-kaart — laatste kaart in de rij, opent de kalender.
+        // Deelt de .mkcp-dd-card-basisklasse (zelfde breedte/opmaak via
+        // applyCardWidths(), dat alle .mkcp-dd-card-elementen sizet) maar
+        // heeft bewust GEEN data-date: de generieke kaart-klikhandler
+        // (hieronder, event delegation) slaat 'm daarom over, en een eigen
+        // handler op .mkcp-dd-card--own opent in plaats daarvan de kalender.
+        function buildOwnDateCardEl() {
+            var card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'mkcp-dd-card mkcp-dd-card--own';
+            card.id = id('cal-btn');
+            card.setAttribute('aria-label', 'Andere datum kiezen');
+            card.setAttribute('aria-haspopup', 'dialog');
+            card.setAttribute('aria-expanded', 'false');
+            card.innerHTML =
+                '<svg class="mkcp-dd-card-own-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
                 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                 '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>' +
-                '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>';
-        }
-
-        function renderChips() {
-            var container = el('chips');
-            if (!container) return;
-            container.innerHTML = '';
-
-            DATES.slice(0, 6).forEach(function (ymd) {
-                var p = parseYMD(ymd);
-                var js = new Date(p.y, p.m, p.d);
-                var sel = ymd === selectedDate;
-
-                var chip = document.createElement('button');
-                chip.type = 'button';
-                chip.className = 'mkcp-dd-chip' + (sel ? ' is-selected' : '');
-                chip.setAttribute('data-date', ymd);
-                chip.innerHTML =
-                    '<span class="mkcp-dd-chip-day">' + DAYS_SHORT[js.getDay()] + '</span>' +
-                    '<span class="mkcp-dd-chip-num">' + p.d + '</span>';
-                container.appendChild(chip);
-            });
-
-            container.insertAdjacentHTML('beforeend', calBtnHtml());
-            updateCalBtnState();
-
-            updateChipsOverflow();
-            container.addEventListener('scroll', updateChipsOverflow, { passive: true });
-        }
-
-        function updateChipsOverflow() {
-            var row = el('chips');
-            if (!row) return;
-
-            var maxScroll = row.scrollWidth - row.clientWidth;
-            var overflows = maxScroll > 2;
-            var atStart = row.scrollLeft <= 2;
-            var atEnd = row.scrollLeft >= maxScroll - 2;
-
-            var mask = 'none';
-            if (overflows) {
-                if (atStart) {
-                    mask = 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)';
-                } else if (atEnd) {
-                    mask = 'linear-gradient(to right, transparent 0, #000 24px, #000 100%)';
-                } else {
-                    mask = 'linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)';
-                }
-            }
-            row.style.maskImage = mask;
-            row.style.webkitMaskImage = mask;
+                '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
+                '<span class="mkcp-dd-card-own-label">Andere datum</span>';
+            return card;
         }
 
         function updateNavState() {
@@ -274,13 +257,6 @@
 
             var input = dateInputEl();
             if (input) input.value = ymd;
-
-            var chipsRow = el('chips');
-            if (chipsRow) {
-                chipsRow.querySelectorAll('.mkcp-dd-chip[data-date]').forEach(function (chip) {
-                    chip.classList.toggle('is-selected', chip.getAttribute('data-date') === ymd);
-                });
-            }
 
             var matchedCard = false;
             var cardsContainer = el('cards');
@@ -517,8 +493,8 @@
                 var mLeft = Math.floor((msLeft % 3600000) / 60000);
                 var sLeft = Math.floor((msLeft % 60000) / 1000);
                 var left = (hLeft > 0 ? hLeft + 'u ' : '') + mLeft + 'm ' + padTwo(sLeft) + 's';
-                box.innerHTML = 'Besteld binnen <strong class="mkcp-dd-microcopy-time">' + left +
-                    '</strong> (vóór ' + CUTOFF + ') → ' + firstLabel + (isPickup ? ' afhalen' : ' in huis');
+                box.innerHTML = 'Je hebt nog <strong class="mkcp-dd-microcopy-time">' + left +
+                    '</strong> om te bestellen om het ' + firstLabel + (isPickup ? ' af te halen' : ' in huis te hebben') + '.';
             } else {
                 box.textContent = 'Eerstvolgende optie: ' + formatFull(DATES[0]);
             }
@@ -538,7 +514,12 @@
             var box = el('summary');
             if (!box) return;
 
-            if (!selectedDate) {
+            // Alleen tonen (met "wijzigen"-knop) als de sectie ook echt is
+            // ingeklapt — staat 'ie open (nu de standaard, ook bij een
+            // automatisch voorgeselecteerde datum), dan is de gekozen datum
+            // al gewoon zichtbaar/aanpasbaar in de kaarten zelf, en zou
+            // deze balk alleen dubbelop staan.
+            if (!selectedDate || !collapsed) {
                 box.hidden = true;
                 box.innerHTML = '';
                 return;
@@ -565,14 +546,14 @@
             if (wrap) wrap.classList.toggle('is-collapsed', collapsed);
         }
 
-        /* Synchroniseert de in-/uitklapstaat met de huidige volledigheid —
-           in beide richtingen: klapt in zodra alles is ingevuld (ook als dat
-           kwam van een automatische default-selectie, bv. bezorgdatum zonder
-           tijdvak-vereiste is na de eerste render al "compleet"), en klapt
-           weer open als een eerder complete keuze door een refresh ongeldig
-           is geworden (bv. een adreswijziging haalt de gekozen datum weg). */
+        /* De datum-/tijdvakkaarten blijven altijd uitgeklapt staan — geen
+           auto-inklap meer zodra alles is ingevuld. `collapsed` bestaat nog
+           (blijft altijd false) zodat applyCollapsedState()/de .mkcp-dd-
+           summary-"wijzigen"-balk (die alleen toont als collapsed true is)
+           verder ongewijzigd kunnen blijven i.p.v. die hele mechaniek eruit
+           te slopen. */
         function collapseIfComplete() {
-            collapsed = !!selectedDate && (!SLOTS_ENABLED || !!selectedSlot);
+            collapsed = false;
             applyCollapsedState();
         }
 
@@ -752,7 +733,6 @@
 
             updateHeaderLabel();
             updateLocationBox();
-            renderChips();
             renderCards();
             updateMicrocopy();
 
@@ -776,12 +756,9 @@
                 if (stillOk) selectSlot(priorSlot);
             }
 
-            // .mkcp-dd-body is bij een AJAX-refresh volledig vers vanaf de
-            // server meegekomen (dus altijd zichtbaar) — de in-/uitklapstaat
-            // hier opnieuw laten kloppen met de huidige volledigheid (ook na
-            // de automatische default-selectie hierboven, niet alleen na een
-            // expliciete klik van de klant).
-            collapseIfComplete();
+            // De datum-/tijdvakkaarten blijven altijd uitgeklapt — geen
+            // auto-inklap meer, ook niet na een klik of AJAX-refresh.
+            expand();
 
             return true;
         }
@@ -961,24 +938,17 @@
        bepaald via instanceFor()). ──────────────────────────────────────────── */
 
     $(document)
-        .on('click', '.mkcp-dd-chip[data-date]', function () {
-            var inst = instanceFor(this);
-            if (!inst) return;
-            var ymd = this.getAttribute('data-date');
-            inst.selectDate(ymd);
-            inst.scrollToCard(ymd);
-            inst.collapseIfComplete();
-            updateProgress();
-            updateFinalSummary();
-        })
         .on('click', '.mkcp-dd-card', function () {
             var inst = instanceFor(this);
             if (!inst) return;
             var ymd = this.getAttribute('data-date');
+            // Eigen-datum-kaart (.mkcp-dd-card--own) heeft geen data-date —
+            // die opent de kalender via de aparte handler hieronder i.p.v.
+            // hier een lege datum te "selecteren".
+            if (!ymd) return;
             inst.selectDate(ymd);
             inst.scrollToCard(ymd);
             inst.collapseIfComplete();
-            updateProgress();
             updateFinalSummary();
         })
         .on('change', '.mkcp-pu-slot-select', function () {
@@ -986,10 +956,9 @@
             if (!inst) return;
             inst.selectSlot(this.value);
             inst.collapseIfComplete();
-            updateProgress();
             updateFinalSummary();
         })
-        .on('click', '.mkcp-dd-chip--cal', function (e) {
+        .on('click', '.mkcp-dd-card--own', function (e) {
             e.stopPropagation();
             var inst = instanceFor(this);
             if (inst) inst.toggleCalendar();
@@ -1001,7 +970,6 @@
             inst.selectDate(ymd);
             inst.scrollToCard(ymd);
             inst.collapseIfComplete();
-            updateProgress();
             updateFinalSummary();
         })
         .on('click', '.mkcp-dd-cal-prev', function () {
@@ -1048,9 +1016,14 @@
             if (inst) inst.handleCalDayKey(e, this);
         });
 
-    /* ── Laadstatus tijdens checkout-AJAX (bv. wisselen verzendmethode) ─────── */
+    /* ── Laadstatus tijdens checkout-AJAX (bv. wisselen verzendmethode) ───────
+     * Bind bewust op het wisselen van de verzendmethode zelf i.p.v. het
+     * generieke 'update_checkout'-event — dat laatste vuurt bij ELKE
+     * WooCommerce-verversing, ook wanneer alleen de betaalmethode wisselt
+     * (sommige betaalgateways triggeren zelf ook update_checkout), terwijl
+     * de bezorgdatum-/afhaalkaarten dan niets te verversen hebben. */
 
-    $(document.body).on('update_checkout', function () {
+    $(document.body).on('change', 'input[name^="shipping_method"]', function () {
         Object.keys(instances).forEach(function (prefix) {
             instances[prefix].setCardsLoading(true);
         });

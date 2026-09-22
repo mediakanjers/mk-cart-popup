@@ -59,29 +59,27 @@ function mkcp_account_order_status_badge( WC_Order $order ): string {
 }
 
 /**
- * Vier kerncijfers voor de bento-statistiekenrij bovenaan het Dashboard (en
- * hergebruikt op Accountgegevens/Bestellingen) — bewust met een korte
- * transient-cache: dit telt/sommeert alle bestellingen van de klant, en
- * zonder cache zou dat op elke dashboard-load opnieuw gebeuren, ook al
- * verandert het aantal bestellingen meestal niet tussen twee paginaladingen
- * in dezelfde sessie.
+ * Vier kerncijfers voor de bento-statistiekenrij (Dashboard, ook hergebruikt
+ * op Accountgegevens/Bestellingen) — kort gecached omdat dit alle bestellingen
+ * van de klant telt/sommeert, wat anders bij elke load opnieuw zou gebeuren.
  */
 function mkcp_account_get_dashboard_stats( int $user_id ): array {
     $cache_key = 'mkcp_acc_stats_' . $user_id;
     $cached    = get_transient( $cache_key );
     if ( is_array( $cached ) ) return $cached;
 
-    $order_query = wc_get_orders( [
+    // 'objects' i.p.v. 'ids': de totalen zijn zo in één ronde te sommeren,
+    // zonder per bestelling nog een losse wc_get_order()-lookup.
+    $orders = wc_get_orders( [
         'customer_id' => $user_id,
         'limit'       => -1,
-        'return'      => 'ids',
+        'return'      => 'objects',
         'status'      => array_diff( array_keys( wc_get_order_statuses() ), [ 'wc-cancelled', 'wc-failed', 'wc-trash' ] ),
     ] );
 
     $total_spent = 0.0;
-    foreach ( $order_query as $order_id ) {
-        $o = wc_get_order( $order_id );
-        if ( $o ) $total_spent += (float) $o->get_total();
+    foreach ( $orders as $o ) {
+        $total_spent += (float) $o->get_total();
     }
 
     $wishlist_count = 0;
@@ -90,7 +88,7 @@ function mkcp_account_get_dashboard_stats( int $user_id ): array {
     }
 
     $stats = [
-        'order_count'    => count( $order_query ),
+        'order_count'    => count( $orders ),
         'total_spent'    => $total_spent,
         'wishlist_count' => $wishlist_count,
         'address_count'  => function_exists( 'mkcp_account_get_addresses' ) ? count( mkcp_account_get_addresses( $user_id ) ) : 0,
@@ -100,19 +98,27 @@ function mkcp_account_get_dashboard_stats( int $user_id ): array {
     return $stats;
 }
 
+/**
+ * Bezorg-/afhaaldatum-meta valideren vóór gebruik: die kan uit een import, een
+ * oudere pluginversie of een handmatige aanpassing komen en leeg/onzin zijn.
+ * Geeft de datum ('Y-m-d') terug of '' — bij '' hoort de datumsectie helemaal
+ * weg te blijven i.p.v. een onjuiste datum (1 januari 1970) te tonen.
+ */
+function mkcp_account_valid_date_meta( $value ): string {
+    $value = is_string( $value ) ? trim( $value ) : '';
+    return ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) && strtotime( $value ) ) ? $value : '';
+}
+
 /** Cache-invalidatie: elke actie die één van de vier cijfers hierboven raakt, moet 'm ongeldig maken. */
 function mkcp_account_clear_dashboard_stats_cache( int $user_id ): void {
     delete_transient( 'mkcp_acc_stats_' . $user_id );
 }
 
 /**
- * Drie-staps trackerbalk (Besteld → In verwerking → Afgerond) — bewust GEEN
- * vierde "Verzonden"/"Onderweg"-tussenstap zoals het oorspronkelijke ontwerp
- * had: WooCommerce kent standaard geen aparte "verzonden"-orderstatus naast
- * "in verwerking" (en deze plugin registreert er ook geen), dus een 4e stap
- * zou niet op echte data gebaseerd kunnen zijn. Geeft '' terug voor
- * geannuleerd/mislukt/terugbetaald — daar past geen voortgangsbalk bij, de
- * status-badge alleen volstaat.
+ * Drie-staps trackerbalk (Besteld → In verwerking → Afgerond) — bewust géén
+ * "Verzonden"-tussenstap: WooCommerce/deze plugin kennen geen aparte
+ * verzonden-status, dus een 4e stap zou niet op echte data berusten. Geeft ''
+ * terug voor geannuleerd/mislukt/terugbetaald (status-badge volstaat daar).
  */
 function mkcp_account_render_order_progress( WC_Order $order ): string {
     $status = $order->get_status();
@@ -124,6 +130,14 @@ function mkcp_account_render_order_progress( WC_Order $order ): string {
         $current = 1;
     } else {
         return '';
+    }
+
+    // Afhaalorders krijgen bij "afhaalklaar" nooit een echte statuswissel naar
+    // "completed" (zou onbedoelde neveneffecten triggeren: voorraadmutaties,
+    // "voltooid"-mails, orderstatus-exports). De meta-vlag die pickup-ready.php
+    // wél altijd zet is hier voldoende signaal dat de order klaar is.
+    if ( $current === 2 && $order->get_meta( '_mkcp_pickup_ready_sent_at' ) ) {
+        $current = 3;
     }
 
     $steps = [
@@ -161,12 +175,9 @@ function mkcp_account_render_product_card_compact( WC_Product $product ): string
 }
 
 /**
- * "Aanbevolen voor jou" — gebaseerd op WooCommerce's eigen related-products-
- * logica (gedeelde categorieën/tags met het laatst bestelde product), zoals
- * het Account-plan voorschrijft ("hergebruik van bestaande infrastructuur
- * i.p.v. een nieuwe aanbevelingsengine bouwen"). Vult aan met de best
- * verkopende producten wanneer dat te weinig oplevert (nieuwe klant zonder
- * bestelhistorie) — nooit een half-leeg of leeg rijtje tonen.
+ * "Aanbevolen voor jou" — WooCommerce's eigen related-products-logica op het
+ * laatst bestelde product, aangevuld met bestsellers als dat te weinig
+ * oplevert (nieuwe klant zonder bestelhistorie) — nooit een leeg rijtje tonen.
  */
 function mkcp_account_get_dashboard_recommendations( int $user_id, int $limit = 4 ): array {
     $last = mkcp_account_get_last_order( $user_id );
@@ -219,7 +230,7 @@ function mkcp_account_render_fragment_dashboard(): string {
     ob_start();
     ?>
     <div class="mkcp-account-view">
-        <div class="mkcp-dash-header">
+        <div class="mkcp-dash-header mkcp-dash-header--hero">
             <div>
                 <h1><?php
                     printf(
@@ -229,6 +240,39 @@ function mkcp_account_render_fragment_dashboard(): string {
                     );
                 ?></h1>
                 <p class="mkcp-dash-header__sub"><?php esc_html_e( 'Hier is een overzicht van je account.', 'mk-cart-popup' ); ?></p>
+                <?php
+                // Winkelwagen-teaser: .mkcp-open laat cart-popup.js de bestaande
+                // drawer openen (cart-icon-links trigger), geen aparte JS nodig.
+                if ( function_exists( 'WC' ) && WC()->cart && ! WC()->cart->is_empty() ) :
+                    $cart_count = WC()->cart->get_cart_contents_count();
+                    ?>
+                    <?php
+                    // Vertaalde templates als data-attributen mee, zodat
+                    // account.js de tekst live kan bijwerken (wc_fragments_refreshed)
+                    // met alleen een %d-substitutie.
+                    $cart_teaser_singular = __( 'Je hebt nog %d item in je winkelwagen — bekijk winkelwagen', 'mk-cart-popup' );
+                    $cart_teaser_plural   = __( 'Je hebt nog %d items in je winkelwagen — bekijk winkelwagen', 'mk-cart-popup' );
+                    ?>
+                    <a href="#" class="mkcp-dash-header__cart-teaser mkcp-open" data-singular="<?php echo esc_attr( $cart_teaser_singular ); ?>" data-plural="<?php echo esc_attr( $cart_teaser_plural ); ?>">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                        <span class="js-mkcp-cart-teaser-text"><?php echo esc_html( sprintf( _n( $cart_teaser_singular, $cart_teaser_plural, $cart_count, 'mk-cart-popup' ), $cart_count ) ); ?></span>
+                    </a>
+                <?php endif; ?>
+
+                <div class="mkcp-dash-header__ctas">
+                    <?php if ( function_exists( 'mkcp_account_module_enabled' ) && mkcp_account_module_enabled( 'wishlist' ) ) : ?>
+                        <a href="#/wishlist" class="mkcp-dash-header__cta js-mkcp-route">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.35-9.5-8.5C1 8 2 4.5 5.5 4.5c2 0 3.5 1.5 4.5 3 1-1.5 2.5-3 4.5-3 3.5 0 4.5 3.5 3 7C19 15.65 12 20 12 20z"/></svg>
+                            <?php esc_html_e( 'Bekijk je wishlist', 'mk-cart-popup' ); ?>
+                        </a>
+                    <?php endif; ?>
+                    <?php if ( $highlight ) : ?>
+                        <a href="#/orders/<?php echo esc_attr( $highlight->get_id() ); ?>" class="mkcp-dash-header__cta js-mkcp-route">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/></svg>
+                            <?php echo esc_html( $active ? __( 'Bekijk actieve bestelling', 'mk-cart-popup' ) : __( 'Bekijk laatste bestelling', 'mk-cart-popup' ) ); ?>
+                        </a>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
@@ -238,11 +282,6 @@ function mkcp_account_render_fragment_dashboard(): string {
                 <span class="mkcp-dash-stat__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/></svg></span>
                 <span class="mkcp-dash-stat__value"><?php echo esc_html( number_format_i18n( $stats['order_count'] ) ); ?></span>
                 <span class="mkcp-dash-stat__label"><?php esc_html_e( 'bestellingen', 'mk-cart-popup' ); ?></span>
-            </div>
-            <div class="mkcp-dash-stat">
-                <span class="mkcp-dash-stat__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-                <span class="mkcp-dash-stat__value"><?php echo wp_kses_post( wc_price( $stats['total_spent'] ) ); ?></span>
-                <span class="mkcp-dash-stat__label"><?php esc_html_e( 'uitgegeven', 'mk-cart-popup' ); ?></span>
             </div>
             <div class="mkcp-dash-stat">
                 <span class="mkcp-dash-stat__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.35-9.5-8.5C1 8 2 4.5 5.5 4.5c2 0 3.5 1.5 4.5 3 1-1.5 2.5-3 4.5-3 3.5 0 4.5 3.5 3 7C19 15.65 12 20 12 20z"/></svg></span>
@@ -276,13 +315,10 @@ function mkcp_account_render_fragment_dashboard(): string {
                 </p>
 
                 <?php
-                // Bezorg-/afhaaldatum die de klant zelf tijdens checkout koos
-                // (includes/delivery-date.php / includes/pickup.php) — al
-                // aanwezig als order-meta, hier voor het eerst ook op het
-                // Dashboard zichtbaar i.p.v. alleen ergens diep in het
-                // besteloverzicht.
-                $delivery_date = $highlight->get_meta( '_mkcp_delivery_date' );
-                $pickup_date   = $highlight->get_meta( '_mkcp_pickup_date' );
+                // Bezorg-/afhaaldatum: al aanwezig als order-meta, hier ook op
+                // het Dashboard getoond i.p.v. alleen in het besteloverzicht.
+                $delivery_date = mkcp_account_valid_date_meta( $highlight->get_meta( '_mkcp_delivery_date' ) );
+                $pickup_date   = mkcp_account_valid_date_meta( $highlight->get_meta( '_mkcp_pickup_date' ) );
                 if ( $delivery_date || $pickup_date ) :
                     $eta_ts    = mysql2date( 'U', ( $delivery_date ?: $pickup_date ) . ' 00:00:00' );
                     $eta_label = $delivery_date ? __( 'Verwachte levering', 'mk-cart-popup' ) : __( 'Ophalen op', 'mk-cart-popup' );
@@ -387,7 +423,13 @@ function mkcp_account_render_fragment_dashboard(): string {
                 <?php $recommendations = mkcp_account_get_dashboard_recommendations( $user_id, 8 ); ?>
                 <?php if ( $recommendations ) : ?>
                     <div class="mkcp-dash-card">
-                        <h2><span class="mkcp-dash-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></span><?php esc_html_e( 'Aanbevolen voor jou', 'mk-cart-popup' ); ?></h2>
+                        <h2>
+                            <span class="mkcp-dash-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></span><?php esc_html_e( 'Aanbevolen voor jou', 'mk-cart-popup' ); ?>
+                            <span class="mkcp-dash-card__info" tabindex="0">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none"/></svg>
+                                <span class="mkcp-dash-card__info-popover" role="tooltip"><?php esc_html_e( 'Gebaseerd op producten die passen bij je laatste bestelling. Nog geen bestelgeschiedenis? Dan tonen we onze populairste producten.', 'mk-cart-popup' ); ?></span>
+                            </span>
+                        </h2>
                         <div class="mkcp-dash-scroller">
                             <button type="button" class="mkcp-dash-scroller__nav mkcp-dash-scroller__nav--prev" aria-label="<?php esc_attr_e( 'Vorige', 'mk-cart-popup' ); ?>">&#8249;</button>
                             <div class="mkcp-dash-product-scroller">
@@ -399,11 +441,9 @@ function mkcp_account_render_fragment_dashboard(): string {
                 <?php endif; ?>
 
                 <?php
-                // "Recent bekeken producten" — server-side is hier niets van
-                // bekend (localStorage, zie assets/wishlist-icon.js); dit is
-                // puur een lege plek die account.js na het laden vult via een
-                // eigen AJAX-rondje met de ID's uit localStorage. Standaard
-                // verborgen (JS haalt 'm leeg als er niets te tonen is).
+                // "Recent bekeken": server-side onbekend (localStorage, zie
+                // assets/wishlist-icon.js) — lege plek die account.js na load
+                // vult via AJAX met de ID's uit localStorage.
                 ?>
                 <div class="mkcp-dash-card" id="mkcp-recently-viewed-card" hidden>
                     <h2><span class="mkcp-dash-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span><?php esc_html_e( 'Onlangs bekeken', 'mk-cart-popup' ); ?></h2>
@@ -451,20 +491,14 @@ function mkcp_account_render_fragment_dashboard(): string {
 }
 
 /**
- * Read-only integratie met WooCommerce Points and Rewards (Account-plan,
- * besluit 3 — GEEN eigen puntenledger, alleen deze plugin's eigen saldo
- * uitlezen). class_exists()-guard: op geen van de drie referentiesites staat
- * deze plugin actief, dus dit widgetje blijft daar simpelweg verborgen —
- * exact het gedrag dat het plan hiervoor voorschrijft, geen foutmelding.
+ * Read-only integratie met WooCommerce Points and Rewards — géén eigen
+ * puntenledger, alleen saldo uitlezen. class_exists()-guard laat dit widgetje
+ * gewoon verborgen blijven als die plugin niet actief is.
  *
- * Bewust GEEN link naar de plugin's eigen inwissel-UI (zoals het plan
- * oorspronkelijk voorstelde): die UI leeft op een endpoint van WooCommerce's
- * eigen "Mijn account"-pagina, maar onze eigen template_include-override
- * (account-frontend.php) neemt is_account_page() voor ingelogde premium-
- * klanten volledig over — een link daarheen zou gewoon weer in DIT dashboard
- * uitkomen, niet in de punten-inwisselpagina. Een eigen "escape hatch"-route
- * daarvoor is losstaand vervolgwerk, geen aanname die je hier stil kunt
- * wegmoffelen achter een kapotte link.
+ * Bewust GEEN link naar de inwissel-UI: die leeft op een endpoint van
+ * WooCommerce's "Mijn account", maar onze template_include-override
+ * (account-frontend.php) neemt is_account_page() voor premium-klanten
+ * volledig over — zo'n link zou dus gewoon weer in dit dashboard uitkomen.
  */
 function mkcp_account_render_rewards_widget( int $user_id ): string {
     if ( function_exists( 'mkcp_account_module_enabled' ) && ! mkcp_account_module_enabled( 'rewards' ) ) {
@@ -479,20 +513,14 @@ function mkcp_account_render_rewards_widget( int $user_id ): string {
         ? WC_Points_Rewards_Manager::get_points_value( $points )
         : '';
 
-    // Voortgangsbalk naar het eerstvolgende ronde honderdtal — bewust GEEN
-    // "X punten tot gratis verzending"-belofte zoals het oorspronkelijke
-    // ontwerp toonde: dat is een specifieke bedrijfsregel die nergens in
-    // deze plugin of in WC Points and Rewards zelf bestaat. Een generieke
-    // voortgangsindicator geeft wel hetzelfde soort "bijna bij de volgende
-    // mijlpaal"-gevoel, zonder een niet-bestaande beloning te beloven.
+    // Voortgangsbalk naar het eerstvolgende ronde honderdtal — bewust generiek,
+    // geen "X punten tot gratis verzending"-belofte: die bedrijfsregel bestaat
+    // nergens in deze plugin of in WC Points and Rewards zelf.
     $next_milestone = ( intdiv( $points, 100 ) + 1 ) * 100;
     $progress_pct   = $next_milestone > 0 ? min( 100, round( ( $points / $next_milestone ) * 100 ) ) : 0;
 
-    // Tier-label — puur cosmetisch/gamification, geen bestaande WC Points and
-    // Rewards-functionaliteit (die plugin kent zelf geen tiers). Drempels nu
-    // instelbaar (admin/views/settings-page.php) i.p.v. hardcoded — het was
-    // sowieso al een verzonnen bedrijfsregel, die hoort bij de winkelier
-    // thuis, niet in de code.
+    // Tier-label is pure gamification (WC Points and Rewards kent zelf geen
+    // tiers). Drempels instelbaar in settings-page.php, niet hardcoded.
     $ac_cfg = mkcp_account_config();
     $silver_threshold = isset( $ac_cfg['account_rewards_tier_silver_threshold'] ) ? (int) $ac_cfg['account_rewards_tier_silver_threshold'] : 100;
     $gold_threshold    = isset( $ac_cfg['account_rewards_tier_gold_threshold'] ) ? (int) $ac_cfg['account_rewards_tier_gold_threshold'] : 500;
@@ -581,12 +609,20 @@ function mkcp_account_render_order_list(): string {
         'order'       => 'DESC',
         'paginate'    => true,
     ];
-    $filter_statuses = mkcp_account_order_filter_statuses( $filter );
-    if ( $filter_statuses ) $query_args['status'] = $filter_statuses;
+
+    // "Retour" is geen echte WC-orderstatus: eerst order-ID's met een
+    // retouraanvraag ophalen en de query daarop filteren. Geen aanvragen?
+    // post__in=[0] i.p.v. lege array (die zou juist ALLES teruggeven).
+    if ( $filter === 'returns' ) {
+        $return_order_ids = array_unique( wp_list_pluck( mkcp_account_get_return_requests_for_user( $user_id ), 'order_id' ) );
+        $query_args['post__in'] = $return_order_ids ?: [ 0 ];
+    } else {
+        $filter_statuses = mkcp_account_order_filter_statuses( $filter );
+        if ( $filter_statuses ) $query_args['status'] = $filter_statuses;
+    }
     // WC_Order_Query's 's'-parameter doorzoekt ordernummer + factuurnaam/
-    // e-mailadres (zowel bij HPOS als de legacy post-opslag) — geen losse
-    // SQL-zoekquery nodig. Zoeken op productnaam zou wc_order_product_lookup
-    // vergen (Account-plan, sectie 6) en is bewust nog niet meegenomen.
+    // e-mailadres (HPOS én legacy) — geen losse SQL-zoekquery nodig. Zoeken op
+    // productnaam zou wc_order_product_lookup vergen, bewust nog niet gedaan.
     if ( $search !== '' ) $query_args['s'] = $search;
 
     $query       = wc_get_orders( $query_args );
@@ -600,6 +636,13 @@ function mkcp_account_render_order_list(): string {
         'completed'   => __( 'Voltooid', 'mk-cart-popup' ),
         'cancelled'   => __( 'Geannuleerd', 'mk-cart-popup' ),
     ];
+    // Alleen tonen als de klant ook echt ooit een retour heeft aangevraagd —
+    // anders is dit een filterchip die voor de meeste klanten toch nooit
+    // iets oplevert, puur ruis.
+    if ( function_exists( 'mkcp_account_module_enabled' ) && mkcp_account_module_enabled( 'returns' )
+        && mkcp_account_get_return_requests_for_user( $user_id ) ) {
+        $filters['returns'] = __( 'Retour', 'mk-cart-popup' );
+    }
 
     ob_start();
     ?>
@@ -612,10 +655,9 @@ function mkcp_account_render_order_list(): string {
             <p class="mkcp-dash-header__sub mkcp-order-list-summary">
                 <?php
                 printf(
-                    /* translators: 1: aantal bestellingen, 2: totaalbedrag (HTML) */
-                    wp_kses_post( __( '%1$s bestellingen in totaal · %2$s uitgegeven', 'mk-cart-popup' ) ),
-                    esc_html( number_format_i18n( $stats['order_count'] ) ),
-                    wp_kses_post( wc_price( $stats['total_spent'] ) )
+                    /* translators: %s: aantal bestellingen */
+                    esc_html( _n( '%s bestelling in totaal', '%s bestellingen in totaal', $stats['order_count'], 'mk-cart-popup' ) ),
+                    esc_html( number_format_i18n( $stats['order_count'] ) )
                 );
                 ?>
             </p>
@@ -681,6 +723,12 @@ function mkcp_account_render_order_list(): string {
                             </span>
                         </span>
                         <span class="mkcp-order-row__total"><?php echo wp_kses_post( $order->get_formatted_order_total() ); ?></span>
+                        <?php if ( function_exists( 'mkcp_account_order_has_open_return' ) && mkcp_account_order_has_open_return( $order->get_id() ) ) : ?>
+                            <span class="mkcp-order-row__return-badge">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                                <?php esc_html_e( 'Retour aangevraagd', 'mk-cart-popup' ); ?>
+                            </span>
+                        <?php endif; ?>
                         <?php echo mkcp_account_order_status_badge( $order ); ?>
                         <span class="mkcp-order-row__chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
                     </a>
@@ -756,16 +804,49 @@ function mkcp_account_render_order_detail( int $order_id ): string {
             <h2><span class="mkcp-dash-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/></svg></span><?php esc_html_e( 'Producten', 'mk-cart-popup' ); ?></h2>
             <div class="mkcp-order-items">
                 <?php foreach ( $order->get_items() as $item ) :
-                    $product = $item->get_product();
+                    $product     = $item->get_product();
+                    // E2: product- en thumbnail linken naar de productpagina.
+                    $product_url = $product ? get_permalink( $product->get_id() ) : '';
                     ?>
                     <div class="mkcp-order-item">
+                        <?php if ( $product_url ) : ?>
+                        <a href="<?php echo esc_url( $product_url ); ?>" class="mkcp-order-item__thumb"><?php echo wp_kses_post( $product->get_image( [ 60, 60 ] ) ); ?></a>
+                        <a href="<?php echo esc_url( $product_url ); ?>" class="mkcp-order-item__name"><?php echo esc_html( $item->get_name() ); ?> × <?php echo esc_html( $item->get_quantity() ); ?></a>
+                        <?php else : ?>
                         <span class="mkcp-order-item__thumb"><?php echo $product ? wp_kses_post( $product->get_image( [ 60, 60 ] ) ) : ''; ?></span>
                         <span class="mkcp-order-item__name"><?php echo esc_html( $item->get_name() ); ?> × <?php echo esc_html( $item->get_quantity() ); ?></span>
+                        <?php endif; ?>
                         <span class="mkcp-order-item__total"><?php echo wp_kses_post( $order->get_formatted_line_subtotal( $item ) ); ?></span>
                     </div>
                 <?php endforeach; ?>
             </div>
+            <?php
+            // Verzendkosten als eigen regel (anders zag de klant alleen
+            // productprijzen + een hoger totaal, zonder verklaring). Inclusief
+            // get_shipping_tax(): anders de enige regel die niet incl. BTW was
+            // (productregels en eindtotaal zijn dat via WC's eigen functies wel).
+            $shipping_total = (float) $order->get_shipping_total() + (float) $order->get_shipping_tax();
+            if ( $shipping_total > 0 || $order->get_shipping_method() ) :
+                ?>
+                <p class="mkcp-order-shipping-line">
+                    <?php echo esc_html( $order->get_shipping_method() ?: __( 'Verzending', 'mk-cart-popup' ) ); ?>:
+                    <?php echo $shipping_total > 0 ? wp_kses_post( wc_price( $shipping_total, [ 'currency' => $order->get_currency() ] ) ) : esc_html__( 'Gratis', 'mk-cart-popup' ); ?>
+                </p>
+            <?php endif; ?>
             <p class="mkcp-order-total"><?php esc_html_e( 'Totaal:', 'mk-cart-popup' ); ?> <?php echo wp_kses_post( $order->get_formatted_order_total() ); ?></p>
+
+            <?php
+            $detail_delivery_date = mkcp_account_valid_date_meta( $order->get_meta( '_mkcp_delivery_date' ) );
+            $detail_pickup_date   = mkcp_account_valid_date_meta( $order->get_meta( '_mkcp_pickup_date' ) );
+            if ( $detail_delivery_date || $detail_pickup_date ) :
+                $detail_eta_ts    = mysql2date( 'U', ( $detail_delivery_date ?: $detail_pickup_date ) . ' 00:00:00' );
+                $detail_eta_label = $detail_delivery_date ? __( 'Verwachte levering', 'mk-cart-popup' ) : __( 'Ophalen op', 'mk-cart-popup' );
+                ?>
+                <p class="mkcp-dash-order__eta">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <?php echo esc_html( $detail_eta_label ); ?>: <strong><?php echo esc_html( date_i18n( 'l j F', $detail_eta_ts ) ); ?></strong>
+                </p>
+            <?php endif; ?>
 
             <?php if ( $order->get_payment_method_title() || $order->get_shipping_method() ) : ?>
                 <div class="mkcp-order-methods">
@@ -785,15 +866,21 @@ function mkcp_account_render_order_detail( int $order_id ): string {
             <?php endif; ?>
 
             <?php
-            // Puur doorlinken naar de bestaande PDF-download-URL van WooCommerce
-            // PDF Invoices & Packing Slips (indien actief) — geen eigen PDF-
-            // generatie, exact zoals het Account-plan voorschrijft (sectie 6).
-            // shortcode_exists()-guard: op sites zonder die plugin doet dit
-            // stilzwijgend niets, geen kapotte link.
-            if ( shortcode_exists( 'wcpdf_download_pdf' ) ) :
+            // Bewust NIET de [wcpdf_download_pdf]-shortcode: die hanteert een
+            // eigen, strengere toegangscheck (is_allowed_in_my_account()) los van
+            // WPO_WCPDF's algemene instelling, en gaf hier "onvoldoende rechten"
+            // terwijl dezelfde klant via get_document_link() (net als op de
+            // bedankt-pagina, thankyou.php) wél gewoon bij zijn factuur kon.
+            $mkcp_invoice_url = function_exists( 'WPO_WCPDF' ) && isset( WPO_WCPDF()->endpoint ) && method_exists( WPO_WCPDF()->endpoint, 'get_document_link' )
+                ? WPO_WCPDF()->endpoint->get_document_link( $order, 'invoice', [ 'my-account' => 'true' ] )
+                : '';
+            if ( $mkcp_invoice_url ) :
                 ?>
                 <div class="mkcp-order-invoice">
-                    <?php echo do_shortcode( '[wcpdf_download_pdf id="' . absint( $order->get_id() ) . '" type="invoice" title="' . esc_attr__( 'Factuur downloaden', 'mk-cart-popup' ) . '"]' ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                    <a href="<?php echo esc_url( $mkcp_invoice_url ); ?>" class="mkcp-btn mkcp-btn--secondary" target="_blank" rel="noopener">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <?php esc_html_e( 'Factuur downloaden', 'mk-cart-popup' ); ?>
+                    </a>
                 </div>
             <?php endif; ?>
         </div>
@@ -821,15 +908,10 @@ function mkcp_account_render_order_detail( int $order_id ): string {
         </div>
 
         <?php
-        // Retouren en reviews staan in twee LOSSE kaarten náást elkaar onder
-        // Adresgegevens (i.p.v. samengevoegd in één kaart, of verspreid per
-        // productregel bij de producten-kaart hierboven — beide eerdere
-        // opzetten, op verzoek weer uit elkaar getrokken). Elke kaart bouwt
-        // zijn eigen lijst door zijn eigen filter per item aan te roepen
-        // (mkcp_account_order_return_item resp. mkcp_account_order_item_
-        // extra) en toont zichzelf alleen als er voor minstens één item ook
-        // echt iets te doen valt — een lege kaart voor een bestelling die
-        // toch al niet meer retourneerbaar/beoordeelbaar is, is nutteloze ruis.
+        // Retouren en reviews staan bewust in twee losse kaarten náást elkaar
+        // (i.p.v. samengevoegd of per productregel, eerdere opzetten). Elke
+        // kaart toont zichzelf alleen als er voor minstens één item iets te
+        // doen valt — geen lege kaart voor een niet-retourneerbare bestelling.
         $mkcp_order_extra_list = function( string $filter_tag, WC_Order $order ): array {
             $rows = [];
             foreach ( $order->get_items() as $extra_item ) {
@@ -851,6 +933,29 @@ function mkcp_account_render_order_detail( int $order_id ): string {
                     <div class="mkcp-dash-card">
                         <h2><span class="mkcp-dash-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></span><?php esc_html_e( 'Retourneren', 'mk-cart-popup' ); ?></h2>
                         <?php echo implode( '', $return_items ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+
+                        <?php
+                        // Verborgen tot minstens 1 checkbox aangevinkt is (JS) —
+                        // dekt "alles in 1x" met één gezamenlijke reden.
+                        ?>
+                        <div class="mkcp-return-bulkbar" id="mkcp-return-bulkbar-<?php echo esc_attr( $order->get_id() ); ?>" data-order-id="<?php echo esc_attr( $order->get_id() ); ?>" hidden>
+                            <div class="mkcp-return-bulkbar__count"></div>
+                            <div class="mkcp-account-form-row">
+                                <label><?php esc_html_e( 'Reden (geldt voor alle geselecteerde producten)', 'mk-cart-popup' ); ?></label>
+                                <select class="js-mkcp-return-bulk-reason">
+                                    <?php foreach ( mkcp_account_return_reasons() as $key => $label ) : ?>
+                                        <option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="mkcp-account-form-row">
+                                <label><?php esc_html_e( 'Toelichting (optioneel)', 'mk-cart-popup' ); ?></label>
+                                <textarea class="js-mkcp-return-bulk-note" rows="2"></textarea>
+                            </div>
+                            <div class="mkcp-account-form-actions">
+                                <button type="button" class="mkcp-btn mkcp-btn--primary js-mkcp-return-bulk-submit"><?php esc_html_e( 'Retour aanvragen voor selectie', 'mk-cart-popup' ); ?></button>
+                            </div>
+                        </div>
                     </div>
                 <?php endif; ?>
                 <?php if ( $review_items ) : ?>
@@ -863,11 +968,9 @@ function mkcp_account_render_order_detail( int $order_id ): string {
         <?php endif; ?>
 
         <?php
-        // Alleen klantzichtbare notities (type=customer) — dit zijn precies
-        // de statusupdates die de winkelier zelf al naar de klant stuurt
-        // (bv. via WooCommerce's eigen "notitie naar klant"-functie), hier nu
-        // ook zichtbaar als tijdlijn i.p.v. alleen als losse e-mail. Geen
-        // nieuwe opslag nodig — dit leunt volledig op WooCommerce-core.
+        // Alleen klantzichtbare notities (type=customer): de updates die de
+        // winkelier al naar de klant stuurt, hier ook als tijdlijn getoond —
+        // leunt volledig op WooCommerce-core, geen nieuwe opslag nodig.
         $customer_notes = wc_get_order_notes( [ 'order_id' => $order->get_id(), 'type' => 'customer' ] );
         ?>
         <?php if ( $customer_notes ) : ?>
@@ -893,11 +996,8 @@ function mkcp_account_render_order_detail( int $order_id ): string {
 
 
 // ── AJAX: "Recent bekeken producten" ophalen ──────────────────────────────────
-//
-// account.js stuurt de ID's die 'ie uit localStorage haalde (zie assets/
-// wishlist-icon.js) — deze handler valideert/filtert ze gewoon tegen echte,
-// zichtbare producten en rendert dezelfde compacte kaart als de andere
-// Dashboard-productwidgets, geen aparte template nodig.
+// account.js stuurt de ID's uit localStorage (assets/wishlist-icon.js) —
+// deze handler valideert/filtert ze tegen echte, zichtbare producten.
 
 add_action( 'wp_ajax_mkcp_account_recently_viewed', function() {
     if ( ! check_ajax_referer( 'mkcp_account_action', 'nonce', false ) ) {
@@ -947,9 +1047,8 @@ add_action( 'wp_ajax_mkcp_account_reorder', function() {
         $product = $item->get_product();
         $name    = $item->get_name();
 
-        // Product/variatie bestaat niet meer, of is niet meer koopbaar
-        // (uitverkocht, verwijderd) — duidelijk overslaan i.p.v. de hele
-        // reorder te laten mislukken (Account-plan, journey 2.8).
+        // Product/variatie bestaat niet meer of niet koopbaar: overslaan
+        // i.p.v. de hele reorder te laten mislukken.
         if ( ! $product || ! $product->is_purchasable() || ! $product->is_in_stock() ) {
             $skipped[] = $name;
             continue;
@@ -958,6 +1057,25 @@ add_action( 'wp_ajax_mkcp_account_reorder', function() {
         $variation_id = $product->is_type( 'variation' ) ? $product->get_id() : 0;
         $product_id   = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
         $variation    = $variation_id ? $product->get_attributes() : [];
+
+        // "Elke"-attributen staan leeg opgeslagen op de variatie zelf; zonder
+        // expliciete waarde weigert WC_Cart::add_to_cart() ("X is een vereist
+        // veld"). De keuze van de klant staat wél op de orderregel — die
+        // gebruiken, zelfde kern als de add-to-cart-fix in mk-cart-popup.php.
+        if ( $variation_id && function_exists( 'mkcp_resolve_any_attribute_variation' ) ) {
+            $item_attributes = [];
+            foreach ( $item->get_meta_data() as $meta ) {
+                $item_attributes[ $meta->key ] = $meta->value;
+            }
+            $resolved = mkcp_resolve_any_attribute_variation( $variation_id, $item_attributes );
+            if ( false === $resolved ) {
+                // Onbepaalbaar "Elke"-attribuut: de klant moet zelf kiezen op
+                // de productpagina — overslaan i.p.v. een foute variant.
+                $skipped[] = $name;
+                continue;
+            }
+            if ( $resolved ) $variation = $resolved;
+        }
 
         $added_key = WC()->cart->add_to_cart( $product_id, $item->get_quantity(), $variation_id, $variation );
         if ( ! $added_key ) {
@@ -988,12 +1106,55 @@ add_action( 'wp_ajax_mkcp_account_reorder', function() {
         );
     }
 
-    // Zelfde fragments-vorm als een normale wc-ajax=add_to_cart-respons, zodat
-    // de client de bestaande 'added_to_cart'-event-flow van cart-popup.js kan
-    // hergebruiken om de drawer te openen — geen nieuw open-mechanisme nodig.
+    // Zelfde fragments-vorm als wc-ajax=add_to_cart, zodat de client de
+    // bestaande 'added_to_cart'-flow van cart-popup.js hergebruikt om de
+    // drawer te openen.
     wp_send_json_success( [
         'message'   => $message,
         'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', [] ),
         'cart_hash' => WC()->cart->get_cart_hash(),
     ] );
 } );
+
+
+// ── Orderstatuswijziging → melding in het Account-meldingencentrum ─────────
+// Alleen voor geregistreerde klanten (vereist een echte user_id; gasten
+// hebben geen meldingencentrum). Alleen statussen met nieuwswaarde — niet
+// elke status levert een melding op (te ruisig).
+add_action( 'woocommerce_order_status_changed', function( $order_id, $old_status, $new_status, $order ) {
+    if ( ! function_exists( 'mkcp_account_add_notification' ) || ! function_exists( 'mkcp_account_is_active' ) ) return;
+
+    $user_id = $order->get_customer_id();
+    if ( ! $user_id ) return;
+
+    // Bestelaantal/besteed bedrag in de statistiekenrij veranderen mee met de
+    // status (geannuleerd/mislukt tellen niet mee) — cache dus ongeldig maken,
+    // ook als het meldingencentrum uitstaat.
+    mkcp_account_clear_dashboard_stats_cache( (int) $user_id );
+
+    if ( ! mkcp_account_module_enabled( 'notifications' ) ) return;
+
+    $messages = [
+        'processing' => __( 'Je bestelling wordt verwerkt.', 'mk-cart-popup' ),
+        'completed'  => __( 'Je bestelling is afgerond.', 'mk-cart-popup' ),
+        'on-hold'    => __( 'Je bestelling staat in de wacht — we nemen zo nodig contact op.', 'mk-cart-popup' ),
+        'cancelled'  => __( 'Je bestelling is geannuleerd.', 'mk-cart-popup' ),
+        'refunded'   => __( 'Je bestelling is terugbetaald.', 'mk-cart-popup' ),
+        'failed'     => __( 'De betaling voor je bestelling is mislukt.', 'mk-cart-popup' ),
+    ];
+    if ( ! isset( $messages[ $new_status ] ) ) return;
+
+    mkcp_account_add_notification(
+        (int) $user_id,
+        'order_status',
+        sprintf(
+            /* translators: %s: ordernummer */
+            __( 'Update over bestelling #%s', 'mk-cart-popup' ),
+            $order->get_order_number()
+        ),
+        $messages[ $new_status ],
+        '#/orders/' . $order_id,
+        'order',
+        $order_id
+    );
+}, 10, 4 );
