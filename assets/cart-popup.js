@@ -226,6 +226,27 @@
 
     // ── BTW / VAT price split ────────────────────────────────────────────────
 
+    // Vangnet voor een BTW-verleggings-lock die op de checkout is gezet
+    // (mkcpBtwSwitch.lock('excl'), zie assets/checkout-btw.js) en daarna nooit
+    // meer ontgrendeld is — bv. omdat de klant na het invullen van een geldig
+    // EU BTW-nummer nooit meer terug naar checkout gaat. Die lock leeft dan
+    // als wees voort in localStorage en deze popup (die overal op de site
+    // opent, niet alleen op checkout) zou 'm voor altijd als "excl." blijven
+    // tonen. checkout-btw.js lost dit alleen op checkout zelf op; hier is
+    // sowieso nooit een draaiende BTW-verleggingsintegratie (die bestaat
+    // alleen op checkout), dus een aangetroffen lock is hier per definitie
+    // stale en wordt onvoorwaardelijk opgeruimd.
+    function reconcileStaleVatLock() {
+        var wasLocked;
+        try { wasLocked = localStorage.getItem( 'mkcp_btw_locked_by_vat' ) === '1'; } catch (e) { wasLocked = false; }
+        if ( ! wasLocked ) return;
+        try {
+            localStorage.removeItem( 'mkcp_btw_locked_by_vat' );
+            localStorage.setItem( 'mkcp_btw_pref', 'incl' );
+        } catch (e) {}
+    }
+    reconcileStaleVatLock();
+
     function syncBtw( animate ) {
         if ( ! btwSplit ) return;
         var pref        = localStorage.getItem( 'mkcp_btw_pref' ) || 'incl';

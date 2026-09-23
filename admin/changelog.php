@@ -22,6 +22,29 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.40',
+            'date'    => '2026-09-23',
+            'items'   => [
+                // ── Winkelwagen-pop-up ──
+                'Fix: het laad-icoontje bij "Kleuren van je website zoeken…" (Instellingen → Styling) draaide niet rond.',
+                'Fix: een BTW-verleggingsvergrendeling (na een geldig EU-btw-nummer op checkout) kon de winkelwagen-pop-up voorgoed op "excl. BTW" laten hangen op andere pagina\'s, ook nadat de vergrendeling allang niet meer actief was.',
+                // ── Checkout ──
+                'Nieuw: "Overzicht van je bestelling" heeft op mobiel een compleet nieuwe plek gekregen — staat niet meer inline tussen de ingevulde velden, maar een los knopje naast "Bestellen" in de vaste onderbalk opent nu een duidelijke pop-up met het volledige besteloverzicht.',
+                'Fix: die pop-up kon op de verkeerde plek openen (los van waar je op de pagina gescrold stond) doordat WooCommerce\'s eigen laadmechanisme (blockUI) bij elk "totalen bijwerken" een verdwaalde inline stijl achterliet die de pop-up-positionering overschreef.',
+                'Nieuw: die pop-up is nu ook met een vinger omlaag weg te vegen om te sluiten, met een sleepgreepje bovenin — zelfde natuurlijke bediening als de winkelwagen-pop-up.',
+                'Verbetering: overbodige kleurtint achter de productlijst in die pop-up verwijderd op mobiel (de pop-up heeft zelf al een witte achtergrond).',
+                'Verbetering: het knopje dat de popup opent toont nu ook de tekst "Bekijk bestelling" naast het icoon i.p.v. alleen het icoon, met dezelfde tekstgrootte en hoogte als de "Bestellen"-knop ernaast.',
+                'Fix: de sluitknop (kruisje) van de popup was ovaal i.p.v. rond door een botsing met een algemene knop-stijl elders in de checkout.',
+                'Fix: bij het aantikken van het "meer scrollen"-pijltje onder de productlijst in die popup kon de tekst eronder er even doorheen schemeren (standaard tik-highlight van de telefoon, terwijl het pijltje zelf niet aanklikbaar is).',
+                'Verbetering: hover-achtergrond van de pijltjes-navigatie in de adreskiezer op checkout is nu wit.',
+                'Fix: het bedrag in de vaste onderbalk (mobiel) toonde bij het totaal soms permanent "excl. BTW" terwijl het getoonde bedrag inclusief was, en wisselde niet mee met de incl./excl.-schakelaar — het label kwam uit een CSS-regel die buiten de context van die balk viel.',
+                'Verbetering: het huisnummer-toevoeging-veld (bij een gekoppelde postcode-checker) krijgt nu expliciet geen telefoon-autocomplete-suggestie meer, net als het huisnummerveld zelf.',
+                'Verbetering: header (logo + stappen) heeft op mobiel nu ademruimte t.o.v. de eerste sectie i.p.v. er direct tegenaan te plakken.',
+                'Verbetering: afgeronde hoeken van de secties (adres, levering, betaling) verwijderd op mobiel — zag er raar uit nu elke sectie de volle schermbreedte inneemt.',
+                'Verbetering: de datumkiezer toont op mobiel minder datumkaarten naast elkaar (was 4-5 half afgesneden, nu ~2,5), zodat elke datum breder en makkelijker te raken is.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.28',
             'date'    => '2026-09-22',
             'items'   => [

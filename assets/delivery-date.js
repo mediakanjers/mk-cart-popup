@@ -156,7 +156,12 @@
             var vp = el('cards-viewport');
             if (!vp) return;
             var gap = 8;
-            var w = Math.floor((vp.clientWidth - gap * 2.2) / 4.5);
+            // Op smalle mobiele schermen stonden er 4-5 datumkaarten (half
+            // afgesneden) naast elkaar — te druk en te weinig ruimte per
+            // kaart. Minder kaarten tegelijk tonen op mobiel (~2.5 i.p.v.
+            // 4.5), zodat elke kaart breder en makkelijker te raken is.
+            var divisor = vp.clientWidth < 480 ? 2.6 : 4.5;
+            var w = Math.floor((vp.clientWidth - gap * 2.2) / divisor);
             vp.querySelectorAll('.mkcp-dd-card').forEach(function (c) {
                 c.style.width = w + 'px';
                 c.style.minWidth = w + 'px';

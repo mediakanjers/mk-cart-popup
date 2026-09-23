@@ -1297,6 +1297,10 @@ select.mkcp-input option {
     color        : var(--mkcp-ui-text3);
 }
 
+.mkcp-detected-loading svg.mkcp-spin {
+    animation: mkcpSpin .65s linear infinite;
+}
+
 /* Losse kopieer-knop bovenop een tier-1-swatch (naast "Toepassen" op de
    swatch zelf) — span met role="button" i.p.v. een geneste <button>. */
 .mkcp-detected-swatch-copy {

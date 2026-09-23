@@ -239,7 +239,11 @@ body.mkcp-distraction-free-checkout {
 
 @media (max-width: 600px) {
     .mkcp-checkout-header {
-        padding : 12px 16px;
+        padding      : 12px 16px;
+        // Zonder dit plakt de header (logo + stappen) direct tegen de eerste
+        // sectie aan — de border-bottom alleen gaf op mobiel te weinig
+        // visuele scheiding tussen header en formulier.
+        margin-bottom: 14px;
     }
 
     .mkcp-checkout-header__logo {
@@ -1345,7 +1349,7 @@ body.mkcp-distraction-free-checkout {
         transition    : background .14s, border-color .14s, color .14s, opacity .14s;
 
         &:hover {
-            background   : rgba(46, 125, 50, .06);
+            background   : #fff;
             border-color : var(--mkcp-accent, $accent);
             color        : var(--mkcp-accent, $accent);
         }
@@ -1737,6 +1741,12 @@ body.mkcp-distraction-free-checkout .shop_table.woocommerce-checkout-review-orde
 // nesten zou een niet-bestaande "tabel > shell"-relatie hebben geïmpliceerd.
 body.mkcp-distraction-free-checkout .mkcp-review-scroll-shell {
     position: relative;
+    // Het pijltje erbovenop heeft pointer-events:none (puur decoratief) —
+    // een tik erop gaat dus altijd door naar wat eronder ligt (een tabelrij).
+    // Zonder dit liet mobiel Safari/Chrome daar hun standaard tik-highlight/
+    // selectie-gloed zien, die optisch dwars door het (deels doorschijnende
+    // paneelkleur-)pijltje leek heen te schemeren.
+    -webkit-tap-highlight-color : transparent;
 }
 
 body.mkcp-distraction-free-checkout .mkcp-scroll-hint-chevron-overlay {
@@ -3715,6 +3725,10 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
 
         .shop_table {
             border-radius: 0px;
+            // #order_review is op mobiel zelf al de (witte) achtergrond van
+            // de "bekijk bestelling"-pop-up — de kleurtint hier bovenop was
+            // dan een dubbel, overbodig vlak.
+            background: transparent;
         }
     }
 
@@ -3741,6 +3755,11 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
             // (na de switcher-tabs) te blijven staan.
             grid-row: auto;
             padding : 10px 10px;
+            // Afgeronde hoeken zien er op mobiel raar uit nu elke sectie de
+            // volle schermbreedte inneemt (geen zichtbare achtergrond meer
+            // errond om de ronding te "dragen") — vlak trekken, desktop
+            // houdt de 14px-ronding gewoon.
+            border-radius : 0px;
         }
 
         .mkcp-co-section {
@@ -3750,7 +3769,11 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
             &--delivery { order : 3; }
             &--payment  { order : 4; }
 
-            &__body { padding: 10px 10px; }
+            &__body { padding: 10px 10px; border-radius: 0px; }
+        }
+
+        .mkcp-co-review-toggle {
+            border-radius : 0px;
         }
 
         .mkcp-co-btw-switch {
@@ -3864,18 +3887,14 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
             grid-column : 1 / -1 !important;
         }
 
-        .mkcp-co-review-toggle {
-            display : flex;
-            border-radius: 0px;
-        }
-
-        .mkcp-co-review-body {
-            display : none;
-        }
-
-        .mkcp-co-review-toggle[aria-expanded="true"] + .mkcp-co-review-body {
-            display : block;
-        }
+        // De inklap-kop + z'n open/dicht-staat zijn overbodig geworden nu
+        // #order_review zelf standaard verborgen is buiten de "Bekijk
+        // bestelling"-popup om (zie de latere @media(900px)-blok verderop
+        // in dit bestand, ná "Overzicht van je bestelling"-popup) — die
+        // regels winnen op cascade-volgorde en zetten dit hier definitief
+        // buiten werking, maar de oude selectors hier laten conflicteren
+        // met een toekomstige wijziging is verwarrender dan ze meteen op te
+        // ruimen.
 
         // 16px i.p.v. 15px: onder de 16px zoomt iOS Safari automatisch in
         // zodra een veld focus krijgt, wat op mobiel erg vervelend is.
@@ -3906,7 +3925,6 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
     .mkcp-mobile-orderbar {
         display        : flex;
         align-items    : center;
-        justify-content: space-between;
         gap            : 10px;
         position       : fixed;
         left           : 0;
@@ -3922,6 +3940,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
     .mkcp-mobile-orderbar__total {
         display        : flex;
         flex-direction : column;
+        flex           : 1 1 auto;
         line-height    : 1.25;
         min-width      : 0;
         cursor         : pointer;
@@ -3948,6 +3967,18 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         &.is-updated {
             animation : mkco-amount-flash .8s ease;
         }
+    }
+
+    // Eigen, losse klasse i.p.v. de gedeelde .mkcp-btw-note (checkout.scss,
+    // verderop) — die is #order_review-scoped voor de incl./excl.-toggle en
+    // deze balk staat daarbuiten (zie mkco_syncOrderBar()/mkco_applyOrderBar
+    // BtwNote() in checkout-frontend.php, die de tekst hier al kant-en-klaar
+    // in JS bepalen — geen CSS-toggle nodig).
+    .mkcp-mobile-orderbar__btw-note {
+        display     : block;
+        font-size   : 9px;
+        font-weight : 400;
+        color       : var(--mkcp-text-light, $gray-mid);
     }
 
     @keyframes mkco-amount-flash {
@@ -3999,6 +4030,201 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
 
     .mkcp-mobile-orderbar.is-placing .mkcp-mobile-orderbar__btn-label {
         display : none;
+    }
+
+    .mkcp-mobile-orderbar__review-btn {
+        display        : flex;
+        align-items    : center;
+        gap            : 6px;
+        flex-shrink    : 0;
+        box-sizing     : border-box;
+        // Zelfde padding als de "Bestellen"-knop hiernaast (.mkcp-mobile-
+        // orderbar__btn: 6px 12px), min 1.5px boven/onder om de 1.5px rand
+        // hier te compenseren — anders komt dit knopje 3px (2x de randdikte)
+        // hoger uit dan het rand-loze "Bestellen".
+        padding        : 4.5px 14px 4.5px 12px;
+        border         : 1.5px solid #e8eaf0;
+        border-radius  : 999px;
+        background     : var(--mkcp-bg, #fff);
+        color          : var(--mkcp-text, $text);
+        cursor         : pointer;
+        font-size      : 11px !important;
+        font-weight    : 600;
+        white-space    : nowrap;
+        transition     : background-color .15s ease;
+
+        svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        &:active { background: #f1f3f7; }
+    }
+
+    .mkcp-mobile-orderbar__review-btn-label {
+        line-height : 1;
+    }
+}
+
+
+/* ── "Overzicht van je bestelling"-popup (mobiel) ───────────────────────────
+ * Nieuwe plek voor de besteloverzicht: i.p.v. onderaan alle ingevulde
+ * velden nu een los knopje naast "Bestellen" in de vaste balk dat
+ * #order_review zelf als bottom-sheet-popup toont. Geen DOM-verplaatsing
+ * nodig — position:fixed haalt het element puur visueel uit de grid-flow,
+ * dus WooCommerce's eigen AJAX-refresh van #order_review (wholesale
+ * vervangen bij elke adres-/verzendwijziging) blijft ongewijzigd werken. */
+
+.mkcp-visually-hidden {
+    position : absolute;
+    width    : 1px;
+    height   : 1px;
+    padding  : 0;
+    margin   : -1px;
+    overflow : hidden;
+    clip     : rect(0, 0, 0, 0);
+    white-space : nowrap;
+    border   : 0;
+}
+
+.mkcp-review-modal-backdrop {
+    display    : none;
+    position   : fixed;
+    inset      : 0;
+    background : rgba(15, 23, 42, .45);
+    z-index    : 1990;
+}
+
+.mkcp-review-modal-header {
+    display         : none;
+    flex-direction  : column;
+    margin          : 0 -20px 14px;
+    padding         : 8px 20px 14px;
+    border-bottom   : 1px solid #e8eaf0;
+    position        : sticky;
+    top             : 0;
+    background      : var(--mkcp-bg, #fff);
+    border-radius   : 16px 16px 0 0;
+    // Hele kop is de "sleepgreep"-zone (zie touchstart-check in
+    // checkout-frontend.php) — geen tekstselectie tijdens het slepen.
+    touch-action    : none;
+    user-select     : none;
+}
+
+// Los grijs streepje, gecentreerd — zelfde idioom als de winkelwagen-pop-up
+// se eigen sheet-grabber (cart-popup.scss, .mk-cart-popup__grabber), puur
+// visuele hint dat dit paneel sleepbaar is.
+.mkcp-review-modal-grabber {
+    display        : block;
+    width           : 36px;
+    height          : 4px;
+    border-radius   : 2px;
+    background      : #d5d8e0;
+    margin          : 0 auto 10px;
+}
+
+.mkcp-review-modal-header__row {
+    display         : flex;
+    align-items     : center;
+    justify-content : space-between;
+    gap             : 12px;
+}
+
+.mkcp-review-modal-header__title {
+    font-size   : 15px;
+    font-weight : 700;
+    color       : var(--mkcp-text, $text);
+}
+
+// Eigen selector-gewicht i.p.v. bare .mkcp-review-modal-close: de generieke
+// "button { width:auto }"-reset hierboven (voor gewone formulierknoppen)
+// heeft anders — door zijn element+element+class-opbouw — toevallig meer
+// specificiteit dan één enkele klasse, en won dan van de vaste 32px-breedte
+// hieronder (zichtbaar als een ovale i.p.v. ronde sluitknop).
+body.mkcp-distraction-free-checkout .mkcp-review-modal-close {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    width           : 32px;
+    height          : 32px;
+    padding         : 0;
+    flex-shrink     : 0;
+    border          : none;
+    border-radius   : 50%;
+    background      : #f1f3f7;
+    color           : #555;
+    cursor          : pointer;
+
+    svg { width: 16px; height: 16px; }
+
+    &:active { background: #e5e8f0; }
+}
+
+@keyframes mkco-review-modal-in {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+    html.mkcp-review-modal-open,
+    body.mkcp-review-modal-open {
+        overflow : hidden;
+    }
+
+    body.mkcp-review-modal-open .mkcp-review-modal-backdrop {
+        display : block;
+    }
+
+    // #order_review heeft nu een compleet nieuwe plek: standaard niet meer
+    // inline zichtbaar tussen de ingevulde velden, alleen nog via de popup
+    // (knopje naast "Bestellen"). Zodra de popup open is, wordt hetzelfde
+    // element (geen kopie) het modal-paneel.
+    body.mkcp-distraction-free-checkout:not(.mkcp-review-modal-open) #order_review {
+        display : none !important;
+    }
+
+    // !important op de positioneringseigenschappen: WooCommerce's eigen
+    // blockUI (elke "totalen bijwerken"-AJAX-cyclus blokkeert/deblokkeert
+    // #order_review) laat na het deblokkeren een inline style="position:
+    // static; zoom:1" achter op het element zelf — een inline style wint
+    // altijd van een stylesheet-regel, ongeacht specificiteit, dus zonder
+    // !important viel de popup terug op position:static (zichtbaar als "de
+    // popup opent op basis van je scrollpositie", want dan is het gewoon
+    // een gewoon in-flow element i.p.v. een overlay).
+    body.mkcp-review-modal-open.mkcp-distraction-free-checkout #order_review {
+        display     : block !important;
+        position    : fixed !important;
+        left        : 0 !important;
+        right       : 0 !important;
+        bottom      : 0 !important;
+        top         : auto !important;
+        max-height  : 85vh;
+        z-index     : 2000;
+        background  : var(--mkcp-bg, #fff);
+        padding     : 0 20px calc(20px + env(safe-area-inset-bottom, 0px));
+        margin      : 0;
+        overflow-y  : auto;
+        -webkit-overflow-scrolling : touch;
+        box-shadow  : 0 -8px 24px rgba(0, 0, 0, .18);
+        border-radius : 16px 16px 0 0;
+        animation   : mkco-review-modal-in .22s ease;
+    }
+
+    body.mkcp-review-modal-open .mkcp-review-modal-header {
+        display : flex;
+    }
+
+    // De oude inklap-kop ("Overzicht van je bestelling" ⌄, optionele
+    // instelling) heeft geen functie meer nu #order_review zelf standaard
+    // verborgen is buiten de popup om — zou anders als een lege, geopende
+    // kop midden op de pagina blijven staan. De bijbehorende body altijd
+    // volledig tonen (i.p.v. aria-expanded-afhankelijk): de zichtbaarheid
+    // van de hele sectie wordt nu voor de volle 100% door #order_review
+    // zelf bepaald (zie hierboven), een extra geneste inklap-staat zou de
+    // inhoud ook binnen de open popup nog kunnen verbergen.
+    .mkcp-co-review-toggle {
+        display : none;
+    }
+
+    .mkcp-co-review-body {
+        display : block;
     }
 }
 

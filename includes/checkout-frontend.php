@@ -2878,6 +2878,12 @@ add_action( 'wp', function() {
                 $fields[ $group ][ $group . '_house_number' ]['custom_attributes']['inputmode']    = 'numeric';
                 $fields[ $group ][ $group . '_house_number' ]['custom_attributes']['autocomplete'] = 'off';
             }
+            // Geen standaard autocomplete-token voor een toevoeging (bv. "A",
+            // "2hs") — expliciet uit i.p.v. aan het toeval van de browser over
+            // te laten wat 'ie daar zou willen voorstellen.
+            if ( isset( $fields[ $group ][ $group . '_house_number_suffix' ] ) ) {
+                $fields[ $group ][ $group . '_house_number_suffix' ]['custom_attributes']['autocomplete'] = 'off';
+            }
         }
         return $fields;
     } );
@@ -3428,7 +3434,10 @@ add_action( 'wp', function() {
     // allemaal in #customer_details > .col-2 > .woocommerce-additional-fields,
     // NIET in #order_review. WC AJAX ververst alleen #order_review (rechterkolom),
     // dus de moves zijn eenmalig maar worden ook herhaald na updated_checkout.
-    add_action( 'wp_footer', function() {
+    $mkcp_orderbar_main_cfg = mkcp_config();
+    $mkcp_orderbar_label_excl = $mkcp_orderbar_main_cfg['label_excl_tax'] ?? __( 'excl. BTW', 'mk-cart-popup' );
+    $mkcp_orderbar_label_incl = $mkcp_orderbar_main_cfg['label_incl_tax'] ?? __( 'incl. BTW', 'mk-cart-popup' );
+    add_action( 'wp_footer', function() use ( $mkcp_orderbar_label_excl, $mkcp_orderbar_label_incl ) {
         // is_checkout() geldt ook op de bedankt-pagina (order-received) — daar
         // is er geen #place_order-knop meer om door te klikken, dus de balk
         // hoort daar niet thuis.
@@ -3443,11 +3452,16 @@ add_action( 'wp', function() {
                 <span class="mkcp-mobile-orderbar__label"><?php esc_html_e( 'Totaal', 'mk-cart-popup' ); ?></span>
                 <span class="mkcp-mobile-orderbar__amount" id="mkcp-mobile-orderbar-amount"></span>
             </div>
+            <button type="button" class="mkcp-mobile-orderbar__review-btn" id="mkcp-mobile-orderbar-review-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="order_review" title="<?php esc_attr_e( 'Bekijk bestelling', 'mk-cart-popup' ); ?>">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 2H4a1 1 0 0 0-1 1v18l3-2 2 2 2-2 2 2 2-2 2 2 2-2 3 2V3a1 1 0 0 0-1-1z"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+                <span class="mkcp-mobile-orderbar__review-btn-label"><?php esc_html_e( 'Bekijk bestelling', 'mk-cart-popup' ); ?></span>
+            </button>
             <button type="button" class="mkcp-mobile-orderbar__btn" id="mkcp-mobile-orderbar-btn">
                 <span class="mkcp-mobile-orderbar__btn-spinner"></span>
                 <span class="mkcp-mobile-orderbar__btn-label"><?php esc_html_e( 'Bestellen', 'mk-cart-popup' ); ?></span>
             </button>
         </div>
+        <div class="mkcp-review-modal-backdrop" id="mkcp-review-modal-backdrop"></div>
         <script>
         (function () {
             var _done = false;
@@ -3763,19 +3777,44 @@ add_action( 'wp', function() {
             // Mobiele besteldbalk: totaalbedrag synchroniseren met de echte
             // besteltabel, en de knop stuurt gewoon een klik door naar de
             // echte #place_order-knop (dezelfde validatie/AJAX-afhandeling).
+            //
+            // Het "incl./excl. BTW"-label onder het bedrag wordt bewust NIET
+            // uit de gekloonde HTML overgenomen (was eerder wel zo, en bleef
+            // dan altijd op "excl. BTW" vastzitten): die HTML bevat twee
+            // <small>-labels (.mkcp-btw-incl-only/.mkcp-btw-excl-only) waarvan
+            // de zichtbaarheid wordt geregeld door een CSS-regel die alleen
+            // BINNEN #order_review matcht (checkout.scss) — deze balk staat
+            // daarbuiten (wp_footer, los element), dus die regel deed hier
+            // niets en het overgebleven label (na het — ook nog eens maar
+            // half werkende — verwijderen van "small") stond permanent vast.
+            // Los label, direct in JS op basis van de huidige voorkeur gezet
+            // en herrekend bij elke wijziging: geen CSS-scoping-afhankelijkheid.
+            var MKCP_BTW_LABEL_INCL = '<?php echo esc_js( $mkcp_orderbar_label_incl ); ?>';
+            var MKCP_BTW_LABEL_EXCL = '<?php echo esc_js( $mkcp_orderbar_label_excl ); ?>';
+
+            function mkco_currentBtwPref() {
+                try { return localStorage.getItem('mkcp_btw_pref') || 'incl'; } catch (e) { return 'incl'; }
+            }
+
+            function mkco_applyOrderBarBtwNote() {
+                var note = document.getElementById('mkcp-mobile-orderbar-btw-note');
+                if (!note) return;
+                note.textContent = mkco_currentBtwPref() === 'excl' ? MKCP_BTW_LABEL_EXCL : MKCP_BTW_LABEL_INCL;
+            }
+
             function mkco_syncOrderBar() {
                 var amountEl = document.getElementById('mkcp-mobile-orderbar-amount');
                 var totalTd  = document.querySelector('.order-total td');
                 if (!amountEl || !totalTd) return;
                 var clone = totalTd.cloneNode(true);
-                var small = clone.querySelector('small');
-                if (small) small.remove();
+                clone.querySelectorAll('small').forEach(function (el) { el.remove(); });
 
-                var newHtml = clone.innerHTML;
-                if (newHtml === amountEl.innerHTML) return;
+                var newHtml = clone.innerHTML + '<small class="mkcp-mobile-orderbar__btw-note" id="mkcp-mobile-orderbar-btw-note"></small>';
+                if (newHtml === amountEl.innerHTML) { mkco_applyOrderBarBtwNote(); return; }
 
                 var isFirstSync = amountEl.innerHTML === '';
                 amountEl.innerHTML = newHtml;
+                mkco_applyOrderBarBtwNote();
 
                 // Kort oplichten zodat duidelijk is dat het bedrag écht is
                 // bijgewerkt (bv. na het wisselen van verzendmethode) — niet
@@ -3788,8 +3827,167 @@ add_action( 'wp', function() {
                 }
             }
 
+            // Live meebewegen met de BTW-switch: zelfde tik (dit tabblad) via
+            // 'change' op de toggle, en een wissel in een ANDER tabblad via
+            // 'storage' (zelfde mechanisme als checkout-btw.js zelf gebruikt).
+            document.addEventListener('change', function (e) {
+                if (e.target.closest && e.target.closest('.js-mkcp-btw-toggle')) {
+                    mkco_applyOrderBarBtwNote();
+                }
+            });
+            window.addEventListener('storage', function (e) {
+                if (e.key === 'mkcp_btw_pref') mkco_applyOrderBarBtwNote();
+            });
+
             mkco_syncOrderBar();
             setTimeout(mkco_syncOrderBar, 200);
+
+            // "Bekijk bestelling"-popup: #order_review zelf wordt op mobiel
+            // (<900px, zie checkout.scss) de modal-paneel — geen kopie/DOM-
+            // verplaatsing nodig, position:fixed haalt 'm puur visueel uit de
+            // grid-flow, dus WooCommerce's eigen AJAX-refresh van #order_review
+            // (wholesale vervangen bij elke adres-/verzendwijziging) blijft
+            // ongewijzigd werken. Alleen de sluit-kop erbovenop moet na zo'n
+            // refresh opnieuw ingevoegd worden, vandaar de aparte ensure-fn.
+            var REVIEW_CLOSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+            function mkco_ensureReviewModalHeader() {
+                var orderReview = document.getElementById('order_review');
+                if (!orderReview || orderReview.querySelector('.mkcp-review-modal-header')) return;
+                var header = document.createElement('div');
+                header.className = 'mkcp-review-modal-header';
+                header.innerHTML =
+                    '<span class="mkcp-review-modal-grabber" aria-hidden="true"></span>' +
+                    '<span class="mkcp-review-modal-header__row">' +
+                    '<span class="mkcp-review-modal-header__title"><?php echo esc_js( __( 'Overzicht van je bestelling', 'mk-cart-popup' ) ); ?></span>' +
+                    '<button type="button" class="mkcp-review-modal-close" aria-label="<?php echo esc_js( __( 'Sluiten', 'mk-cart-popup' ) ); ?>">' + REVIEW_CLOSE_SVG + '</button>' +
+                    '</span>';
+                orderReview.insertBefore(header, orderReview.firstChild);
+            }
+
+            function mkco_openReviewModal() {
+                mkco_ensureReviewModalHeader();
+                document.documentElement.classList.add('mkcp-review-modal-open');
+                document.body.classList.add('mkcp-review-modal-open');
+                var reviewBtn = document.getElementById('mkcp-mobile-orderbar-review-btn');
+                if (reviewBtn) reviewBtn.setAttribute('aria-expanded', 'true');
+            }
+
+            function mkco_closeReviewModal() {
+                document.documentElement.classList.remove('mkcp-review-modal-open');
+                document.body.classList.remove('mkcp-review-modal-open');
+                var reviewBtn = document.getElementById('mkcp-mobile-orderbar-review-btn');
+                if (reviewBtn) reviewBtn.setAttribute('aria-expanded', 'false');
+            }
+
+            // Sleepbaar omlaag sluiten (swipe-to-close), zelfde gevoel als de
+            // winkelwagen-pop-up (cart-popup-mobile.js) maar een eigen,
+            // eenvoudigere state machine — hier is maar één sleepgebaar nodig
+            // (geen rij-swipe/peek-tab). Slepen mag vanaf de kop (grabber/
+            // titelbalk) of, als je in de inhoud zelf begint, alleen zolang
+            // #order_review nog bovenaan staat (scrollTop 0) — anders wint
+            // gewoon het native scrollen van de lijst.
+            var RV = { active: false, dragging: false, startY: 0, lastY: 0, lastT: 0, vel: 0, sheetH: 0 };
+
+            function mkco_reviewSheetEl() { return document.getElementById('order_review'); }
+
+            function mkco_reviewTrackVelocity(y, t) {
+                var dt = Math.max(1, t - RV.lastT);
+                RV.vel = 0.6 * ((y - RV.lastY) / dt) + 0.4 * RV.vel;
+                RV.lastY = y;
+                RV.lastT = t;
+            }
+
+            document.addEventListener('touchstart', function (e) {
+                if (!document.body.classList.contains('mkcp-review-modal-open')) return;
+                if (e.touches.length !== 1) return;
+                var sheet = mkco_reviewSheetEl();
+                if (!sheet) return;
+                var target = e.target;
+                if (!(target instanceof Element) || !sheet.contains(target)) return;
+
+                var onHandle = !!target.closest('.mkcp-review-modal-grabber, .mkcp-review-modal-header');
+                if (!onHandle && sheet.scrollTop > 0) return;
+
+                RV.active   = true;
+                RV.dragging = false;
+                RV.startY   = e.touches[0].clientY;
+                RV.lastY    = RV.startY;
+                RV.lastT    = e.timeStamp;
+                RV.vel      = 0;
+                RV.sheetH   = sheet.getBoundingClientRect().height || 1;
+            }, { passive: true });
+
+            document.addEventListener('touchmove', function (e) {
+                if (!RV.active) return;
+                var y  = e.touches[0].clientY;
+                var dy = y - RV.startY;
+                var sheet = mkco_reviewSheetEl();
+                if (!sheet) { RV.active = false; return; }
+
+                if (!RV.dragging) {
+                    if (dy <= 8) return; // pas na een kleine drempel (tegen ruis/tikken)
+                    RV.dragging = true;
+                    sheet.style.transition = 'none';
+                    sheet.style.animation  = 'none';
+                }
+
+                e.preventDefault(); // blokkeert pagina-scroll zodra dit een sleepgebaar is
+                var ty = dy >= 0 ? dy : dy * 0.15; // 1:1 omlaag, rubber-band omhoog
+                sheet.style.transform = 'translateY(' + ty + 'px)';
+                var backdrop = document.getElementById('mkcp-review-modal-backdrop');
+                if (backdrop) backdrop.style.opacity = String(Math.max(0, 1 - Math.max(0, ty) / RV.sheetH));
+                mkco_reviewTrackVelocity(y, e.timeStamp);
+            }, { passive: false });
+
+            document.addEventListener('touchend', function () {
+                if (!RV.active) return;
+                var sheet = mkco_reviewSheetEl();
+                var wasDragging = RV.dragging;
+                RV.active   = false;
+                RV.dragging = false;
+                if (!wasDragging || !sheet) return;
+
+                var m  = /translateY\(([-\d.]+)px\)/.exec(sheet.style.transform);
+                var ty = m ? parseFloat(m[1]) : 0;
+                var armed = ty > RV.sheetH * 0.3;
+                var flick = RV.vel > 0.5 && ty > 30;
+                var backdrop = document.getElementById('mkcp-review-modal-backdrop');
+
+                if (armed || flick) {
+                    // Meteen sluiten — geen terugveer nodig, de modal verdwijnt
+                    // toch (display:none via het verwijderen van de open-klasse).
+                    sheet.style.transition = '';
+                    sheet.style.animation  = '';
+                    sheet.style.transform  = '';
+                    if (backdrop) backdrop.style.opacity = '';
+                    mkco_closeReviewModal();
+                } else {
+                    // Terugveren naar de volledig open stand.
+                    sheet.style.transition = 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    sheet.style.transform  = '';
+                    if (backdrop) {
+                        backdrop.style.transition = 'opacity 220ms ease';
+                        backdrop.style.opacity = '';
+                    }
+                    setTimeout(function () {
+                        sheet.style.transition = '';
+                        if (backdrop) backdrop.style.transition = '';
+                    }, 240);
+                }
+            }, { passive: true });
+
+            document.addEventListener('click', function (e) {
+                if (e.target.closest && (e.target.closest('.mkcp-review-modal-close') || e.target.closest('#mkcp-review-modal-backdrop'))) {
+                    mkco_closeReviewModal();
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && document.body.classList.contains('mkcp-review-modal-open')) {
+                    mkco_closeReviewModal();
+                }
+            });
 
             // Vangnet-timer die de "Bestellen"-knop weer vrijgeeft. Staat hier
             // in de buitenste scope omdat zowel de checkout_error-listener
@@ -3799,6 +3997,7 @@ add_action( 'wp', function() {
             if (window.jQuery) {
                 jQuery(document).on('updated_checkout', function () {
                     setTimeout(mkco_syncOrderBar, 80);
+                    setTimeout(mkco_ensureReviewModalHeader, 80);
                 });
 
                 // Laadstatus op de "Bestellen"-knop: WooCommerce blokkeert bij
@@ -3814,12 +4013,20 @@ add_action( 'wp', function() {
             }
 
             document.addEventListener('click', function (e) {
+                var reviewBtn = e.target.closest && e.target.closest('#mkcp-mobile-orderbar-review-btn');
+                if (reviewBtn) {
+                    mkco_openReviewModal();
+                    return;
+                }
+
                 var totalEl = e.target.closest && e.target.closest('.mkcp-mobile-orderbar__total');
                 if (totalEl) {
-                    var toggledBtn = mkco_toggleReview();
-                    if (toggledBtn && toggledBtn.getAttribute('aria-expanded') === 'true') {
-                        toggledBtn.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                    // De oude inklap-kop (Instellingen → "Overzicht van je
+                    // bestelling standaard inklappen op mobiel") is CSS-
+                    // verborgen nu #order_review zelf al standaard verborgen
+                    // is buiten de popup om (zie checkout.scss) — het
+                    // totaalbedrag opent nu altijd gewoon dezelfde popup.
+                    mkco_openReviewModal();
                     return;
                 }
 
