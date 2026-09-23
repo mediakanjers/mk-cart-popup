@@ -43,6 +43,8 @@ function mkcp_changelog_entries() {
                 'Verbetering: header (logo + stappen) heeft op mobiel nu ademruimte t.o.v. de eerste sectie i.p.v. er direct tegenaan te plakken.',
                 'Verbetering: afgeronde hoeken van de secties (adres, levering, betaling) verwijderd op mobiel — zag er raar uit nu elke sectie de volle schermbreedte inneemt.',
                 'Verbetering: de datumkiezer toont op mobiel minder datumkaarten naast elkaar (was 4-5 half afgesneden, nu ~2,5), zodat elke datum breder en makkelijker te raken is.',
+                // ── Achter de schermen (update-mechanisme) ──
+                'Verbetering: bèta-updates komen voortaan uit een eigen "pre-release"-kanaal i.p.v. de hoofd-branch, zodat een bèta nooit meer per ongeluk vermengd raakt met een stabiele release.',
             ],
         ],
         [
