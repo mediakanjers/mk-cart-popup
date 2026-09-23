@@ -4013,19 +4013,12 @@ add_action( 'wp', function() {
             }
 
             document.addEventListener('click', function (e) {
+                // Alleen de "Bekijk bestelling"-knop opent de popup — het
+                // totaalbedrag ernaast is bewust NIET meer klikbaar (was
+                // verwarrend: de hele balk leek dan aanklikbaar terwijl
+                // alleen dit knopje dat hoort te zijn).
                 var reviewBtn = e.target.closest && e.target.closest('#mkcp-mobile-orderbar-review-btn');
                 if (reviewBtn) {
-                    mkco_openReviewModal();
-                    return;
-                }
-
-                var totalEl = e.target.closest && e.target.closest('.mkcp-mobile-orderbar__total');
-                if (totalEl) {
-                    // De oude inklap-kop (Instellingen → "Overzicht van je
-                    // bestelling standaard inklappen op mobiel") is CSS-
-                    // verborgen nu #order_review zelf al standaard verborgen
-                    // is buiten de popup om (zie checkout.scss) — het
-                    // totaalbedrag opent nu altijd gewoon dezelfde popup.
                     mkco_openReviewModal();
                     return;
                 }
