@@ -86,7 +86,12 @@ jobs:
           print( f'Bijgewerkt: {target}' )
           EOF
 
-      # ── 5. Bijgewerkt manifest committen naar main ──────────────────────────
+      # ── 5. Bijgewerkt manifest committen ─────────────────────────────────────
+      #
+      # Stabiele releases gaan naar main (wat klanten via de auto-updater
+      # zien). Pre-releases gaan naar de aparte pre-release-branch, zodat
+      # main altijd een échte (stabiele) release blijft representeren en
+      # nooit een bèta-commit bevat.
       - name: Commit manifest
         env:
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
@@ -95,9 +100,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ "$IS_PRERELEASE" = "true" ]; then
             TARGET=mk-cart-popup-update-beta.json
+            BRANCH=pre-release
           else
             TARGET=mk-cart-popup-update.json
+            BRANCH=main
           fi
           git add "$TARGET"
           git commit -m "chore: bump $TARGET to ${{ github.ref_name }}"
-          git push origin HEAD:main
+          git push origin HEAD:"$BRANCH"

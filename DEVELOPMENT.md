@@ -29,10 +29,11 @@ c:\laragon\www\
 
 | Branch | Doel |
 |--------|------|
-| `main`  | Stabiele releases — wat klanten ontvangen via de auto-updater |
+| `main`  | Stabiele releases — wat klanten ontvangen via de auto-updater. Alleen échte releases, nooit een bèta. |
+| `pre-release` | Bèta-kanaal — hier leest `MKCP_UPDATER_BETA_URL` het manifest vandaan. Alleen sites met pre-release-toegang checken dit. |
 | `dev`   | Lopende ontwikkeling — hier worden features gebouwd en getest |
 
-**Werkwijze:** ontwikkel op `dev`, merge naar `main` pas bij een officiële release.
+**Werkwijze:** ontwikkel op `dev`. Voor een bèta: merge `dev` → `pre-release`. Voor een officiële (stabiele) release: merge `dev` → `main`. `main` bevat dus nooit een tussentijdse bèta-commit.
 
 ---
 
@@ -293,11 +294,12 @@ De plugin heeft een ingebouwde auto-updater die `mk-cart-popup-update.json` van 
 
 Sommige licenties hebben pre-release-toegang (vinkje "Pre-release-toegang" bij de sleutel in het license-dashboard). Alleen die sites checken ook het bèta-manifest en krijgen bèta-versies aangeboden — alle andere klanten zien nooit iets van een pre-release.
 
-1. Versienummer met een pre-release-suffix, bijv. `1.15.0-beta.1` (in `mk-cart-popup.php`, zowel de header als `MKCP_VER`).
-2. Tag ook zo noemen: `v1.15.0-beta.1`.
-3. Bij het aanmaken van de GitHub Release: vink **"Set as a pre-release"** aan i.p.v. op "Publish release" als stabiele release te klikken.
-4. De Action herkent dit (`github.event.release.prerelease`) en schrijft naar `mk-cart-popup-update-beta.json` in plaats van het stabiele `mk-cart-popup-update.json` — de stabiele klantenkring merkt hier dus niets van.
-5. Een volgende stabiele release (zonder het vinkje) werkt gewoon zoals hierboven — die overschrijft nooit het bèta-manifest.
+1. **Merge `dev` → `pre-release`** (niet naar `main` — die is voorbehouden aan echte releases) en push naar GitHub.
+2. Versienummer met een pre-release-suffix, bijv. `1.15.0-beta.1` (in `mk-cart-popup.php`, zowel de header als `MKCP_VER`), gecommit op `pre-release`.
+3. Tag ook zo noemen: `v1.15.0-beta.1`, aangemaakt vanaf de `pre-release`-branch.
+4. Bij het aanmaken van de GitHub Release: vink **"Set as a pre-release"** aan i.p.v. op "Publish release" als stabiele release te klikken.
+5. De Action herkent dit (`github.event.release.prerelease`) en schrijft naar `mk-cart-popup-update-beta.json`, gecommit en gepusht naar de `pre-release`-branch — nooit naar `main` en nooit naar het stabiele `mk-cart-popup-update.json`.
+6. Een volgende stabiele release (zonder het vinkje) werkt gewoon zoals hierboven beschreven (merge naar `main`) — die raakt de `pre-release`-branch niet.
 
 ### Hoe werkt de updater?
 
@@ -307,7 +309,13 @@ https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/main/mk-cart-popup-
 ```
 Als de versie in het JSON-bestand hoger is dan de geïnstalleerde versie, toont WordPress de bekende "Update beschikbaar"-melding in het pluginscherm.
 
-Heeft de licentie pre-release-toegang (`mkcp_license_get_data()['prerelease']`), dan checkt `updater.php` daarnaast ook `mk-cart-popup-update-beta.json` en gebruikt de hoogste van de twee versies (`version_compare`). Zonder pre-release-toegang wordt dat tweede bestand nooit opgevraagd.
+Heeft de licentie pre-release-toegang (`mkcp_license_get_data()['prerelease']`), dan checkt `updater.php` daarnaast ook `mk-cart-popup-update-beta.json` — dat leest van de `pre-release`-branch, niet van `main`:
+```
+https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/pre-release/mk-cart-popup-update-beta.json
+```
+en gebruikt de hoogste van de twee versies (`version_compare`). Zonder pre-release-toegang wordt dat tweede bestand nooit opgevraagd.
+
+**Let op — eenmalige overgang:** deze `pre-release`-branch-opzet is zelf pas van kracht zodra sites de update ontvangen die de aangepaste `MKCP_UPDATER_BETA_URL`-constante bevat. Die constante staat hardcoded in het al-geïnstalleerde plugin-bestand, dus de eerste release die dit doorvoert moet nog via `main` (of de laatste `main`-gebaseerde bèta) uitgeleverd worden. Daarna volstaat voor élke volgende bèta alleen nog `dev` → `pre-release`.
 
 ---
 

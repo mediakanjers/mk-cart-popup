@@ -32,7 +32,9 @@ define( 'MKCP_UPDATER_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-c
 
 // Zelfde, maar voor het pre-release-kanaal. Wordt alleen geraadpleegd voor
 // sites waarvan de licentie 'prerelease' toegang heeft (zie license.php).
-define( 'MKCP_UPDATER_BETA_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/main/mk-cart-popup-update-beta.json' );
+// Wijst bewust naar de aparte 'pre-release'-branch i.p.v. main: main is
+// gereserveerd voor échte (stabiele) releases, bèta's gaan via pre-release.
+define( 'MKCP_UPDATER_BETA_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/pre-release/mk-cart-popup-update-beta.json' );
 
 // ── HPOS-compatibiliteit declareren ─────────────────────────────────────────
 //

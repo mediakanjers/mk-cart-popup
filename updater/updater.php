@@ -13,6 +13,10 @@
  *   3. Update mk-cart-popup-update.json → version + download_url
  *   4. Commit & push to main — WordPress sites will detect the update
  *      on the next check (or immediately via Dashboard → Updates → Check again)
+ *
+ * Pre-releases follow the same steps but on the separate `pre-release`
+ * branch (mk-cart-popup-update-beta.json instead), so `main` only ever
+ * holds real, stable releases. See DEVELOPMENT.md → "Pre-releases".
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
