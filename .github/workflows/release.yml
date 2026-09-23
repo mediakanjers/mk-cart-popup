@@ -106,5 +106,9 @@ jobs:
             BRANCH=main
           fi
           git add "$TARGET"
-          git commit -m "chore: bump $TARGET to ${{ github.ref_name }}"
-          git push origin HEAD:"$BRANCH"
+          if git diff --staged --quiet; then
+            echo "Geen wijzigingen in $TARGET (staat al op de juiste versie) — commit overgeslagen."
+          else
+            git commit -m "chore: bump $TARGET to ${{ github.ref_name }}"
+            git push origin HEAD:"$BRANCH"
+          fi
