@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.47',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Verbetering: met een geldig BTW-nummer wordt alles op "excl. BTW" gezet en vergrendeld (BTW-verlegging). Vink je daarna "Geldige BTW maar toch betalen?" aan, dan springt alles automatisch terug naar "incl. BTW" — ook als je eerder zelf op "excl." had gestaan — en kun je de BTW-schakelaar weer zelf wisselen. Vink je het weer uit, dan wordt opnieuw verlegd en vergrendeld.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.46',
             'date'    => '2026-09-24',
             'items'   => [

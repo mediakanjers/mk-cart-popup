@@ -2029,10 +2029,12 @@ add_action( 'wp', function() {
             // BTW-verlegging: bij een geldig nummer forceren + vergrendelen we
             // de prijsweergave op "excl. BTW" via window.mkcpBtwSwitch
             // (assets/checkout-btw.js, altijd aanwezig bij checkout_enabled).
-            function mkcp_setReverseCharge( active ) {
+            // unlockPref (optioneel): stand om naar terug te springen bij het
+            // ontgrendelen, i.p.v. de stand van vóór de vergrendeling.
+            function mkcp_setReverseCharge( active, unlockPref ) {
                 if ( ! window.mkcpBtwSwitch ) return;
                 if ( active ) window.mkcpBtwSwitch.lock( 'excl' );
-                else window.mkcpBtwSwitch.unlock();
+                else window.mkcpBtwSwitch.unlock( unlockPref );
             }
 
             // Het vinkje bestaat alleen als "Geldige BTW maar toch betalen?" in de
@@ -2068,7 +2070,11 @@ add_action( 'wp', function() {
                         'BTW-nummer geldig',
                         keepsVat ? 'BTW wordt gewoon berekend' : mkcp_readCompanyName()
                     );
-                    mkcp_setReverseCharge( ! keepsVat );
+                    // Aangevinkt: alles weer incl. BTW (klant betaalt gewoon BTW) en de
+                    // schakelaar is daarna weer handmatig te wisselen. Een latere
+                    // sync met het vinkje nog aan raakt een handmatige keuze niet
+                    // aan: unlock() doet niets zolang er niet vergrendeld is.
+                    mkcp_setReverseCharge( ! keepsVat, 'incl' );
                 } else if ( progressEl.classList.contains( 'wpfactory-wc-eu-vat-not-valid' ) ) {
                     mkcp_showStatus( 'error', 'Ongeldig BTW-nummer', 'Controleer het nummer en probeer het opnieuw' );
                     mkcp_setReverseCharge( false );

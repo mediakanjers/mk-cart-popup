@@ -144,12 +144,18 @@
             applyPref( true );
             setButtonsDisabled( true );
         },
-        unlock: function () {
+        // forcePref (optioneel, 'incl'|'excl'): forceer deze stand na het
+        // ontgrendelen i.p.v. terug te gaan naar wat de klant vóór de
+        // vergrendeling had. Zo springt de weergave bv. automatisch naar "incl.
+        // BTW" als de klant aangeeft toch BTW te willen betalen, ook als hij
+        // eerder zelf op "excl." had gestaan. Daarna is hij weer vrij om
+        // handmatig te wisselen (de toggle is dan niet meer uitgeschakeld).
+        unlock: function ( forcePref ) {
             if ( ! locked ) return;
             locked = false;
             setButtonsDisabled( false );
             try { localStorage.removeItem( LOCK_KEY ); } catch (e) {}
-            setPref( prefBeforeLock || 'incl' );
+            setPref( forcePref === 'incl' || forcePref === 'excl' ? forcePref : ( prefBeforeLock || 'incl' ) );
             applyPref( true );
             prefBeforeLock = null;
         }
