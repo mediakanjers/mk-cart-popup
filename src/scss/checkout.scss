@@ -3887,6 +3887,43 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
             grid-column : 1 / -1 !important;
         }
 
+        // Volgorde op mobiel. Op desktop bepalen de grid-template-areas (fn, ln,
+        // co, vn, vs, ...) waar elk veld staat, los van de DOM-volgorde. Hier
+        // zijn die areas uit (grid-template-areas: none), dus telt alleen de
+        // DOM-volgorde — en daarin staan Bedrijfsnaam en het BTW-nummer door de
+        // volgorde van de plugins die ze toevoegen helemaal onderaan (onder
+        // Telefoon/E-mail), terwijl ze op desktop onder Voor-/Achternaam staan.
+        // Dezelfde onderlinge volgorde als de desktop-grid hier expliciet
+        // vastleggen, met negatieve waarden zodat ze bovenaan de kolom komen
+        // en alle andere velden gewoon op hun DOM-volgorde (order 0) blijven.
+        // Veld-gebonden Content Builder-blokken krijgen dezelfde waarde als hun
+        // eigen veld: ze staan in de DOM direct ná dat veld, dus blijven eronder.
+        #billing_first_name_field,
+        #shipping_first_name_field,
+        .mkcp-zone-render--field[data-mkcp-field$="_first_name"] {
+            order : -40;
+        }
+
+        #billing_last_name_field,
+        #shipping_last_name_field,
+        .mkcp-zone-render--field[data-mkcp-field$="_last_name"] {
+            order : -30;
+        }
+
+        #billing_company_field,
+        #shipping_company_field {
+            order : -20;
+        }
+
+        #billing_eu_vat_number_field {
+            order : -10;
+        }
+
+        // BTW-validatiestatus-balk hoort direct onder het BTW-nummer.
+        .mkcp-pc-status--vat {
+            order : -9;
+        }
+
         // De inklap-kop + z'n open/dicht-staat zijn overbodig geworden nu
         // #order_review zelf standaard verborgen is buiten de "Bekijk
         // bestelling"-popup om (zie de latere @media(900px)-blok verderop
