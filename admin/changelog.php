@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.52',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Bugfix: het vak "Bezorglocatie" onder de bezorgdatum werd niet bijgewerkt nadat je het adres aanpaste (het toonde het oude adres of een oude straat). Het vak leest nu de zojuist ingevulde velden en toont direct het actuele adres.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.51',
             'date'    => '2026-09-24',
             'items'   => [

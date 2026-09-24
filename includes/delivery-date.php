@@ -546,11 +546,30 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
             // WP Overnight NL Postcode Checker slaat straat+huisnummer niet in
             // address_1 op maar in eigen velden — die overschrijven hier
             // address_1/2 alsnog, anders blijft alleen postcode/plaats over.
+            //
+            // Bij een AJAX-verversing (update_order_review) staan de zojuist
+            // ingevulde velden alleen in $_POST['post_data']; get_value()
+            // kijkt dan naar het opgeslagen account/de sessie en toonde dus
+            // het OUDE adres. Daarom eerst post_data lezen.
             if ( function_exists( 'mkcp_postcode_checker_active' ) && mkcp_postcode_checker_active() && WC()->checkout() ) {
-                $mkcp_dd_street = trim( (string) WC()->checkout()->get_value( $mkcp_dd_group . '_street_name' ) );
+                $mkcp_dd_posted = [];
+                if ( ! empty( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                    parse_str( wp_unslash( $_POST['post_data'] ), $mkcp_dd_posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                }
+                $mkcp_dd_field = static function ( $key ) use ( $mkcp_dd_posted ) {
+                    if ( isset( $mkcp_dd_posted[ $key ] ) && is_scalar( $mkcp_dd_posted[ $key ] ) ) {
+                        return trim( (string) wc_clean( $mkcp_dd_posted[ $key ] ) );
+                    }
+                    return trim( (string) WC()->checkout()->get_value( $key ) );
+                };
+                // Apart verzendadres uitgevinkt → post_data bevat dan alleen factuurvelden.
+                if ( $mkcp_dd_group === 'shipping' && empty( $mkcp_dd_posted['ship_to_different_address'] ) && ! empty( $mkcp_dd_posted ) ) {
+                    $mkcp_dd_group = 'billing';
+                }
+                $mkcp_dd_street = $mkcp_dd_field( $mkcp_dd_group . '_street_name' );
                 if ( $mkcp_dd_street !== '' ) {
-                    $mkcp_dd_nr     = trim( (string) WC()->checkout()->get_value( $mkcp_dd_group . '_house_number' ) );
-                    $mkcp_dd_nr_sfx = trim( (string) WC()->checkout()->get_value( $mkcp_dd_group . '_house_number_suffix' ) );
+                    $mkcp_dd_nr     = $mkcp_dd_field( $mkcp_dd_group . '_house_number' );
+                    $mkcp_dd_nr_sfx = $mkcp_dd_field( $mkcp_dd_group . '_house_number_suffix' );
                     $mkcp_dd_addr1  = trim( $mkcp_dd_street . ' ' . $mkcp_dd_nr . $mkcp_dd_nr_sfx );
                     $mkcp_dd_addr2  = '';
                 }
