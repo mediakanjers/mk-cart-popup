@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.43',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Fix: op mobiel stonden Bedrijfsnaam en het BTW-nummer helemaal onderaan het adresformulier (onder Telefoon/E-mail), terwijl ze op desktop netjes onder Voornaam/Achternaam staan. Op mobiel volgen ze nu dezelfde volgorde als op desktop.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.42',
             'date'    => '2026-09-24',
             'items'   => [
