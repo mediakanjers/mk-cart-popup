@@ -744,15 +744,20 @@ body.mkcp-distraction-free-checkout .form-row {
         background-size    : 18px 18px;
     }
 
+    // .mkcp-vat-field-valid: eigen klasse voor het BTW-nummerveld (gezet in het
+    // inline script van checkout-frontend.php) — zelfde groene rand + vinkje als
+    // een gevalideerd veld, ook als de VAT-plugin geen .woocommerce-validated zet.
     &.woocommerce-validated input,
-    &.woocommerce-validated select {
+    &.woocommerce-validated select,
+    &.mkcp-vat-field-valid input {
         border-color : #2b8a3e;
     }
 
     // Groen vinkje als tegenhanger van het rode kruis hierboven — voorheen
     // signaleerde een geldig veld alleen via de randkleur, een geldig veld
     // verdiende dezelfde icoon-behandeling als een ongeldig veld.
-    &.woocommerce-validated input.input-text {
+    &.woocommerce-validated input.input-text,
+    &.mkcp-vat-field-valid input.input-text {
         padding-right     : 38px;
         background-image  : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232b8a3e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='9 12 11 14 15 10'/%3E%3C/svg%3E");
         background-repeat  : no-repeat;

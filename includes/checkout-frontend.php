@@ -1960,6 +1960,72 @@ add_action( 'wp', function() {
 }, 4 );
 
 
+// ── BTW-besparing bij verlegging ───────────────────────────────────────────────
+//
+// Het bedrag BTW dat de klant WEL zou betalen zonder verlegging, voor de
+// melding "BTW verlegd · je bespaart € X" onder het BTW-nummer. Bij een
+// vrijgestelde klant staan er geen belastingregels meer in de totalen, dus dat
+// bedrag valt niet uit de pagina te lezen: hier zelf berekend met de tarieven
+// van WooCommerce (WC_Tax::find_rates / get_shipping_tax_rates), die de
+// klant-vrijstelling zelf niet toepassen. Alleen producten (regelbedrag na
+// kortingen, excl. BTW) en verzendkosten; toeslagen (fees) blijven buiten beeld.
+function mkcp_vat_potential_amount(): float {
+    if ( ! function_exists( 'WC' ) || ! WC()->cart || ! WC()->customer ) return 0.0;
+    if ( ! function_exists( 'wc_tax_enabled' ) || ! wc_tax_enabled() ) return 0.0;
+
+    $cart = WC()->cart;
+    $addr = array_pad( (array) WC()->customer->get_taxable_address(), 4, '' );
+    list( $country, $state, $postcode, $city ) = $addr;
+    if ( $country === '' ) return 0.0;
+
+    $total = 0.0;
+    foreach ( $cart->get_cart() as $item ) {
+        $product = $item['data'] ?? null;
+        if ( ! $product || ! $product->is_taxable() ) continue;
+        $rates = WC_Tax::find_rates( [
+            'country'   => $country,
+            'state'     => $state,
+            'postcode'  => $postcode,
+            'city'      => $city,
+            'tax_class' => $product->get_tax_class(),
+        ] );
+        $total += array_sum( WC_Tax::calc_tax( (float) ( $item['line_total'] ?? 0 ), $rates, false ) );
+    }
+
+    $shipping = (float) $cart->get_shipping_total();
+    if ( $shipping > 0 && $cart->needs_shipping() ) {
+        $total += array_sum( WC_Tax::calc_tax( $shipping, WC_Tax::get_shipping_tax_rates(), false ) );
+    }
+
+    return round( $total, function_exists( 'wc_get_price_decimals' ) ? wc_get_price_decimals() : 2 );
+}
+
+function mkcp_vat_saving_enabled(): bool {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return false;
+    if ( ! mkcp_license_has( 'premium' ) ) return false;
+    $cfg = mkcp_checkout_config();
+    return ! empty( $cfg['checkout_enabled'] )
+        && ! empty( $cfg['vat_checker_status_enabled'] )
+        && mkcp_vat_checker_active();
+}
+
+function mkcp_vat_saving_html(): string {
+    $amount = mkcp_vat_potential_amount();
+    $text   = html_entity_decode( wp_strip_all_tags( wc_price( $amount ) ), ENT_QUOTES, 'UTF-8' );
+    return '<span class="mkcp-vat-saving" hidden data-amount="' . esc_attr( (string) $amount ) . '" data-formatted="' . esc_attr( $text ) . '"></span>';
+}
+
+// Bewust op top-level geregistreerd, NIET binnen de add_action( 'wp' ) + is_checkout()
+// hieronder: de fragments-filter draait tijdens wc-ajax=update_order_review op de
+// home-URL, waar is_checkout() false geeft (zie project_checkout_debug_lessen).
+add_filter( 'woocommerce_update_order_review_fragments', function ( $fragments ) {
+    if ( mkcp_vat_saving_enabled() ) {
+        $fragments['.mkcp-vat-saving'] = mkcp_vat_saving_html();
+    }
+    return $fragments;
+} );
+
+
 // BTW-verlegging + statusbalk. Draait alleen als de master-switch
 // (vat_checker_status_enabled) aanstaat én de VAT-plugin actief is. Vroeger
 // draaide dit altijd zodra de VAT-plugin actief was, waardoor de verlegging
@@ -2012,8 +2078,20 @@ add_action( 'wp', function() {
                 },
                 getTargetFields: function () { return [ inputEl ]; }
             } );
-            var mkcp_showStatus = fieldStatus.showStatus;
-            var mkcp_hideStatus = fieldStatus.hideStatus;
+            // Dezelfde melding niet opnieuw opbouwen: mkcp_syncFromProgress draait nu
+            // ook bij elke herberekening van de bestelling (updated_checkout), en
+            // showStatus() speelt de instap-animatie telkens opnieuw af.
+            var mkcp_lastStatusKey = '';
+            var mkcp_showStatus = function ( type, title, sub ) {
+                var key = type + '|' + title + '|' + sub;
+                if ( key === mkcp_lastStatusKey ) return;
+                mkcp_lastStatusKey = key;
+                fieldStatus.showStatus( type, title, sub );
+            };
+            var mkcp_hideStatus = function ( delay ) {
+                mkcp_lastStatusKey = '';
+                fieldStatus.hideStatus( delay );
+            };
 
             function mkcp_readCompanyName() {
                 var details = document.getElementById( 'wpfactory_wc_eu_vat_details' );
@@ -2054,6 +2132,30 @@ add_action( 'wp', function() {
             // stand staan, zodat het vinkje niet flikkert bij elke herberekening.
             function mkcp_setValidClass( on ) {
                 document.body.classList.toggle( 'mkcp-vat-valid', !! on );
+                // Groen vinkje + rand in het BTW-veld zelf (zoals andere geldige
+                // velden). Eigen klasse i.p.v. WooCommerce's .woocommerce-validated:
+                // die laat de VAT-plugin na één geslaagde check voorgoed staan.
+                wrapperEl.classList.toggle( 'mkcp-vat-field-valid', !! on );
+            }
+
+            // Bedrag BTW dat de klant zonder verlegging zou betalen — server-side
+            // berekend (mkcp_vat_potential_amount()) en via de order-review-
+            // fragments bij elke herberekening ververst. Het placeholder-element
+            // hieronder is nodig omdat WooCommerce fragments alleen vervangt wat
+            // al in de pagina staat.
+            if ( ! document.querySelector( '.mkcp-vat-saving' ) ) {
+                var savingPh = document.createElement( 'span' );
+                savingPh.className = 'mkcp-vat-saving';
+                savingPh.hidden = true;
+                document.body.appendChild( savingPh );
+            }
+            function mkcp_savingText() {
+                var el = document.querySelector( '.mkcp-vat-saving' );
+                if ( ! el ) return '';
+                var amount = parseFloat( el.getAttribute( 'data-amount' ) );
+                var text   = el.getAttribute( 'data-formatted' ) || '';
+                if ( ! ( amount > 0 ) || ! text ) return '';
+                return text.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' );
             }
 
             function mkcp_syncFromProgress() {
@@ -2078,10 +2180,13 @@ add_action( 'wp', function() {
                     // "excl. BTW" vergrendelen terwijl er gewoon BTW wordt gerekend.
                     var keepsVat = mkcp_customerKeepsVat();
                     mkcp_setValidClass( true );
+                    var saving = mkcp_savingText();
                     mkcp_showStatus(
                         'success',
                         'BTW-nummer geldig',
-                        keepsVat ? 'BTW wordt gewoon berekend' : 'BTW verlegd'
+                        keepsVat
+                            ? 'BTW wordt gewoon berekend' + ( saving ? ' (' + saving + ')' : '' )
+                            : 'BTW verlegd' + ( saving ? ' · je bespaart ' + saving : '' )
                     );
                     // Aangevinkt: alles weer incl. BTW (klant betaalt gewoon BTW) en de
                     // schakelaar is daarna weer handmatig te wisselen. Een latere
@@ -2121,6 +2226,12 @@ add_action( 'wp', function() {
             document.addEventListener( 'change', function ( e ) {
                 if ( e.target && e.target.id === KEEP_VAT_ID ) mkcp_syncFromProgress();
             } );
+
+            // Na elke herberekening van de bestelling (nieuwe fragments, dus een
+            // actueel BTW-bedrag) de melding bijwerken.
+            if ( window.jQuery ) {
+                jQuery( document.body ).on( 'updated_checkout', mkcp_syncFromProgress );
+            }
         })();
         </script>
         <?php
