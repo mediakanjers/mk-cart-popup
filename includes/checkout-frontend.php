@@ -2035,6 +2035,14 @@ add_action( 'wp', function() {
                 else window.mkcpBtwSwitch.unlock();
             }
 
+            // Het vinkje bestaat alleen als "Geldige BTW maar toch betalen?" in de
+            // VAT-plugin aanstaat; opzoeken per aanroep i.p.v. één keer bewaren.
+            var KEEP_VAT_ID = FIELD_ID + '_valid_vat_but_not_exempted';
+            function mkcp_customerKeepsVat() {
+                var el = document.getElementById( KEEP_VAT_ID );
+                return !! ( el && el.checked );
+            }
+
             function mkcp_syncFromProgress() {
                 // Zonder ingevoerd nummer nooit een status tonen — de plugin
                 // kan #wpfactory_wc_eu_vat_progress bij een AJAX-refresh met
@@ -2050,8 +2058,17 @@ add_action( 'wp', function() {
                 if ( progressEl.classList.contains( 'wpfactory-wc-eu-vat-validating' ) ) {
                     mkcp_showStatus( 'loading', 'BTW-nummer controleren…', 'Even geduld, we checken dit nummer' );
                 } else if ( progressEl.classList.contains( 'wpfactory-wc-eu-vat-valid' ) ) {
-                    mkcp_showStatus( 'success', 'BTW-nummer geldig', mkcp_readCompanyName() );
-                    mkcp_setReverseCharge( true );
+                    // Optioneel vinkje van de VAT-plugin ("Geldige BTW maar toch
+                    // betalen?"): de plugin houdt dan de BTW erin maar zet dezelfde
+                    // "valid"-klasse — zonder deze check zou de prijsweergave op
+                    // "excl. BTW" vergrendelen terwijl er gewoon BTW wordt gerekend.
+                    var keepsVat = mkcp_customerKeepsVat();
+                    mkcp_showStatus(
+                        'success',
+                        'BTW-nummer geldig',
+                        keepsVat ? 'BTW wordt gewoon berekend' : mkcp_readCompanyName()
+                    );
+                    mkcp_setReverseCharge( ! keepsVat );
                 } else if ( progressEl.classList.contains( 'wpfactory-wc-eu-vat-not-valid' ) ) {
                     mkcp_showStatus( 'error', 'Ongeldig BTW-nummer', 'Controleer het nummer en probeer het opnieuw' );
                     mkcp_setReverseCharge( false );
@@ -2074,6 +2091,14 @@ add_action( 'wp', function() {
             // wijzigingen erop, ongeacht welk script als eerste draait.
             new MutationObserver( mkcp_syncFromProgress ).observe( wrapperEl, {
                 childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ]
+            } );
+
+            // Het vinkje zit in een eigen <p> buiten wrapperEl, dus de observer
+            // hierboven ziet alleen de (latere) uitkomst van de plugin-validatie.
+            // Direct meebewegen bij het aan-/uitvinken, zodat de prijsweergave
+            // niet wacht op die AJAX-ronde.
+            document.addEventListener( 'change', function ( e ) {
+                if ( e.target && e.target.id === KEEP_VAT_ID ) mkcp_syncFromProgress();
             } );
         })();
         </script>

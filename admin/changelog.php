@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.45',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Fix: als een klant het vinkje "Geldige BTW maar toch betalen?" (EU/UK VAT Validation Manager) aanzet, bleef de prijsweergave toch vastgezet op "excl. BTW" terwijl er gewoon BTW wordt gerekend. De vergrendeling geldt nu alleen als de BTW echt wordt verlegd; met het vinkje aan toont de statusbalk "BTW wordt gewoon berekend".',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.44',
             'date'    => '2026-09-24',
             'items'   => [
