@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.49',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Verbetering: de tekst bij het vinkje "Geldige BTW maar toch betalen?" heeft nu dezelfde lettergrootte als de toelichtende tekst die je met de Content Builder onder een veld kunt zetten (11,5px), met een iets kleiner vinkvakje in verhouding.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.48',
             'date'    => '2026-09-24',
             'items'   => [
