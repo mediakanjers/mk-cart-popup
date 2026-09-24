@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.46',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Verbetering: het vinkje "Geldige BTW maar toch betalen?" is strakker opgemaakt — dezelfde rand en afronding als de tekstvelden erboven, het vinkje verticaal gecentreerd, een zachte accentkleur-tint als het is aangevinkt, en het overbodige "(optioneel)" dat los achter de tekst hing is verdwenen. Het vinkje is nu ook met het toetsenbord (Tab) te bereiken, met een zichtbare focusrand.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.45',
             'date'    => '2026-09-24',
             'items'   => [
