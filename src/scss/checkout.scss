@@ -532,6 +532,7 @@ body.mkcp-distraction-free-checkout {
             "fnc fnc lnc lnc"
             "co co co co"
             "vn vn vn vn"
+            "vx vx vx vx"
             "vs vs vs vs"
             "cy cy cy cy"
             "pc pc hn sf"
@@ -588,6 +589,7 @@ body.mkcp-distraction-free-checkout {
             "fnc fnc lnc lnc"
             "co co co co"
             "vn vn vn vn"
+            "vx vx vx vx"
             "vs vs vs vs"
             "cy cy cy cy"
             "rg rg rg rg"
@@ -1234,6 +1236,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--delivery #ship-to-differen
     #billing_last_name_field,        #shipping_last_name_field        { grid-area : ln !important; }
     #billing_company_field,          #shipping_company_field          { grid-area : co !important; width : 100% !important; float : none !important; }
     #billing_eu_vat_number_field                                     { grid-area : vn !important; width : 100% !important; float : none !important; }
+    #billing_eu_vat_number_valid_vat_but_not_exempted_field          { grid-area : vx !important; width : 100% !important; float : none !important; }
     #billing_country_field,          #shipping_country_field          { grid-area : cy !important; width : 100% !important; float : none !important; }
     #billing_address_1_field,        #shipping_address_1_field        { grid-area : a1 !important; width : 100% !important; float : none !important; }
     #billing_address_2_field,        #shipping_address_2_field        { grid-area : a2 !important; width : 100% !important; float : none !important; }
@@ -2478,7 +2481,8 @@ body.mkcp-distraction-free-checkout #payment {
 // voorwaarden-/account-aanmaken-checkboxen wél hebben — vandaar hier expliciet
 // als eigen selector toegevoegd i.p.v. aan te nemen dat hij al meeliftte.
 body.mkcp-distraction-free-checkout .woocommerce-form__label-for-checkbox.checkbox,
-body.mkcp-distraction-free-checkout .woocommerce-form__label-for-checkbox.woocommerce-form-login__rememberme {
+body.mkcp-distraction-free-checkout .woocommerce-form__label-for-checkbox.woocommerce-form-login__rememberme,
+body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exempted_field label.checkbox {
     // WooCommerce geeft deze <label> een ouder-<p> met class "form-row"
     // (dezelfde class als billing/shipping-velden) — de floating-label-
     // regels hierboven (.form-row label) maken elk label daarbinnen
@@ -2550,6 +2554,21 @@ body.mkcp-distraction-free-checkout .woocommerce-form__label-for-checkbox.woocom
         color          : var(--mkcp-accent, $accent);
         text-decoration: underline;
         &:hover { text-decoration: none; }
+    }
+}
+
+// Vinkje-veld van de EU/UK VAT Validation Manager ("Geldige BTW maar toch
+// betalen?"): dit is een gewoon WooCommerce-checkboxveld (label.checkbox in
+// een p.form-row), geen ".woocommerce-form__label-for-checkbox" — de vinkje-
+// kaart hierboven is er daarom expliciet aan gekoppeld. De <p> zelf hoeft
+// geen extra ondermarge (de label-kaart heeft die al) en de inline
+// .woocommerce-input-wrapper moet een blok zijn zodat de kaart de volle
+// breedte pakt.
+body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exempted_field {
+    margin : 0;
+
+    .woocommerce-input-wrapper {
+        display : block;
     }
 }
 
@@ -3845,6 +3864,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         #billing_company_field,
         #shipping_company_field,
         #billing_eu_vat_number_field,
+        #billing_eu_vat_number_valid_vat_but_not_exempted_field,
         #billing_country_field,
         #shipping_country_field,
         #billing_address_1_field,
@@ -3919,9 +3939,15 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
             order : -10;
         }
 
-        // BTW-validatiestatus-balk hoort direct onder het BTW-nummer.
-        .mkcp-pc-status--vat {
+        // Vinkje "geldig BTW-nummer maar toch BTW betalen" (EU/UK VAT
+        // Validation Manager, optioneel) en de BTW-validatiestatus-balk horen
+        // direct onder het BTW-nummer.
+        #billing_eu_vat_number_valid_vat_but_not_exempted_field {
             order : -9;
+        }
+
+        .mkcp-pc-status--vat {
+            order : -8;
         }
 
         // De inklap-kop + z'n open/dicht-staat zijn overbodig geworden nu

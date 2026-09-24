@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.44',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Fix: het vinkje "Geldige BTW maar toch betalen?" van de EU/UK VAT Validation Manager (instelbaar in die plugin) zag er kapot uit — het zweefde als los vierkantje over het bedrijfsnaam-veld heen. Het staat nu als nette vinkje-kaart (zelfde stijl als de voorwaarden-checkbox) direct onder het BTW-nummer, op desktop én mobiel, en wordt alleen getoond zolang het BTW-nummerveld zichtbaar is.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.43',
             'date'    => '2026-09-24',
             'items'   => [

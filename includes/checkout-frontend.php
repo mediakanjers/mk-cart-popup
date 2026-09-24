@@ -1190,7 +1190,7 @@ add_action( 'wp', function() {
     if ( ! mkcp_vat_checker_active() ) return;
 
     add_action( 'wp_head', function() {
-        echo '<style>body.mkcp-distraction-free-checkout #billing_eu_vat_number_field{display:none !important}</style>';
+        echo '<style>body.mkcp-distraction-free-checkout #billing_eu_vat_number_field,body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exempted_field{display:none !important}</style>';
     } );
 
     add_action( 'wp_footer', function() {
@@ -1226,7 +1226,7 @@ add_action( 'wp', function() {
     if ( ! mkcp_vat_checker_active() ) return;
 
     add_action( 'wp_head', function() {
-        echo '<style>body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_field{display:none !important}</style>';
+        echo '<style>body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_field,body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_valid_vat_but_not_exempted_field{display:none !important}</style>';
     } );
 
     add_action( 'wp_footer', function() {
