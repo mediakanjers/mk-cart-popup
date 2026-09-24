@@ -484,8 +484,9 @@ add_action( 'wp_ajax_mkcp_builder_save', function() {
     // de builder-UI vergrendelt ze alleen visueel, niet server-side.
     // 'cart_count_badge_enabled' hoort hier bewust niet bij: geen builder-veld
     // (zit in Shipping-tab), dus zou elke quick-save 'm terugzetten naar uit.
-    $allowed_bool          = [ 'free_shipping_bar', 'show_coupon', 'crosssell_enabled' ];
-    $allowed_bool_premium  = [ 'btw_split', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email' ];
+    $allowed_bool          = [ 'free_shipping_bar', 'show_coupon', 'crosssell_enabled', 'delivery_preview_enabled' ];
+    $allowed_bool_premium  = [ 'btw_split', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email',
+                               'account_link_enabled', 'trust_badge_enabled', 'style_expand_enabled', 'style_resize_enabled' ];
 
     $post = [];
     foreach ( $_POST as $k => $v ) {

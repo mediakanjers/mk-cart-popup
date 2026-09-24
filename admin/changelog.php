@@ -22,6 +22,18 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.42',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Content Builder (winkelwagen-pop-up) ──
+                'Nieuw: de Content Builder heeft nu ook aan/uit-balken voor de account-link, de vertrouwensbadge, de eerstvolgende bezorgdatum, de volledig-scherm-knop en de breedte-sleepgreep — dezelfde opties die de winkelwagen zelf al had maar die je in de builder niet kon aan- of uitzetten. Ze worden ook meegenomen bij het opslaan vanuit de builder.',
+                'Verbetering: de live preview ziet er nu hetzelfde uit als de echte winkelwagen-pop-up: de nieuwe BTW-schuifknop (i.p.v. de oude pillen) in een rij met de account-link, één prijsvariant tegelijk bij BTW-splitsing, de eenheidsprijs onder de productnaam, dezelfde lettergroottes en afbeeldingsgrootte, de gele melding bij een minimum bestelbedrag, betaalicoontjes op de echte grootte, de juiste volgorde onderin (deel-winkelmand vóór de USP\'s, "bewaard voor later" na de footer) en dezelfde zij-opvulling voor blokken boven/onder de producten.',
+                'Fix: een scheidingslijn van het type "Witruimte" werd op de site stilzwijgend een gewone doorgetrokken lijn, ook al toonde de preview witruimte.',
+                'Fix: een tekstblok waar je nooit een kleur voor koos kreeg toch altijd zwarte tekst (ook in donkere modus) doordat de kleurkiezer standaard op zwart staat; nu wordt dat als "geen kleur gekozen" behandeld.',
+                'Fix: kapotte tekens (bv. "âœ“") in de icoonkeuze en het voorbeeld-tekstveld van het USP-blok in de builder.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.41',
             'date'    => '2026-09-23',
             'items'   => [

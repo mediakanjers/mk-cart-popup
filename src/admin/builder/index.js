@@ -41,8 +41,13 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         button  : 'Knop',
     };
 
-    // Mock cart values for the preview
-    var MOCK = { subtotal: 35.00, items: 2 };
+    // Mock cart values for the preview (2 producten: 1 × 24,95 + 2 × 5,00, incl. 21% BTW)
+    var MOCK = { subtotal: 34.95, items: 2, vat: 0.21 };
+
+    // Zelfde notatie als wc_price() op de live site: € + niet-brekende spatie + 1.234,56
+    function money( n ) {
+        return '&#8364;&nbsp;' + n.toFixed( 2 ).replace( '.', ',' );
+    }
 
     // Cross-sell mock data & icons — hoisted out of buildPopupHtml to avoid per-refresh allocation
     var MOCK_CS_ALL = [
@@ -56,7 +61,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
     // Flag: pauses schedulePreview while a contenteditable field has focus
     var inlineEditingActive = false;
 
-    // â”€â”€ Bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Bootstrap ────────────────────────────────────────────────────────────
 
     function init() {
         try {
@@ -83,7 +88,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         }
     }
 
-    // â”€â”€ Live config from form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Live config from form ─────────────────────────────────────────────────
 
     function readLiveConfig() {
         var $form = $( '#mkcp-form' );
@@ -95,7 +100,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             return $form.find( '[name="' + name + '"]' ).is( ':checked' );
         }
 
-        // Payment icons â€” read URL/label pairs per row
+        // Payment icons — read URL/label pairs per row
         var payIcons = [];
         $form.find( '.mkcp-pay-upload-row' ).each( function () {
             var url   = $( this ).find( '[name="mkcp_pay_icon_url[]"]' ).val();
@@ -103,7 +108,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             if ( url ) payIcons.push( { url: url, label: label } );
         } );
 
-        // USP strip items â€” read icon/text pairs per row
+        // USP strip items — read icon/text pairs per row
         var usps = [];
         $form.find( '.mkcp-usp-row' ).each( function () {
             var text = $( this ).find( '[name="mkcp_usp_text[]"]' ).val();
@@ -137,10 +142,17 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             crosssell_enabled      : checked( 'mkcp_crosssell_enabled' ),
             crosssell_title        : val( 'mkcp_crosssell_title' )    || 'Misschien ook interessant?',
             crosssell_limit        : Math.min( 6, Math.max( 1, parseInt( val( 'mkcp_crosssell_limit' ), 10 ) || 3 ) ),
+            account_link           : checked( 'mkcp_account_link_enabled' ),
+            trust_badge            : checked( 'mkcp_trust_badge_enabled' ),
+            trust_rating           : Math.max( 0, Math.min( 5, parseFloat( val( 'mkcp_trust_badge_rating' ) ) || 0 ) ),
+            trust_review_count     : Math.max( 0, parseInt( val( 'mkcp_trust_badge_review_count' ), 10 ) || 0 ),
+            delivery_preview       : checked( 'mkcp_delivery_preview_enabled' ),
+            expand_enabled         : checked( 'mkcp_style_expand_enabled' ),
+            resize_enabled         : checked( 'mkcp_style_resize_enabled' ),
         };
     }
 
-    // â”€â”€ Zone list rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Zone list rendering ───────────────────────────────────────────────────
 
     function renderAllZones() {
         ZONE_ORDER.forEach( renderZone );
@@ -215,7 +227,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         } );
     }
 
-    // â”€â”€ SortableJS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── SortableJS ───────────────────────────────────────────────────────────
 
     function initSortable() {
         // Left-panel zones: reorder / move between zones
@@ -480,6 +492,8 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         var boolFields = [
             'mkcp_free_shipping_bar', 'mkcp_show_coupon', 'mkcp_crosssell_enabled', 'mkcp_btw_split',
             'mkcp_save_for_later', 'mkcp_stock_indicator', 'mkcp_save_cart_url', 'mkcp_save_cart_email',
+            'mkcp_account_link_enabled', 'mkcp_trust_badge_enabled', 'mkcp_delivery_preview_enabled',
+            'mkcp_style_expand_enabled', 'mkcp_style_resize_enabled',
         ];
         boolFields.forEach( function ( name ) {
             data[ name ] = $form.find( '[name="' + name + '"]' ).is( ':checked' ) ? '1' : '';
@@ -758,7 +772,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         $( '#mkcp-editor-save' ).on( 'click', saveEditor );
         $( document ).on( 'keydown.mkcp-editor', function ( e ) { if ( e.key === 'Escape' ) closeEditor(); } );
 
-        // Live form sync: any field change â†’ update preview
+        // Live form sync: any field change → update preview
         $( '#mkcp-form' ).on( 'input change', 'input, select, textarea', function () {
             if ( $( this ).attr( 'id' ) === 'mkcp-blocks-json' ) return;
             schedulePreview();
@@ -773,7 +787,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         syncSidebarVisibility(); // apply on load
     }
 
-    // â”€â”€ Block editor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Block editor ─────────────────────────────────────────────────────────
 
     function openEditor( type, idx ) {
         editingIndex = ( idx === null ) ? -1 : idx;
@@ -829,14 +843,14 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             return zoneField +
                 '<div class="mkcp-editor-field"><label>Icoon</label>' +
                 '<select id="mkcp-editor-usp-icon">' +
-                '<option value="check"'  + sel( block.icon, 'check' )  + '>âœ“ Vinkje</option>' +
-                '<option value="star"'   + sel( block.icon, 'star' )   + '>â˜… Ster</option>' +
-                '<option value="shield"' + sel( block.icon, 'shield' ) + '>â¬¡ Schild</option>' +
-                '<option value="truck"'  + sel( block.icon, 'truck' )  + '>â¬¡ Vrachtwagen</option>' +
-                '<option value="phone"'  + sel( block.icon, 'phone' )  + '>â¬¡ Telefoon</option>' +
+                '<option value="check"'  + sel( block.icon, 'check' )  + '>✓ Vinkje</option>' +
+                '<option value="star"'   + sel( block.icon, 'star' )   + '>★ Ster</option>' +
+                '<option value="shield"' + sel( block.icon, 'shield' ) + '>⬡ Schild</option>' +
+                '<option value="truck"'  + sel( block.icon, 'truck' )  + '>⬡ Vrachtwagen</option>' +
+                '<option value="phone"'  + sel( block.icon, 'phone' )  + '>⬡ Telefoon</option>' +
                 '</select></div>' +
                 '<div class="mkcp-editor-field"><label>Tekst</label>' +
-                '<input type="text" id="mkcp-editor-usp-text" value="' + esc( block.text || '' ) + '" placeholder="Gratis verzending vanaf â‚¬50"></div>';
+                '<input type="text" id="mkcp-editor-usp-text" value="' + esc( block.text || '' ) + '" placeholder="Gratis verzending vanaf €50"></div>';
         }
         if ( type === 'image' ) {
             return zoneField +
@@ -925,7 +939,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         editingIndex = -1;
     }
 
-    // â”€â”€ Media picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Media picker ─────────────────────────────────────────────────────────
 
     function openMediaPicker( callback ) {
         if ( typeof wp === 'undefined' || ! wp.media ) return;
@@ -934,13 +948,13 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         frame.open();
     }
 
-    // â”€â”€ Serialization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Serialization ────────────────────────────────────────────────────────
 
     function serializeToInput() {
         $( '#mkcp-blocks-json' ).val( JSON.stringify( blocks ) );
     }
 
-    // â”€â”€ Preview scheduling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Preview scheduling ────────────────────────────────────────────────────
 
     function schedulePreview() {
         if ( inlineEditingActive ) return;
@@ -948,7 +962,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         previewTimer = setTimeout( refreshPreview, DEBOUNCE_MS );
     }
 
-    // â”€â”€ Popup HTML builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Popup HTML builder ────────────────────────────────────────────────────
 
     function refreshPreview() {
         // Vernieuw de preview HTML. initPreviewZoneDrop used event-delegatie op de
@@ -991,22 +1005,84 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         return '<span>' + content + '</span>';
     }
 
+    // Spiegelt templates/cart-popup.php: titel links, rechts een actie-groep
+    // met (optioneel) de volledig-scherm-knop en altijd de sluitknop.
     function tplHeader( cfg, isBuilder ) {
+        var expandBtn = cfg.expand_enabled
+            ? '<button class="mk-cart-popup__expand" type="button" disabled>' + ICON.expand + '</button>'
+            : '';
         return '<div class="mk-cart-popup__header">' +
                '<div class="mk-cart-popup__title">' + ICON.cart + ' ' +
                tplEditable( 'mkcp_title', esc( cfg.title ), isBuilder ) +
                '</div>' +
+               '<div class="mk-cart-popup__header-actions">' + expandBtn +
                '<button class="mk-cart-popup__close" disabled>' + ICON.close + '</button>' +
+               '</div>' +
                '</div>';
     }
 
-    function tplBtwSwitch( cfg ) {
-        return '<div class="mk-cart-popup__btw-switch">' +
-               '<span class="mk-cart-popup__btw-label">Prijzen tonen:</span>' +
-               '<div class="mk-cart-popup__btw-pills">' +
-               '<button type="button" class="mk-cart-popup__btw-opt is-active">' + esc( cfg.label_incl_tax || 'Incl. BTW' ) + '</button>' +
-               '<button type="button" class="mk-cart-popup__btw-opt">' + esc( cfg.label_excl_tax || 'Excl. BTW' ) + '</button>' +
-               '</div></div>';
+    // Alleen in de builder: aan/uit-balken voor onderdelen die live geen eigen
+    // blok in de popup hebben (of in de header/rij zitten). Niet onderdeel van
+    // de echte popup.
+    function tplExtras( cfg ) {
+        return '<div class="mkcp-preview-extras">' +
+               sectionToggle( 'mkcp_btw_split',            'BTW-schakelaar',      cfg.btw_split ) +
+               sectionToggle( 'mkcp_account_link_enabled', 'Account-link',        cfg.account_link ) +
+               sectionToggle( 'mkcp_style_expand_enabled', 'Volledig-scherm-knop', cfg.expand_enabled ) +
+               sectionToggle( 'mkcp_style_resize_enabled', 'Breedte-sleepgreep',  cfg.resize_enabled ) +
+               '</div>';
+    }
+
+    // Utility-rij: BTW-schakelaar + account-link op één regel (zelfde markup
+    // als templates/cart-popup.php).
+    function tplUtilityRow( cfg ) {
+        if ( ! cfg.btw_split && ! cfg.account_link ) return '';
+        var btw = cfg.btw_split
+            ? '<div class="mk-cart-popup__btw-switch">' +
+              '<label class="mk-cart-popup__btw-toggle">' +
+              '<input type="checkbox" class="js-mkcp-btw-toggle" checked disabled>' +
+              '<span class="mk-cart-popup__btw-toggle-track"><span class="mk-cart-popup__btw-toggle-thumb">' +
+              '<svg class="mk-cart-popup__btw-toggle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+              '</span></span></label>' +
+              '<span class="mk-cart-popup__btw-label">Inclusief BTW</span></div>'
+            : '';
+        var account = cfg.account_link
+            ? '<div class="mk-cart-popup__utility-icons"><a class="mk-cart-popup__utility-icon mk-cart-popup__utility-icon--account">' +
+              ICON.user + '<span class="mk-cart-popup__utility-icon-label">Inloggen</span></a></div>'
+            : '';
+        return '<div class="mk-cart-popup__utility-row">' + btw + account + '</div>';
+    }
+
+    function tplTrustBadge( cfg ) {
+        var stars = '';
+        for ( var i = 1; i <= 5; i++ ) {
+            var fill = Math.max( 0, Math.min( 100, ( cfg.trust_rating - ( i - 1 ) ) * 100 ) );
+            stars += '<span class="mk-cart-popup__trust-star" style="--mkcp-star-fill:' + fill + '%">' +
+                     '<svg class="mk-cart-popup__trust-star-bg" viewBox="0 0 24 24">' + ICON.star + '</svg>' +
+                     '<svg class="mk-cart-popup__trust-star-fill" viewBox="0 0 24 24">' + ICON.star + '</svg></span>';
+        }
+        var count = cfg.trust_review_count > 0
+            ? ' <span class="mk-cart-popup__trust-badge-count">(' + cfg.trust_review_count + ')</span>'
+            : '';
+        return '<div class="mk-cart-popup__trust-badge">' +
+               '<span class="mk-cart-popup__trust-badge-stars">' + stars + '</span>' +
+               '<span class="mk-cart-popup__trust-badge-text">' + cfg.trust_rating.toFixed( 1 ).replace( '.', ',' ) + count + '</span>' +
+               '</div>';
+    }
+
+    function tplDeliveryPreview() {
+        var label = '';
+        try {
+            var d = new Date();
+            d.setDate( d.getDate() + 1 );
+            label = d.toLocaleDateString( 'nl-NL', { weekday: 'long', day: 'numeric', month: 'long' } );
+        } catch ( e ) { label = 'morgen'; }
+        return '<div class="mk-cart-popup__delivery-preview">' +
+               '<span class="mk-cart-popup__delivery-preview-icon">' + ICON.calendar + '</span>' +
+               '<span class="mk-cart-popup__delivery-preview-text">' +
+               '<span class="mk-cart-popup__delivery-preview-label">Eerstvolgende bezorgdatum</span>' +
+               '<span class="mk-cart-popup__delivery-preview-date">' + esc( label ) + '</span>' +
+               '</span></div>';
     }
 
     function tplShippingBar( shippingData ) {
@@ -1047,14 +1123,23 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
                '</div></div>';
     }
 
+    // Zelfde markup/klassen als de live template: de prijs-varianten worden
+    // via .has-btw-switch/.is-btw-incl op de popup-root getoond of verborgen
+    // (zie cart-popup.scss), niet met inline styles.
     function tplTotals( cfg ) {
-        var val = cfg.btw_split
+        var incl = MOCK.subtotal;
+        var excl = incl / ( 1 + MOCK.vat );
+        var val  = cfg.btw_split
             ? '<span class="mk-cart-popup__totals-value">' +
-              '<span class="price-excl-tax" style="display:block">&#8364; 29,71 <span style="font-size:11px;opacity:.6">' + esc( cfg.label_excl_tax ) + '</span></span>' +
-              '<span class="price-incl-tax" style="display:block">&#8364; 35,00 <span style="font-size:11px;opacity:.6">' + esc( cfg.label_incl_tax ) + '</span></span></span>'
-            : '<span class="mk-cart-popup__totals-value">&#8364; 35,00</span>';
+              '<span class="price-excl-tax">' + money( excl ) + ' <span class="tax">' + esc( cfg.label_excl_tax ) + '</span></span>' +
+              '<span class="price-incl-tax">' + money( incl ) + ' <span class="tax">' + esc( cfg.label_incl_tax ) + '</span></span></span>'
+            : '<span class="mk-cart-popup__totals-value">' + money( incl ) + '</span>';
+        var pct    = Math.round( MOCK.vat * 100 );
         var btwRow = cfg.btw_split
-            ? '<div class="mk-cart-popup__btw-row"><span>Waarvan BTW (21%):</span><span>&#8364; 5,29</span></div>'
+            ? '<div class="mk-cart-popup__btw-row"><span>' +
+              '<span class="mkcp-btw-label-incl">Waarvan BTW (' + pct + '%):</span>' +
+              '<span class="mkcp-btw-label-excl">Nog bij te tellen BTW (' + pct + '%):</span>' +
+              '</span><span>' + money( incl - excl ) + '</span></div>'
             : '';
         return '<div class="mk-cart-popup__totals"><span class="mk-cart-popup__totals-label">Subtotaal</span>' + val + '</div>' + btwRow;
     }
@@ -1064,17 +1149,16 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         if ( ! icons.length ) return '';
         return '<div class="mk-cart-popup__payment-icons">' +
                icons.map( function ( pi ) {
-                   return '<img src="' + esc( pi.url ) + '" alt="' + esc( pi.label ) + '" loading="lazy" style="max-height:24px">';
+                   return '<img src="' + esc( pi.url ) + '" alt="' + esc( pi.label ) + '" loading="lazy">';
                } ).join( '' ) +
                '</div>';
     }
 
     function tplCta( cfg, isBuilder, belowMinimum ) {
-        var cls   = 'mk-cart-popup__btn mk-cart-popup__btn--primary' + ( belowMinimum ? ' mk-cart-popup__btn--disabled' : '' );
-        var style = belowMinimum ? 'opacity:.45;cursor:default' : '';
+        var cls   = 'mk-cart-popup__btn mk-cart-popup__btn--primary' + ( belowMinimum ? ' is-disabled' : '' );
         var label = tplEditable( 'mkcp_btn_checkout', esc( cfg.btn_checkout ), isBuilder );
         return '<div class="mk-cart-popup__ctas">' +
-               '<span class="' + cls + '" style="' + style + '">' + label + ' ' + ICON.arrow + '</span>' +
+               '<span class="' + cls + '">' + label + ' ' + ICON.arrow + '</span>' +
                '</div>';
     }
 
@@ -1156,8 +1240,8 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             '</div>';
 
         var minOrderNote = belowMinimum
-            ? '<div class="mk-cart-popup__min-order"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Minimaal bestelbedrag: &#8364;&nbsp;' + minOrder.toFixed( 2 ).replace( '.', ',' ) + '</div>'
-            : ( minOrder > 0 ? '<div class="mkcp-preview-note">&#128270; preview &middot; min. bestelbedrag &#8364;&nbsp;' + minOrder.toFixed( 2 ).replace( '.', ',' ) + ' bereikt</div>' : '' );
+            ? '<div class="mk-cart-popup__min-order-warning" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Minimale bestelling: ' + money( minOrder ) + '. Voeg nog ' + money( minOrder - subtotal ) + ' toe.</div>'
+            : ( minOrder > 0 ? '<div class="mkcp-preview-note">&#128270; preview &middot; min. bestelbedrag ' + money( minOrder ) + ' bereikt</div>' : '' );
 
         var uspStrip = cfg.usps.length
             ? '<div class="mk-cart-popup__usps">' +
@@ -1165,50 +1249,64 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
               '</div>'
             : '';
 
-        return '<div class="mk-cart-popup mkcp-is-preview"><div class="mk-cart-popup__drawer">' +
+        // Zelfde volgorde als templates/cart-popup.php in de normale (niet-
+        // uitgeklapte) weergave: utility-rij, verzendbalk en bezorgdatum staan
+        // bovenaan (live via CSS order), de vertrouwensbadge net boven de footer,
+        // en "bewaard voor later" ná de footer, buiten de footer zelf.
+        var rootCls = 'mk-cart-popup mkcp-is-preview' + ( cfg.btw_split ? ' has-btw-switch is-btw-incl' : '' );
+
+        return '<div class="' + rootCls + '"><div class="mk-cart-popup__drawer">' +
 
             tplHeader( cfg, isBuilder ) +
-            optionalSection( 'mkcp_btw_split', 'BTW splitsing', cfg.btw_split, isBuilder, tplBtwSwitch( cfg ) ) +
+            ( isBuilder ? tplExtras( cfg ) : '' ) +
 
             '<div class="mk-cart-popup__body">' +
+            tplUtilityRow( cfg ) +
             optionalSection( 'mkcp_free_shipping_bar', 'Gratis verzending balk', cfg.free_shipping_bar, isBuilder, tplShippingBar( shipping ), cfg.free_shipping_bar && threshold > 0 ) +
+            optionalSection( 'mkcp_delivery_preview_enabled', 'Eerstvolgende bezorgdatum', cfg.delivery_preview, isBuilder, tplDeliveryPreview() ) +
             optionalSection( 'mkcp_stock_indicator', 'Voorraad indicator', cfg.stock_indicator, isBuilder, '' ) +
             renderZoneHtml( 'above-items' ) +
             colHeaders +
             '<div class="mk-cart-popup__items">' +
-            mockItemHtml( 'Voorbeeldproduct 1', '&#8364; 24,95', 1, cfg, true,  isBuilder ) +
-            mockItemHtml( 'Voorbeeldproduct 2', '&#8364; 10,05', 2, cfg, false, isBuilder ) +
+            mockItemHtml( 'Voorbeeldproduct 1', 24.95, 1, cfg, true,  isBuilder ) +
+            mockItemHtml( 'Voorbeeldproduct 2', 5.00,  2, cfg, false, isBuilder ) +
             '</div>' +
             renderZoneHtml( 'below-items' ) +
             optionalSection( 'mkcp_crosssell_enabled', 'Cross-sell', cfg.crosssell_enabled, isBuilder, tplCrosssell( cfg, isBuilder ) ) +
+            optionalSection( 'mkcp_trust_badge_enabled', 'Vertrouwensbadge', cfg.trust_badge, isBuilder, tplTrustBadge( cfg ), cfg.trust_badge && cfg.trust_rating > 0 ) +
 
             '<div class="mk-cart-popup__footer">' +
             optionalSection( 'mkcp_show_coupon', 'Kortingscode veld', cfg.show_coupon, isBuilder, tplCoupon() ) +
             tplTotals( cfg ) +
             renderZoneHtml( 'below-totals' ) +
+            minOrderNote +
             tplPaymentIcons( cfg ) +
             renderZoneHtml( 'below-payment' ) +
-            minOrderNote +
             tplCta( cfg, isBuilder, belowMinimum ) +
             renderZoneHtml( 'below-checkout' ) +
-            uspStrip +
-            optionalSection( 'mkcp_save_for_later', 'Bewaar voor later', cfg.save_for_later, isBuilder, tplSavedItems() ) +
             tplShare( cfg, isBuilder ) +
+            uspStrip +
             '</div>' + // footer
+
+            optionalSection( 'mkcp_save_for_later', 'Bewaar voor later', cfg.save_for_later, isBuilder, tplSavedItems() ) +
 
             '</div>' + // body
             '</div>' + // drawer
             '</div>';  // mk-cart-popup
     }
 
-    // â”€â”€ Block zone rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Block zone rendering ──────────────────────────────────────────────────
 
     function renderZoneHtml( zone ) {
         var zoneBlocks = blocks.filter( function ( b ) { return b.zone === zone; } );
         var EDIT_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
         var DEL_ICO  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
         var DROP_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-        var h = '<div class="mkcp-pzone" data-zone="' + zone + '" data-label="' + ( ZONE_LABELS[ zone ] || zone ) + '">';
+        // .mkcp-zone-render(--zone): dezelfde klassen als de live wrapper
+        // (mkcp_zone_render_classes() in config.php), zodat de zij-opvulling
+        // en het uitbreken van scheidingslijnen uit cart-popup.scss ook in de
+        // preview gelden.
+        var h = '<div class="mkcp-pzone mkcp-zone-render mkcp-zone-render--' + zone + '" data-zone="' + zone + '" data-label="' + ( ZONE_LABELS[ zone ] || zone ) + '">';
         if ( ! zoneBlocks.length ) {
             h += '<div class="mkcp-pzone-empty">' + DROP_ICO + ' Sleep hier een blok</div>';
         }
@@ -1262,8 +1360,18 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         return '';
     }
 
-    function mockItemHtml( name, price, qty, cfg, showStock, isBuilder ) {
+    // unit = prijs per stuk incl. BTW (number). Bij BTW-splitsing komen beide
+    // varianten in de DOM (live schakelt .is-btw-incl/.is-btw-excl ertussen).
+    function mockItemHtml( name, unit, qty, cfg, showStock, isBuilder ) {
         cfg = cfg || {};
+        var unitExcl = unit / ( 1 + MOCK.vat );
+        var unitHtml = cfg.btw_split
+            ? '<span class="price-excl-tax">' + money( unitExcl ) + ' <span class="tax">' + esc( cfg.label_excl_tax ) + '</span></span>' +
+              '<span class="price-incl-tax">' + money( unit ) + ' <span class="tax">' + esc( cfg.label_incl_tax ) + '</span></span>'
+            : money( unit );
+        var totalHtml = cfg.btw_split
+            ? '<span class="price-excl-tax">' + money( unitExcl * qty ) + '</span><span class="price-incl-tax">' + money( unit * qty ) + '</span>'
+            : money( unit * qty );
         var stockOn    = cfg.stock_indicator && showStock;
         var stockBadge = ( stockOn || ( isBuilder && showStock ) )
             ? '<div class="mk-cart-popup__stock-badge' + ( ! stockOn ? ' mkcp-ghost-feature' : '' ) + '">' + ICON.stock + ' Nog maar 3 op voorraad</div>'
@@ -1279,8 +1387,9 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         return '<div class="mk-cart-popup__item">' +
             '<div class="mkcp-preview-img-placeholder"></div>' +
             '<div class="mk-cart-popup__item-info">' +
-            '<div class="mk-cart-popup__item-name-wrap"><span class="mk-cart-popup__item-name" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</span></div>' +
+            '<div class="mk-cart-popup__item-name-wrap"><a class="mk-cart-popup__item-name">' + name + '</a></div>' +
             stockBadge +
+            '<div class="mk-cart-popup__item-price">' + unitHtml + '</div>' +
             '<div class="mk-cart-popup__item-actions">' +
             '<div class="mk-cart-popup__qty">' +
             '<button class="mk-cart-popup__qty-btn mk-cart-popup__qty-btn--min" type="button" disabled>&#8722;</button>' +
@@ -1291,10 +1400,10 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             removeBtn +
             '</div>' +
             '</div>' +
-            '<div class="mk-cart-popup__item-col-price">' + price + '</div>' +
+            '<div class="mk-cart-popup__item-col-price">' + totalHtml + '</div>' +
             '</div>';
     }
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     function esc( str ) {
         return String( str ).replace( /&/g, '&amp;' ).replace( /"/g, '&quot;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' );
@@ -1308,7 +1417,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         return d.textContent || d.innerText || '';
     }
 
-    // â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Init ─────────────────────────────────────────────────────────────────
 
     $( function () {
         if ( $( '#mkcp-zones' ).length ) init();

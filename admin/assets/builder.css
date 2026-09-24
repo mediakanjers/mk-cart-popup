@@ -358,20 +358,11 @@
 }
 
 /*
- * Token overrides voor de preview — de frontend-tokens zijn afgesteld op de
- * browser-fontgrootte van de eindgebruiker. In de admin-preview tonen we
- * de popup op zijn "design intent" grootte (root 16px baseline).
+ * Geen token-overrides meer voor de preview: de popup gebruikt zijn eigen
+ * em-tokens (verankerd op 16px via .mk-cart-popup in cart-popup.css), precies
+ * zoals op de live site. Eerder overschreven rem-waarden hier de lettergroottes,
+ * spacing en afbeeldingsgrootte, waardoor de preview afweek van live.
  */
-.mkcp-popup-sidebar .mk-cart-popup__drawer {
-    --mkcp-font-title  : 1.125rem;   /* 18px */
-    --mkcp-font-base   : 0.875rem;   /* 14px */
-    --mkcp-font-sm     : 0.75rem;    /* 12px */
-    --mkcp-font-xs     : 0.6875rem;  /* 11px */
-    --mkcp-space-outer : 1.25rem;    /* 20px */
-    --mkcp-space-inner : 1rem;       /* 16px */
-    --mkcp-space-sm    : 0.75rem;    /* 12px */
-    --mkcp-img-size    : 4rem;       /* 64px */
-}
 
 /* The popup inside the sidebar fills it naturally */
 .mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview {
@@ -411,9 +402,9 @@
 
 /* Mock product image placeholder */
 .mkcp-preview-img-placeholder {
-    width: 48px;
-    height: 48px;
-    border-radius: 6px;
+    width: var(--mkcp-img-size);
+    height: var(--mkcp-img-size);
+    border-radius: 4px;
     background: linear-gradient(135deg, #e0e4f0 0%, #f5f6fa 100%);
 }
 
@@ -896,6 +887,18 @@
 
 .mkcp-preview-section.is-off > *:not(.mkcp-preview-toggle-btn) {
     opacity         : 0.38;
+}
+
+/* Builder-only groep aan/uit-balken direct onder de header (niet in de echte popup) */
+.mkcp-preview-extras {
+    display       : flex;
+    flex-direction: column;
+    padding-bottom: 4px;
+    border-bottom : 1px solid var(--mkcp-light1, #e8e8e8);
+}
+
+.mkcp-preview-extras .mkcp-preview-toggle-btn:last-child {
+    margin-bottom: 0;
 }
 
 /* Full-width label-bar: text on the left, switch on the right */
