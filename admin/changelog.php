@@ -26,7 +26,7 @@ function mkcp_changelog_entries() {
             'date'    => '2026-09-24',
             'items'   => [
                 // ── Checkout ──
-                'Nieuw: bij een geldig BTW-nummer toont de melding onder het veld nu ook wat het scheelt: "BTW-nummer geldig · BTW verlegd · je bespaart € X". Met het vinkje "Geldige BTW maar toch betalen?" aan staat er "BTW wordt gewoon berekend (€ X)". Het bedrag wordt bij elke herberekening van de bestelling bijgewerkt (producten na korting + verzendkosten).',
+                'Nieuw: bij een geldig BTW-nummer toont de melding onder het veld nu ook om welk bedrag het gaat: "BTW-nummer geldig · BTW verlegd (€ X)". Met het vinkje "Geldige BTW maar toch betalen?" aan staat er "BTW wordt gewoon berekend (€ X)". Het bedrag wordt bij elke herberekening van de bestelling bijgewerkt (producten na korting + verzendkosten).',
                 'Verbetering: het BTW-nummerveld zelf krijgt bij een geldig nummer een groen randje en groen vinkje, net als andere correct ingevulde velden.',
             ],
         ],

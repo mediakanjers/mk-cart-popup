@@ -1960,10 +1960,10 @@ add_action( 'wp', function() {
 }, 4 );
 
 
-// ── BTW-besparing bij verlegging ───────────────────────────────────────────────
+// ── BTW-bedrag bij verlegging ──────────────────────────────────────────────────
 //
 // Het bedrag BTW dat de klant WEL zou betalen zonder verlegging, voor de
-// melding "BTW verlegd · je bespaart € X" onder het BTW-nummer. Bij een
+// melding "BTW verlegd (€ X)" onder het BTW-nummer. Bij een
 // vrijgestelde klant staan er geen belastingregels meer in de totalen, dus dat
 // bedrag valt niet uit de pagina te lezen: hier zelf berekend met de tarieven
 // van WooCommerce (WC_Tax::find_rates / get_shipping_tax_rates), die de
@@ -2186,7 +2186,7 @@ add_action( 'wp', function() {
                         'BTW-nummer geldig',
                         keepsVat
                             ? 'BTW wordt gewoon berekend' + ( saving ? ' (' + saving + ')' : '' )
-                            : 'BTW verlegd' + ( saving ? ' · je bespaart ' + saving : '' )
+                            : 'BTW verlegd' + ( saving ? ' (' + saving + ')' : '' )
                     );
                     // Aangevinkt: alles weer incl. BTW (klant betaalt gewoon BTW) en de
                     // schakelaar is daarna weer handmatig te wisselen. Een latere
