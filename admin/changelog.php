@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.48',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Verbetering: het blok rond het BTW-nummer is een stuk compacter. Het vinkje "Geldige BTW maar toch betalen?" is nu een lichte optie-regel direct onder het BTW-nummer (zonder eigen kader en zonder "(optioneel)"), en de statusbalk "BTW-nummer geldig" is één regel in plaats van twee gestapelde regels. Samen ongeveer een derde minder hoogte.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.47',
             'date'    => '2026-09-24',
             'items'   => [

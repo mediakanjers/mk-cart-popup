@@ -2565,46 +2565,53 @@ body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exe
 // .woocommerce-input-wrapper moet een blok zijn zodat de kaart de volle
 // breedte pakt.
 body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exempted_field {
-    margin : 0;
+    // Licht optie-regeltje direct ONDER het BTW-nummer (geen kaart met eigen
+    // rand meer): de -6px trekt het omhoog in de ondermarge van het BTW-veld,
+    // zodat het er zichtbaar bij hoort i.p.v. als los blok eronder te staan.
+    margin : -6px 0 0;
 
     .woocommerce-input-wrapper {
         display : block;
     }
 
-    // Afwerking t.o.v. de gedeelde vinkje-kaart hierboven, alleen voor dit
-    // veld: zelfde rand/hoek/ritme als de tekstvelden erboven (1.5px #d1d5db,
-    // 8px radius) i.p.v. de dunnere voorwaarden-kaart, iets kleinere tekst,
-    // en het vinkje verticaal gecentreerd t.o.v. de tekst. Vergelijkbare
-    // specificiteit als de gedeelde regel, staat er bewust ná in het bestand.
+    // Overschrijft de gedeelde vinkje-kaart hierboven, alleen voor dit veld.
+    // Vergelijkbare specificiteit, staat er bewust ná in het bestand.
     label.checkbox {
         align-items   : center;
-        padding       : 14px 14px;
-        border        : 1.5px solid #d1d5db;
-        border-radius : 8px;
-        font-size     : 14px;
+        gap           : 9px;
+        padding       : 0 2px;
+        margin        : 0 0 10px;
+        border        : 0;
+        border-radius : 6px;
+        background    : none;
+        font-size     : 13px;
         line-height   : 1.4;
 
         &::before {
-            width         : 20px;
-            height        : 20px;
+            width         : 18px;
+            height        : 18px;
             margin-top    : 0;
             border-radius : 4px;
             border-color  : #9ca3af;
         }
 
-        &:hover {
+        &:hover::before {
             border-color : var(--mkcp-accent, $accent);
         }
 
-        // Aangevinkt: zachte tint van de accentkleur, zodat de keuze in één
-        // oogopslag opvalt (rand + vinkje kleuren al mee via de gedeelde regel).
+        // Aangevinkt: alleen het vinkvakje kleurt (via de gedeelde regel) —
+        // geen tint/rand om de hele regel, dat maakte het te zwaar.
         &:has(input:checked) {
-            background : color-mix(in srgb, var(--mkcp-accent, $accent) 8%, var(--mkcp-bg, #fff));
+            background : none;
+
+            &::before {
+                background-size : 12px 12px;
+            }
         }
 
         // De gedeelde regel verbergt de echte checkbox met display:none —
         // daarmee is hij niet met Tab te bereiken. Hier visueel verborgen maar
-        // wel focusbaar, met een zichtbare focusring op de hele kaart.
+        // wel focusbaar, met een zichtbare focusring rond de regel.
         input[type="checkbox"] {
             display        : block;
             position       : absolute;
@@ -2620,10 +2627,35 @@ body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exe
             outline-offset : 2px;
         }
 
-        // "(optioneel)" is voor een vinkje overbodig (een vinkje is altijd
-        // optioneel) en hing als los flex-item met een gat achter de tekst.
+        // "(optioneel)" is voor een vinkje overbodig en hing als los flex-item
+        // met een gat achter de tekst.
         .optional {
             display : none;
+        }
+    }
+}
+
+// BTW-nummer-statusbalk (deelt de basis met de postcode-statusbalk): één
+// compacte regel i.p.v. een hoog blok met titel en ondertitel onder elkaar.
+// Hogere specificiteit (twee klassen op de balk zelf) omdat de basisregel
+// verderop in het bestand staat.
+body.mkcp-distraction-free-checkout .mkcp-pc-status.mkcp-pc-status--vat {
+    padding       : 7px 12px;
+    margin-bottom : 10px;
+
+    .mkcp-pc-status__text {
+        display     : flex;
+        flex-wrap   : wrap;
+        align-items : baseline;
+        gap         : 0 8px;
+
+        strong,
+        small {
+            display : inline;
+        }
+
+        small {
+            font-size : 12px;
         }
     }
 }
