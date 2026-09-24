@@ -532,8 +532,8 @@ body.mkcp-distraction-free-checkout {
             "fnc fnc lnc lnc"
             "co co co co"
             "vn vn vn vn"
-            "vx vx vx vx"
             "vs vs vs vs"
+            "vx vx vx vx"
             "cy cy cy cy"
             "pc pc hn sf"
             "pcc pcc hnc sfc"
@@ -589,8 +589,8 @@ body.mkcp-distraction-free-checkout {
             "fnc fnc lnc lnc"
             "co co co co"
             "vn vn vn vn"
-            "vx vx vx vx"
             "vs vs vs vs"
+            "vx vx vx vx"
             "cy cy cy cy"
             "rg rg rg rg"
             "a1 a1 a1 a1"
@@ -2565,10 +2565,10 @@ body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exe
 // .woocommerce-input-wrapper moet een blok zijn zodat de kaart de volle
 // breedte pakt.
 body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exempted_field {
-    // Licht optie-regeltje direct ONDER het BTW-nummer (geen kaart met eigen
-    // rand meer): de -6px trekt het omhoog in de ondermarge van het BTW-veld,
-    // zodat het er zichtbaar bij hoort i.p.v. als los blok eronder te staan.
-    margin : -6px 0 0;
+    // Licht optie-regeltje onder de BTW-statusregel (geen kaart met eigen
+    // rand meer). Wordt alleen getoond bij een geldig nummer (zie de
+    // .mkcp-vat-valid-regel in checkout-frontend.php).
+    margin : 0;
 
     .woocommerce-input-wrapper {
         display : block;
@@ -2637,27 +2637,51 @@ body.mkcp-distraction-free-checkout #billing_eu_vat_number_valid_vat_but_not_exe
     }
 }
 
-// BTW-nummer-statusbalk (deelt de basis met de postcode-statusbalk): één
-// compacte regel i.p.v. een hoog blok met titel en ondertitel onder elkaar.
-// Hogere specificiteit (twee klassen op de balk zelf) omdat de basisregel
-// verderop in het bestand staat.
+// BTW-nummer-statusmelding (deelt de basis met de postcode-statusbalk): een
+// kleine bijschrift-regel direct onder het veld, in het formaat van de
+// toelichting die je met de Content Builder onder een veld kunt zetten
+// (11,5px), i.p.v. een gekleurd kader. De kleur volgt nog steeds de status
+// (laden blauw / geldig groen / fout rood, uit de basisregels). Hogere
+// specificiteit (twee klassen op de balk zelf) omdat de basisregel verderop
+// in het bestand staat.
 body.mkcp-distraction-free-checkout .mkcp-pc-status.mkcp-pc-status--vat {
-    padding       : 7px 12px;
-    margin-bottom : 10px;
+    padding       : 0 2px;
+    margin        : -6px 0 8px;
+    gap           : 6px;
+    background    : none;
+    border        : 0;
+    border-radius : 0;
+    font-size     : 11.5px;
+    line-height   : 1.4;
+
+    .mkcp-pc-status__icon svg {
+        width  : 14px;
+        height : 14px;
+    }
+
+    .mkcp-pc-spinner {
+        width  : 12px;
+        height : 12px;
+    }
 
     .mkcp-pc-status__text {
         display     : flex;
         flex-wrap   : wrap;
         align-items : baseline;
-        gap         : 0 8px;
+        gap         : 0 6px;
 
         strong,
         small {
-            display : inline;
+            display   : inline;
+            font-size : 11.5px;
         }
 
+        strong { font-weight : 600; }
+
         small {
-            font-size : 12px;
+            opacity : .85;
+
+            &::before { content : "·"; margin-right : 6px; }
         }
     }
 }
@@ -4029,14 +4053,14 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
             order : -10;
         }
 
-        // Vinkje "geldig BTW-nummer maar toch BTW betalen" (EU/UK VAT
-        // Validation Manager, optioneel) en de BTW-validatiestatus-balk horen
-        // direct onder het BTW-nummer.
-        #billing_eu_vat_number_valid_vat_but_not_exempted_field {
+        // BTW-statusregel en daaronder het vinkje "geldig BTW-nummer maar toch
+        // BTW betalen" (EU/UK VAT Validation Manager, optioneel) horen direct
+        // onder het BTW-nummer.
+        .mkcp-pc-status--vat {
             order : -9;
         }
 
-        .mkcp-pc-status--vat {
+        #billing_eu_vat_number_valid_vat_but_not_exempted_field {
             order : -8;
         }
 

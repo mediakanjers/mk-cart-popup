@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.50',
+            'date'    => '2026-09-24',
+            'items'   => [
+                // ── Checkout ──
+                'Verbetering: het blok rond het BTW-nummer is verder opgeruimd. De melding "BTW-nummer geldig · BTW verlegd" is nu één kleine regel direct onder het veld (in het formaat van de toelichting onder velden) in plaats van een gekleurd kader, en het vinkje "Geldige BTW maar toch betalen?" staat daaronder en verschijnt pas zodra het BTW-nummer geldig is. Bij een leeg of ongeldig nummer is er dus alleen het veld zelf (en eventueel de foutmelding).',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.49',
             'date'    => '2026-09-24',
             'items'   => [

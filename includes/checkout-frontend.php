@@ -1226,7 +1226,10 @@ add_action( 'wp', function() {
     if ( ! mkcp_vat_checker_active() ) return;
 
     add_action( 'wp_head', function() {
-        echo '<style>body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_field,body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_valid_vat_but_not_exempted_field{display:none !important}</style>';
+        // Het vinkje "Geldige BTW maar toch betalen?" (optioneel, van de VAT-plugin)
+        // verschijnt pas bij een geldig nummer (.mkcp-vat-valid, gezet in het
+        // inline script hieronder) én zolang het BTW-veld zelf zichtbaar is.
+        echo '<style>body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_field,body.mkcp-distraction-free-checkout:not(.mkcp-vat-company-filled) #billing_eu_vat_number_valid_vat_but_not_exempted_field,body.mkcp-distraction-free-checkout:not(.mkcp-vat-valid) #billing_eu_vat_number_valid_vat_but_not_exempted_field{display:none !important}</style>';
     } );
 
     add_action( 'wp_footer', function() {
@@ -2045,6 +2048,14 @@ add_action( 'wp', function() {
                 return !! ( el && el.checked );
             }
 
+            // Body-klasse waarmee de CSS het vinkje "Geldige BTW maar toch betalen?"
+            // alleen toont zolang het nummer geldig is (het heeft geen zin bij een
+            // leeg of ongeldig nummer). Tijdens "controleren" blijft de vorige
+            // stand staan, zodat het vinkje niet flikkert bij elke herberekening.
+            function mkcp_setValidClass( on ) {
+                document.body.classList.toggle( 'mkcp-vat-valid', !! on );
+            }
+
             function mkcp_syncFromProgress() {
                 // Zonder ingevoerd nummer nooit een status tonen — de plugin
                 // kan #wpfactory_wc_eu_vat_progress bij een AJAX-refresh met
@@ -2052,6 +2063,7 @@ add_action( 'wp', function() {
                 // waardoor "geldig" verscheen bij een leeg veld.
                 if ( ! inputEl.value.trim() ) {
                     mkcp_hideStatus( 0 );
+                    mkcp_setValidClass( false );
                     mkcp_setReverseCharge( false );
                     return;
                 }
@@ -2065,10 +2077,11 @@ add_action( 'wp', function() {
                     // "valid"-klasse — zonder deze check zou de prijsweergave op
                     // "excl. BTW" vergrendelen terwijl er gewoon BTW wordt gerekend.
                     var keepsVat = mkcp_customerKeepsVat();
+                    mkcp_setValidClass( true );
                     mkcp_showStatus(
                         'success',
                         'BTW-nummer geldig',
-                        keepsVat ? 'BTW wordt gewoon berekend' : mkcp_readCompanyName()
+                        keepsVat ? 'BTW wordt gewoon berekend' : 'BTW verlegd'
                     );
                     // Aangevinkt: alles weer incl. BTW (klant betaalt gewoon BTW) en de
                     // schakelaar is daarna weer handmatig te wisselen. Een latere
@@ -2076,6 +2089,7 @@ add_action( 'wp', function() {
                     // aan: unlock() doet niets zolang er niet vergrendeld is.
                     mkcp_setReverseCharge( ! keepsVat, 'incl' );
                 } else if ( progressEl.classList.contains( 'wpfactory-wc-eu-vat-not-valid' ) ) {
+                    mkcp_setValidClass( false );
                     mkcp_showStatus( 'error', 'Ongeldig BTW-nummer', 'Controleer het nummer en probeer het opnieuw' );
                     mkcp_setReverseCharge( false );
                 }
@@ -2086,6 +2100,7 @@ add_action( 'wp', function() {
             // ontgrendelen zodra de klant alles wist.
             inputEl.addEventListener( 'input', function () {
                 if ( ! inputEl.value.trim() ) {
+                    mkcp_setValidClass( false );
                     mkcp_hideStatus( 0 );
                     mkcp_setReverseCharge( false );
                 }
