@@ -3321,6 +3321,109 @@ $icons = [
                 </div>
 
                 <?php
+                $pdf_plugin_detected = function_exists( 'mkcp_pdf_plugin_active' ) && mkcp_pdf_plugin_active();
+                ?>
+                <div class="mkcp-glass">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['package']; ?></div>
+                        <h3>PDF-documenten</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <!-- WP Overnight PDF Invoices & Packing Slips detectie -->
+                        <div style="display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div style="width:36px;height:36px;border-radius:8px;background:<?php echo $pdf_plugin_detected ? '#dcfce7' : 'var(--mkcp-ui-bg2)'; ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                <?php if ( $pdf_plugin_detected ) : ?>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+                                <?php else : ?>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--mkcp-ui-text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <?php endif; ?>
+                            </div>
+                            <div>
+                                <strong style="font-size:13px;display:block">PDF Invoices &amp; Packing Slips for WooCommerce</strong>
+                                <span style="font-size:12px;color:<?php echo $pdf_plugin_detected ? '#16a34a' : 'var(--mkcp-ui-text3)'; ?>">
+                                    <?php echo $pdf_plugin_detected ? 'Gedetecteerd en actief' : 'Niet gevonden'; ?>
+                                </span>
+                            </div>
+                        </div>
+                        <p class="mkcp-input-hint" style="margin:0 0 16px">Kies welke gegevens er op de PDF's komen. Elk vinkje geldt voor zowel de factuur als de pakbon. Verzendmethode, opmerking van de klant, telefoon en e-mail regel je in de instellingen van de PDF-plugin zelf.</p>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Bezorg-/afhaalkop bovenaan</strong>
+                                <small>Opvallend kader onder de documenttitel</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_headline" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_headline'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Toont bv. <em>Bezorgen: Dinsdag 29 september 2026, 15:00</em> of <em>Afhalen: ..., locatie + adres</em>, zodat het meteen te zien is.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Bezorgdatum en tijdvak</strong>
+                                <small>Rij in de ordergegevens</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_delivery_info" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_delivery_info'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">De gekozen bezorgdatum (en tijdvak) bij de overige ordergegevens.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Afhaalgegevens</strong>
+                                <small>Rij in de ordergegevens</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_pickup_info" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_pickup_info'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Afhaaldatum, tijdvak, locatie en adres bij de overige ordergegevens.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected || ! $vat_checker_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>">
+                            <div class="mkcp-setting-label">
+                                <strong>BTW-nummer en BTW-verlegging</strong>
+                                <small>Alleen als de klant een BTW-nummer heeft ingevuld</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_vat_info" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_vat_info'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Toont het BTW-nummer en of de BTW is verlegd of gewoon berekend. Vereist de EU/UK VAT Validation Manager.</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <?php
                 $country_visible = isset( $cfg_co['country_field_visible'] ) ? (bool) $cfg_co['country_field_visible'] : true;
                 $country_locked  = ! empty( $cfg_co['country_field_locked'] );
                 ?>

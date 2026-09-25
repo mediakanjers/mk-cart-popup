@@ -158,6 +158,10 @@ add_action( 'admin_init', function() {
         'login_reminder_info_text'     => sanitize_textarea_field( wp_unslash( $post['mkcp_checkout_login_reminder_info_text'] ?? '' ) ),
         'checkout_button_text'         => sanitize_text_field( $post['mkcp_checkout_button_text'] ?? '' ),
         'vat_checker_status_enabled'   => ! empty( $post['mkcp_checkout_vat_checker_status_enabled'] ),
+        'pdf_headline'                 => ! empty( $post['mkcp_checkout_pdf_headline'] ),
+        'pdf_delivery_info'            => ! empty( $post['mkcp_checkout_pdf_delivery_info'] ),
+        'pdf_pickup_info'              => ! empty( $post['mkcp_checkout_pdf_pickup_info'] ),
+        'pdf_vat_info'                 => ! empty( $post['mkcp_checkout_pdf_vat_info'] ),
 
         // Bezorgdatum kiezer
         'delivery_date_enabled'        => ! empty( $post['mkcp_dd_enabled'] ),

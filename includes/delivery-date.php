@@ -834,15 +834,15 @@ add_filter( 'woocommerce_email_order_meta_fields', function( $fields, $sent_to_a
 // "Betaalmethode"), dus <tr> i.p.v. <div> — een <tr> buiten een <table> (zoals
 // bij wpo_wcpdf_after_order_details, dat ná de hele tabel vuurt) laat DOMPDF
 // stuklopen met "Parent table not found for table cell".
-add_action( 'wpo_wcpdf_after_order_data', function( $document_type, $order ) {
-    if ( ! $order ) return;
+mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
+    if ( ! $order || ! mkcp_pdf_option( 'pdf_delivery_info' ) ) return;
     $date = $order->get_meta( '_mkcp_delivery_date' );
     if ( ! $date ) return;
     $slot = $order->get_meta( '_mkcp_delivery_slot' );
     // <strong>: het factuursjabloon zet th bewust op font-weight:normal.
     echo '<tr class="mkcp-delivery-date"><th><strong>' . esc_html__( 'Gewenste bezorgdatum', 'mk-cart-popup' ) . '</strong></th><td>'
         . esc_html( mkcp_dd_format_date( $date ) . ( $slot ? ', ' . $slot : '' ) ) . '</td></tr>';
-}, 10, 2 );
+} );
 
 
 // ── Admin orderlijst: bezorgdatum-kolom + filter ────────────────────────────────

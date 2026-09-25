@@ -463,8 +463,8 @@ add_filter( 'woocommerce_email_order_meta_fields', function( $fields, $sent_to_a
 // "Betaalmethode"-rij (zie dezelfde toelichting bij de bezorgdatum-variant
 // in delivery-date.php) — vandaar een <tr> die dezelfde <th>/<td>-opmaak
 // volgt als de omliggende rijen, i.p.v. de eerder gebruikte <div>.
-add_action( 'wpo_wcpdf_after_order_data', function( $document_type, $order ) {
-    if ( ! $order ) return;
+mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
+    if ( ! $order || ! mkcp_pdf_option( 'pdf_pickup_info' ) ) return;
     $date = $order->get_meta( '_mkcp_pickup_date' );
     if ( ! $date ) return;
 
@@ -480,4 +480,4 @@ add_action( 'wpo_wcpdf_after_order_data', function( $document_type, $order ) {
         echo '<br>' . nl2br( esc_html( $loc['address'] ) );
     }
     echo '</td></tr>';
-}, 10, 2 );
+} );

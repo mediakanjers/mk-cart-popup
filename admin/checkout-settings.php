@@ -76,6 +76,14 @@ function mkcp_checkout_config() {
         // checkout-frontend.php.
         'vat_checker_status_enabled' => false,
 
+        // PDF-documenten (WP Overnight PDF Invoices & Packing Slips) - welke
+        // van onze gegevens op factuur en pakbon komen. Standaard alles aan.
+        // Zie includes/pdf-documents.php.
+        'pdf_headline'      => true,
+        'pdf_delivery_info' => true,
+        'pdf_pickup_info'   => true,
+        'pdf_vat_info'      => true,
+
         // Bezorgdatum kiezer (premium)
         'delivery_date_enabled'        => false,
         'delivery_date_required'       => false,
@@ -171,6 +179,9 @@ function mkcp_checkout_config() {
     $cfg['login_reminder_info_text']  = (string) $cfg['login_reminder_info_text'];
     $cfg['checkout_button_text']  = (string) $cfg['checkout_button_text'];
     $cfg['vat_checker_status_enabled'] = (bool) $cfg['vat_checker_status_enabled'];
+    foreach ( [ 'pdf_headline', 'pdf_delivery_info', 'pdf_pickup_info', 'pdf_vat_info' ] as $mkcp_pdf_key ) {
+        $cfg[ $mkcp_pdf_key ] = (bool) $cfg[ $mkcp_pdf_key ];
+    }
     $cfg['header_logo_id']        = (int)  $cfg['header_logo_id'];
     if ( ! is_array( $cfg['footer_blocks'] ) )   $cfg['footer_blocks']   = [];
     if ( ! is_array( $cfg['checkout_blocks'] ) ) $cfg['checkout_blocks'] = [];

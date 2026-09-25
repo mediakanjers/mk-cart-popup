@@ -22,6 +22,17 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.54',
+            'date'    => '2026-09-25',
+            'items'   => [
+                // ── PDF-documenten (WP Overnight PDF Invoices & Packing Slips) ──
+                'Nieuw: onder Checkout staat nu een blok "PDF-documenten" waarmee je per onderdeel kiest wat er op de factuur en de pakbon komt (elk vinkje geldt voor beide). Het blok toont of de PDF-plugin is gevonden. Standaard staat alles aan.',
+                'Nieuw: een opvallend kader onder de documenttitel met de bezorgdatum en het tijdvak, of bij afhalen de afhaaldatum, het tijdvak, de locatie en het adres.',
+                'Nieuw: het BTW-nummer van de klant op de PDF, met "BTW verlegd naar afnemer (0%)" als de BTW echt is verlegd en anders "BTW berekend". Alleen zichtbaar als de klant een BTW-nummer heeft ingevuld (EU/UK VAT Validation Manager).',
+                'Fix: de bezorg- en afhaalgegevens ontbraken op facturen die een eigen (thema-)sjabloon gebruiken zonder de standaardhook voor ordergegevens (bij Tom Bloemen het factuursjabloon). Ze vallen nu automatisch terug op een andere plek in dezelfde tabel, zodat ze op elk sjabloon verschijnen.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.53',
             'date'    => '2026-09-25',
             'items'   => [
