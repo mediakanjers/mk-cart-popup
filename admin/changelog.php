@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.55',
+            'date'    => '2026-09-25',
+            'items'   => [
+                // ── Checkout ──
+                'Fix: de bezorgdatum en het tijdvak werden gevalideerd tegen de verzendmethode die het formulier meestuurde, terwijl WooCommerce bij een niet-passende methode stilletjes een andere methode koos. Daardoor kon een bestelling met een datum zonder verplicht tijdvak doorgaan. Een verzendmethode die niet bij het pakket hoort wordt nu direct geweigerd met de melding om de verzendmethode opnieuw te kiezen.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.54',
             'date'    => '2026-09-25',
             'items'   => [

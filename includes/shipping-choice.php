@@ -742,3 +742,29 @@ add_action( 'wp_enqueue_scripts', function() {
     // heeft — waardoor een latere getElementById()-lookup altijd niets vond en
     // de kaarten dus nooit werden verplaatst of opgeruimd).
 } );
+
+
+// ── Gekozen verzendmethode moet bij het pakket passen ─────────────────────────
+//
+// De bezorgdatum- en afhaal-validatie (delivery-date.php / pickup.php) leest de
+// verzendmethode uit $_POST['shipping_method'], terwijl WooCommerce daarna
+// zelf terugvalt op de eerste geldige methode als de geposte methode niet bij
+// het pakket hoort. Kwamen die twee uit elkaar, dan werd de datum gevalideerd
+// tegen een andere methode (en dus andere tijdvak-regels) dan waarmee de order
+// werd aangemaakt. Een echte browser stuurt altijd een geldige methode; deze
+// controle weigert alleen een ongeldige combinatie, vóór de andere validaties.
+add_action( 'woocommerce_checkout_process', function() {
+    if ( empty( $_POST['shipping_method'] ) || ! is_array( $_POST['shipping_method'] ) ) return; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+    if ( ! function_exists( 'WC' ) || ! WC()->shipping() ) return;
+
+    $packages = WC()->shipping()->get_packages();
+    if ( empty( $packages ) ) return;
+
+    foreach ( wp_unslash( $_POST['shipping_method'] ) as $i => $rate_id ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        if ( ! is_string( $rate_id ) || ! isset( $packages[ $i ] ) ) continue;
+        if ( ! isset( $packages[ $i ]['rates'][ sanitize_text_field( $rate_id ) ] ) ) {
+            wc_add_notice( __( 'De gekozen verzendmethode is niet beschikbaar voor dit adres. Kies je verzendmethode opnieuw.', 'mk-cart-popup' ), 'error' );
+            return;
+        }
+    }
+}, 1 );
