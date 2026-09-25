@@ -26,7 +26,7 @@ function mkcp_changelog_entries() {
             'date'    => '2026-09-25',
             'items'   => [
                 // ── Checkout ──
-                'Bugfix: met TAB sprong de cursor in het adresformulier naar een ander veld dan je zag. De velden staan visueel vast op hun plek, maar TAB volgt de volgorde in de pagina, en die week af (o.a. het BTW-nummer kwam als laatste, en de straatnaam vóór de plaats terwijl die er visueel achter staat). De tab-volgorde is nu gelijk aan de zichtbare volgorde: voornaam, achternaam, bedrijfsnaam, BTW-nummer, land, postcode, huisnummer, toevoeging, plaats, straat, telefoon, e-mail.',
+                'Bugfix: met TAB sprong de cursor in het adresformulier naar een ander veld dan je zag. De velden staan visueel vast op hun plek, maar TAB volgt de volgorde in de pagina, en die week af (o.a. het BTW-nummer kwam als laatste, en de straatnaam vóór de plaats terwijl die er visueel achter staat). De tab-volgorde is nu gelijk aan de zichtbare volgorde: voornaam, achternaam, bedrijfsnaam, BTW-nummer, land, postcode, huisnummer, toevoeging, plaats, straat, telefoon, e-mail. Plaats en straat, die de postcodechecker automatisch invult, worden met TAB overgeslagen zolang ze vergrendeld zijn (bij een buitenlands adres of "vul handmatig in" zijn ze weer gewoon tabbaar).',
             ],
         ],
         [

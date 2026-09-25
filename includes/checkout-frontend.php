@@ -3183,15 +3183,28 @@ add_action( 'wp', function() {
                     });
                 }
 
+                // Automatisch ingevulde (readonly) velden slaat TAB over: er valt
+                // niets in te typen. Zodra het veld weer bewerkbaar wordt (buitenlands
+                // adres, "vul handmatig in") is het weer gewoon tabbaar.
+                function mkcp_syncTabStop(el) {
+                    if (el.hasAttribute('readonly')) el.setAttribute('tabindex', '-1');
+                    else if (el.getAttribute('tabindex') === '-1') el.removeAttribute('tabindex');
+                }
+
                 LOCK_IDS.forEach(function (id) {
                     var el = document.getElementById(id);
                     if (!el) return;
                     new MutationObserver(function () {
                         if (!manualEntry && !mkcp_isIntlAddress() && !el.hasAttribute('readonly')) el.setAttribute('readonly', 'readonly');
+                        mkcp_syncTabStop(el);
                     }).observe(el, { attributes: true, attributeFilter: ['readonly'] });
                 });
 
                 mkcp_lockPostcodeFields();
+                LOCK_IDS.forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) mkcp_syncTabStop(el);
+                });
 
                 /* ── Statusbalk ── */
                 var STATUS_ID = 'mkcp-pc-status-' + prefix;
