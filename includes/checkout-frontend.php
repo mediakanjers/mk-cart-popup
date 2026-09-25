@@ -2337,6 +2337,63 @@ add_action( 'wp', function() {
 }, 5 );
 
 
+// ── Tab-volgorde = zichtbare volgorde ─────────────────────────────────────────
+//
+// De zichtbare plek van elk adresveld ligt vast via grid-template-areas /
+// order (checkout.scss), maar TAB volgt de DOM-volgorde, en die komt uit de
+// veld-prioriteiten van WooCommerce + externe plugins. Die weken af van wat je
+// ziet: het BTW-nummer (prioriteit 200) stond in de DOM helemaal achteraan
+// terwijl het visueel onder Bedrijfsnaam staat, en straatnaam kwam vóór plaats
+// terwijl plaats links van straatnaam staat. Zet de prioriteiten daarom zo dat
+// DOM-volgorde en zichtbare volgorde gelijk zijn. Twee indelingen delen deze
+// volgorde: NL (postcode, nr, toevoeging, plaats, straat) en internationaal
+// (land, regio, adres, postcode, plaats) — de velden die in een indeling
+// verborgen zijn doen er niet toe. Prioriteit 1000: na de VAT-plugin (99) en
+// na de bedrijfsnaam-filter (20).
+add_action( 'wp', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
+    if ( ! mkcp_license_has( 'premium' ) ) return;
+    $cfg = mkcp_checkout_config();
+    if ( empty( $cfg['checkout_enabled'] ) ) return;
+
+    add_filter( 'woocommerce_checkout_fields', function( $fields ) {
+        $order = [
+            'first_name'   => 10,
+            'last_name'    => 20,
+            'company'      => 30,
+            'country'      => 40,
+            'state'        => 41,
+            'address_1'    => 42,
+            'address_2'    => 43,
+            'postcode'     => 47,
+            'house_number' => 48,
+            'house_number_suffix' => 49,
+            'city'         => 50,
+            'street_name'  => 51,
+            'phone'        => 100,
+            'email'        => 110,
+        ];
+        foreach ( [ 'billing', 'shipping' ] as $group ) {
+            if ( empty( $fields[ $group ] ) ) continue;
+            foreach ( $order as $name => $prio ) {
+                if ( isset( $fields[ $group ][ $group . '_' . $name ] ) ) {
+                    $fields[ $group ][ $group . '_' . $name ]['priority'] = $prio;
+                }
+            }
+        }
+        // BTW-nummer + "toch BTW betalen"-vinkje staan visueel direct onder Bedrijfsnaam.
+        if ( isset( $fields['billing']['billing_eu_vat_number'] ) ) {
+            $fields['billing']['billing_eu_vat_number']['priority'] = 31;
+        }
+        if ( isset( $fields['billing']['billing_eu_vat_number_valid_vat_but_not_exempted'] ) ) {
+            $fields['billing']['billing_eu_vat_number_valid_vat_but_not_exempted']['priority'] = 32;
+        }
+        return $fields;
+    }, 1000 );
+}, 5 );
+
+
 // ── Bestelnotities-veld aan/uit ───────────────────────────────────────────────
 //
 // order_comments blijft gewoon geregistreerd in de "order"-fieldset (nodig,

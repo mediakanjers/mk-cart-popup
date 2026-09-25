@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.53',
+            'date'    => '2026-09-25',
+            'items'   => [
+                // ── Checkout ──
+                'Bugfix: met TAB sprong de cursor in het adresformulier naar een ander veld dan je zag. De velden staan visueel vast op hun plek, maar TAB volgt de volgorde in de pagina, en die week af (o.a. het BTW-nummer kwam als laatste, en de straatnaam vóór de plaats terwijl die er visueel achter staat). De tab-volgorde is nu gelijk aan de zichtbare volgorde: voornaam, achternaam, bedrijfsnaam, BTW-nummer, land, postcode, huisnummer, toevoeging, plaats, straat, telefoon, e-mail.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.52',
             'date'    => '2026-09-24',
             'items'   => [
