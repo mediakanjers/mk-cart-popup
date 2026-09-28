@@ -22,6 +22,29 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.71',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Checkout ──
+                'Fix: de scheidingslijn onder een product in het besteloverzicht liep bij een variabel product (met een lijst keuze-opties eronder) niet door tot de prijskolom — de lijn zat verkeerd op de keuze-opties-lijst zelf i.p.v. op de hele rij. Loopt nu over de volle breedte.',
+                'Fix: na het wisselen tussen "Laten bezorgen" en "Zelf afhalen" kon de samenvatting boven de bestelknop een inmiddels-verwijderde rol (bv. "Afhaaldatum") blijven tonen. De samenvatting ververst nu op het moment dat de verzendkeuze-kaarten daadwerkelijk zijn bijgewerkt, i.p.v. op een vaste, soms te korte wachttijd te gokken.',
+                'Fix: "Nu verversen" bij de Google-vertrouwensbadge testte de laatst opgeslagen API-sleutel/Place ID, ook als je net nieuwe waarden had ingetypt maar nog niet had opgeslagen — waardoor het leek te mislukken terwijl de sleutel wel klopte. Test nu de live veldwaarden.',
+                'Fix: padding van de betaalmethode-iconen ontbrak op smallere schermen.',
+                'Fix: op een site met een afwijkende thema-stijl kon de padding van de betaalmethodes-lijst (bv. iDEAL/PayPal-rijen) wegvallen. Staat nu vast.',
+                'Verbetering: kleinere, compactere mobiele opmaak voor de stappen-indicator, het header-logo en de "Ik ben nieuw"/"Ik ben al klant"-tabs.',
+                'Verbetering: het inlogformulier (gebruikersnaam/wachtwoord) staat op mobiel nu onder elkaar i.p.v. te krap naast elkaar.',
+
+                // ── Winkelwagen-popup ──
+                'Fix: de titel "Misschien ook interessant?" boven de cross-sell-kaartjes stond niet gelijk uitgelijnd met de kaartjes eronder (een em-eenheid schaalde mee met het kleine lettertype van de titel).',
+                'Fix: de zijmarge van de vertrouwensbadge in de winkelwagen-popup was verdwenen; staat weer terug (checkout blijft ongewijzigd, die heeft geen eigen zijmarge nodig).',
+                'Nieuw: kleur van de aantal-in-winkelwagen-badge is nu instelbaar, met snelkeuze-swatches uit de kleuren die de plugin in je thema heeft gevonden.',
+                'Nieuw: losse aan/uit voor de betaalicoontjes en de USP truststrip, zowel bij Instellingen als rechtstreeks vanuit de Content Builder.',
+
+                // ── Documentatie ──
+                'Verbetering: de in-plugin documentatie is bijgewerkt naar de huidige stand van de plugin (o.a. de CSS-variabelen-tabel klopte niet meer, en de vertrouwensbadge, PDF-integratie, meerdere verzendpakketten en de afhaal-adresvelden-instelling stonden nergens beschreven).',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.70',
             'date'    => '2026-09-28',
             'items'   => [
