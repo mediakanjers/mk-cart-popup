@@ -22,6 +22,137 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.70',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Checkout ──
+                'Fix: bij een product met veel keuze-opties (bv. prijsklasse, kleur, gelegenheid) werd de productrij in het besteloverzicht hoger door de lange lijst, maar de thumbnail en prijs bleven verticaal gecentreerd over die hele hoogte — ze kwamen daardoor los te zweven ter hoogte van de optielijst i.p.v. bovenaan bij de productnaam. Thumbnail, naam en prijs staan nu allemaal boven uitgelijnd.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.69',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Fix: het vertrouwensbadge-blok voor checkout verscheen nergens, ook niet met "Op checkout tonen" aan — je moest \'m eerst zelf naar een zone in de Content Builder slepen. Hij staat nu automatisch direct onder de betaalmethode-iconen (.mkcp-co-payment-icons), zonder slepen. Het losse blok in de Content Builder blijft ook nog beschikbaar voor een andere plek.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.68',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Verbetering: de aan/uit voor het vertrouwensbadge-blok op de checkout staat nu bij Cart Checkout → Algemeen, in plaats van tussen de Content Builder-blokken.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.67',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Nieuw: het vertrouwensbadge-blok op de checkoutpagina heeft nu een eigen aan/uit (Cart Checkout → Content Builder, "Vertrouwensbadge-blok"), los van de "Badge ingeschakeld"-instelling bij Cart Popup → Vertrouwensbadge. Zo kan de badge bv. wel op de checkout staan zonder ook in de winkelwagen te verschijnen, of andersom — de score/bron zelf blijft wel één instelling.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.66',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Fix: na het invullen van een geldige Google API-sleutel en Place ID bleef de foutmelding "Geen API-sleutel of Place ID ingevuld" staan tot de volgende dag. Een eerdere, mislukte poging (bv. met nog lege velden) zette een foutmelding in de cache; de plugin zag die cache als "al geprobeerd" en probeerde het niet opnieuw. Er wordt nu automatisch opnieuw geprobeerd zodra er nog geen geldige score bekend is, met een korte pauze van 5 minuten ertussen.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.65',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Fix: het pijlknopje van de vertrouwensbadge stond er ook als er geen link naar een reviewpagina was ingevuld, terwijl het dan niets deed. Het pijlknopje verschijnt nu alleen als er ook echt een link is (zowel op de site als in de Content Builder-preview).',
+                'Verbetering: iets meer ruimte tussen sterren, label en herkomstregel in de scorekaart.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.64',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Verbetering: nog compacter — minder ruimte tussen het cijfer, de sterren, het label en de regel "Geverifieerd via ...", en kleinere regelhoogte zodat de regels dichter op elkaar staan.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.63',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Verbetering: de vertrouwensbadge-scorekaart is een stuk compacter — kleiner cijfer, kleinere sterren en pijlknopje, minder binnenruimte. Past nu beter tussen de andere onderdelen van de winkelwagen.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.62',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Verbetering: de vertrouwensbadge is opnieuw opgemaakt als "scorekaart" — het cijfer groot en apart links, sterren + kwalificatie ("Uitstekend" / "Zeer goed" / "Goed") + herkomst ("Geverifieerd via ...") in het midden, en een pijlknopje rechts dat naar de reviewpagina linkt. Werkt zowel bij een handmatig cijfer als bij de live Google-score, en ook op het vertrouwensbadge-blok op de checkoutpagina.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.61',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Nieuw: de vertrouwensbadge heeft nu een echte bron in plaats van alleen een handmatig cijfer. Bij "Bron" kies je: handmatig invullen (zoals voorheen, nu met een waarschuwing als het cijfer 90+ dagen niet is bijgewerkt), Google Reviews (live, ververst dagelijks op de achtergrond via de Google Places API, plus een "Nu verversen"-knop), of de widget-code van Trusted Shops/WebwinkelKeur/Kiyoh (je plakt hun eigen embedcode).',
+                'Verbetering: mislukt het automatisch verversen van Google Reviews (bv. verlopen sleutel), dan blijft de laatst bekende score gewoon zichtbaar op de site — alleen in de admin verschijnt een foutmelding.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.60',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Vertrouwensbadge ──
+                'Verbetering: de vertrouwensbadge (sterren + score) is opnieuw opgemaakt — een kaartje met een lichte achtergrond, rand en grotere sterren in plaats van een kale regel tekst. Is er een link ingevuld, dan reageert de badge nu ook zichtbaar op hover.',
+                'Nieuw: de vertrouwensbadge is nu ook toe te voegen op de checkoutpagina, als blok in de Content Builder (Cart Checkout). Hij gebruikt dezelfde score/reviews als bij de winkelwagen-popup (Cart Popup → Vertrouwensbadge) — één instelling, geen dubbele invoer.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.59',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Content Builder ──
+                'Fix: bovenop de BTW-schakelaar in de winkelwagen-voorbeeldweergave verscheen soms een los groen vinkje — WordPress\' eigen standaard-opmaak voor selectievakjes (die altijd geldt voor een uitgeschakeld vinkje) was specifieker dan onze eigen stijl en won het daardoor van het verbergen van dat vinkje. Onze eigen schakelaar wint nu altijd.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.58',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Content Builder ──
+                'Fix: de BTW-schakelaar in de winkelwagen-voorbeeldweergave van de Content Builder zag er precies zo uit als een echte, klikbare schakelaar (inclusief handcursor), maar deed niets — het is puur een voorbeeld van hoe die schakelaar in de echte winkelwagen staat. Hij is nu duidelijk als voorbeeld herkenbaar: grijzer, een "niet toegestaan"-cursor, en een tooltip bij hover.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.57',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Content Builder ──
+                'Fix: de BTW-schakelaar in de winkelwagen-voorbeeldweergave van de Content Builder zag er precies zo uit als een echte, klikbare schakelaar (inclusief handcursor), maar deed niets — het is puur een voorbeeld van hoe die schakelaar in de echte winkelwagen staat. Hij is nu duidelijk als voorbeeld herkenbaar: grijzer, een "niet toegestaan"-cursor, en een tooltip bij hover.',
+            ],
+        ],
+        [
+            'version' => '1.14.31-beta.56',
+            'date'    => '2026-09-25',
+            'items'   => [
+                // ── Winkelwagen ──
+                'Fix: regels die een site via de WooCommerce-validatie voor "toevoegen aan winkelwagen" afdwingt (bv. "verse bloemen niet combineren met andere producten") werden omzeild door onze eigen toevoeg-paden: opnieuw toevoegen na verwijderen, een opgeslagen winkelwagen herstellen, "Opnieuw bestellen" en de verlanglijst (los en "alles toevoegen"). Die paden draaien nu dezelfde validatie, zodat een geblokkeerde combinatie ook daar geweigerd wordt.',
+                // ── Checkout / Afhalen ──
+                'Nieuw: instelling "Adresvelden bij afhalen" (tabblad Afhalen) met drie standen. Verplicht (standaard, zoals het was): de klant vult ook bij afhalen het hele adres in. Niet verplicht: straat, huisnummer, toevoeging, postcode en plaats blijven staan maar zonder sterretje. Weghalen: die velden verdwijnen bij afhalen. Zodra de klant op de checkout wisselt tussen bezorgen en afhalen passen de velden zich direct aan (sterretje weg/terug, of verborgen/zichtbaar); bezorgen blijft altijd volledig verplicht.',
+                'Verbetering: de instellingen voor de PDF-documenten hebben nu een eigen tabblad "PDF-documenten" in het Checkout-menu, in plaats van een blok tussen de andere checkout-instellingen.',
+                'Fix: bij afhalen stond nog steeds de vraag "Verzenden naar een ander adres?" op de checkout. Zodra de klant afhalen kiest verdwijnt die vraag (en een eventueel al ingevuld ander adres wordt niet meegestuurd); bij bezorgen staat hij er weer.',
+                // ── PDF-documenten ──
+                'Verbetering: staat de kop bovenaan aan (bezorgen/afhalen), dan worden de rijen Bezorgdatum en Afhaalgegevens in de ordergegevens niet meer dubbel getoond. De kop is compacter met een lichte achtergrond en toont de afhaallocatie met adres op één regel; de rijen hebben geen vet label meer en een korter label.',
+                'Nieuw: op de pakbon bij afhalen staan telefoonnummer en e-mailadres van de klant (nieuw vinkje "Telefoon en e-mail op pakbon bij afhalen"; alleen wat de PDF-plugin zelf niet al toont).',
+                'Fix: bij afhalen bleef in het verzendadres van de bestelling alleen straat + huisnummer staan (zonder postcode en plaats). Zo\'n half adres wordt nu leeggemaakt; het factuuradres blijft onveranderd.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.55',
             'date'    => '2026-09-25',
             'items'   => [

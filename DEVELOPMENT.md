@@ -173,31 +173,34 @@ Via het tabje **Theme Overrides** in de plugin-instellingen kan de plugin automa
 
 ### Aangemaakt bestand
 
+De plugin genereert deze bestanden zelf (`admin/scaffold.php` → `mkcp_scaffold_create()`) als kant-en-klare, direct bewerkbare **CSS/JS**-bestanden — geen SCSS-bronbestanden. Een klant of developer bewerkt ze rechtstreeks; er is geen eigen build-stap voor nodig.
+
 ```
 child-theme/
 └── mk-cart-popup/
-    ├── style.scss         ← SCSS met design tokens — klant past hier kleuren/fonts aan
-    ├── style.css          ← gecompileerde output — auto-geladen na de plugin-CSS
-    ├── checkout.scss      ← checkout SCSS bron — klant compileert naar checkout.css
-    ├── checkout.css       ← gecompileerde checkout output — auto-geladen (premium)
-    ├── cart-hooks.php          ← algemene popup hooks — auto-geladen bij plugins_loaded
-    └── checkout-cart-hooks.php ← checkout-specifieke hooks — auto-geladen bij plugins_loaded
+    ├── style.css          ← CSS overrides voor de popup — auto-geladen na de plugin-CSS
+    ├── checkout.css       ← CSS overrides voor de checkout — auto-geladen na de checkout-CSS (premium)
+    ├── script.js          ← JS overrides voor de popup — auto-geladen na de plugin-JS
+    ├── checkout.js        ← JS overrides voor de checkout — auto-geladen na de checkout-JS (premium)
+    ├── cart-hooks.php     ← algemene popup hooks — auto-geladen bij plugins_loaded
+    ├── checkout-hooks.php ← checkout-specifieke hooks — auto-geladen bij plugins_loaded
+    └── cart-popup.php     ← optioneel, niet auto-gegenereerd: volledige template override (zie docs.php sectie 6)
 ```
 
 ### Wat doet elk bestand?
 
 | Bestand | Doel | Wie past aan? |
 |---------|------|---------------|
-| `style.scss` | CSS custom properties overschrijven (accentkleur, breedte, etc.) | Klant / developer |
-| `style.css` | Gecompileerde output van `style.scss` — dit wordt geladen | Gegenereerd door Sass |
-| `checkout.scss` | Checkout-specifieke stijlen overschrijven | Klant / developer |
-| `checkout.css` | Gecompileerde output van `checkout.scss` | Gegenereerd door Sass (premium) |
+| `style.css` | CSS custom properties overschrijven (accentkleur, breedte, etc.) | Klant / developer |
+| `checkout.css` | Checkout-specifieke stijlen overschrijven | Klant / developer (premium) |
+| `script.js` | JS overrides voor de popup | Developer |
+| `checkout.js` | JS overrides voor de checkout | Developer (premium) |
 | `cart-hooks.php` | PHP hooks voor de popup (bijv. extra knoppen, acties) | Developer |
-| `checkout-cart-hooks.php` | PHP hooks voor de checkout (bijv. extra velden, filters) | Developer |
+| `checkout-hooks.php` | PHP hooks voor de checkout (bijv. extra velden, filters) | Developer |
 
 ### Vuistregel voor thema-CSS
 
-De thema-bestanden volgen dezelfde conventie als de plugin zelf: **SCSS is het bronbestand, CSS is de gecompileerde output**. De klant (of developer) is zelf verantwoordelijk voor het compileren van `style.scss` → `style.css` en `checkout.scss` → `checkout.css`. De plugin laadt altijd de `.css`-bestanden — nooit de `.scss`.
+Anders dan de plugin zelf (SCSS-bronbestanden → gecompileerde CSS, zie hierboven) zijn de gegenereerde thema-bestanden **kant-en-klare, rechtstreeks bewerkbare CSS/JS** — geen SCSS-bronbestand, geen build-stap. De klant of developer bewerkt `style.css` / `checkout.css` / `script.js` / `checkout.js` direct; wijzigingen zijn meteen actief (versie via `filemtime()`, geen cache-busting nodig).
 
 > **Aanbeveling:** gebruik een child-thema, niet het actieve thema zelf. Bij een thema-update worden thema-bestanden overschreven. De plugin waarschuwt hiervoor als er geen child-thema actief is.
 
@@ -205,9 +208,9 @@ De thema-bestanden volgen dezelfde conventie als de plugin zelf: **SCSS is het b
 
 De plugin controleert bij elke paginalading of de bestanden bestaan en laadt ze in de juiste volgorde:
 
-1. Plugin-CSS (`assets/cart-popup.css` / `assets/checkout.css`)
-2. Thema-CSS (`mk-cart-popup/style.css` / `mk-cart-popup/checkout.css`) — overschrijft de plugin-CSS
-3. PHP hooks (`cart-hooks.php` / `checkout-cart-hooks.php`) — via `plugins_loaded`
+1. Plugin-CSS/JS (`assets/cart-popup.css` / `assets/checkout.css` en de bijbehorende JS)
+2. Thema-CSS/JS (`mk-cart-popup/style.css` / `checkout.css` / `script.js` / `checkout.js`) — overschrijft de plugin-assets
+3. PHP hooks (`cart-hooks.php` / `checkout-hooks.php`) — via `plugins_loaded`
 
 ---
 

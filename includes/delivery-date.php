@@ -835,12 +835,12 @@ add_filter( 'woocommerce_email_order_meta_fields', function( $fields, $sent_to_a
 // bij wpo_wcpdf_after_order_details, dat ná de hele tabel vuurt) laat DOMPDF
 // stuklopen met "Parent table not found for table cell".
 mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
-    if ( ! $order || ! mkcp_pdf_option( 'pdf_delivery_info' ) ) return;
+    // Met de kop bovenaan aan staat dezelfde info daar al; niet dubbel tonen.
+    if ( ! $order || ! mkcp_pdf_option( 'pdf_delivery_info' ) || mkcp_pdf_option( 'pdf_headline' ) ) return;
     $date = $order->get_meta( '_mkcp_delivery_date' );
     if ( ! $date ) return;
     $slot = $order->get_meta( '_mkcp_delivery_slot' );
-    // <strong>: het factuursjabloon zet th bewust op font-weight:normal.
-    echo '<tr class="mkcp-delivery-date"><th><strong>' . esc_html__( 'Gewenste bezorgdatum', 'mk-cart-popup' ) . '</strong></th><td>'
+    echo '<tr class="mkcp-delivery-date"><th>' . esc_html__( 'Bezorgdatum:', 'mk-cart-popup' ) . '</th><td>'
         . esc_html( mkcp_dd_format_date( $date ) . ( $slot ? ', ' . $slot : '' ) ) . '</td></tr>';
 } );
 

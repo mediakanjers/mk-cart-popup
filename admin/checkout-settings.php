@@ -83,6 +83,14 @@ function mkcp_checkout_config() {
         'pdf_delivery_info' => true,
         'pdf_pickup_info'   => true,
         'pdf_vat_info'      => true,
+        'pdf_pickup_contact' => true,
+
+        // Vertrouwensbadge-blok op de checkoutpagina — los aan/uit te zetten
+        // van de vertrouwensbadge in de winkelwagen-popup (Cart Popup →
+        // Vertrouwensbadge, andere instellingengroep); dezelfde score/bron,
+        // maar niet automatisch overal tegelijk aan of uit. Standaard uit:
+        // moet je bewust inschakelen. Zie config.php (mkcp_trust_badge_html()).
+        'trust_badge_checkout_enabled' => false,
 
         // Bezorgdatum kiezer (premium)
         'delivery_date_enabled'        => false,
@@ -97,6 +105,9 @@ function mkcp_checkout_config() {
         // Afhalen (premium) — locaties gekoppeld aan verzendmethode-rate_id's,
         // zie mkcp_sanitize_pickup_locations() voor de structuur per locatie.
         'pickup_enabled'   => false,
+        // Adresvelden bij afhalen: 'required' (zoals altijd), 'optional' (niet
+        // verplicht) of 'hidden' (weggehaald). Zie includes/pickup.php.
+        'pickup_address_mode' => 'required',
         'pickup_locations' => [],
 
         // Afhaalmeldingen (premium) — e-mail + sms wanneer de admin
@@ -179,13 +190,15 @@ function mkcp_checkout_config() {
     $cfg['login_reminder_info_text']  = (string) $cfg['login_reminder_info_text'];
     $cfg['checkout_button_text']  = (string) $cfg['checkout_button_text'];
     $cfg['vat_checker_status_enabled'] = (bool) $cfg['vat_checker_status_enabled'];
-    foreach ( [ 'pdf_headline', 'pdf_delivery_info', 'pdf_pickup_info', 'pdf_vat_info' ] as $mkcp_pdf_key ) {
+    $cfg['trust_badge_checkout_enabled'] = (bool) $cfg['trust_badge_checkout_enabled'];
+    foreach ( [ 'pdf_headline', 'pdf_delivery_info', 'pdf_pickup_info', 'pdf_vat_info', 'pdf_pickup_contact' ] as $mkcp_pdf_key ) {
         $cfg[ $mkcp_pdf_key ] = (bool) $cfg[ $mkcp_pdf_key ];
     }
     $cfg['header_logo_id']        = (int)  $cfg['header_logo_id'];
     if ( ! is_array( $cfg['footer_blocks'] ) )   $cfg['footer_blocks']   = [];
     if ( ! is_array( $cfg['checkout_blocks'] ) ) $cfg['checkout_blocks'] = [];
     $cfg['pickup_enabled'] = (bool) $cfg['pickup_enabled'];
+    if ( ! in_array( $cfg['pickup_address_mode'], [ 'required', 'optional', 'hidden' ], true ) ) $cfg['pickup_address_mode'] = 'required';
     $cfg['hide_paid_delivery_if_free'] = (bool) $cfg['hide_paid_delivery_if_free'];
     if ( ! is_array( $cfg['shipping_choice_labels'] ) ) $cfg['shipping_choice_labels'] = [];
     if ( ! is_array( $cfg['pickup_locations'] ) ) $cfg['pickup_locations'] = [];

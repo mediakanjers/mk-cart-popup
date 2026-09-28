@@ -302,6 +302,14 @@ $icons = [
                     <?php endif; ?>
                 </div>
 
+                <div class="mkcp-nav-item <?php echo $active_tab === 'checkout-pdf' ? 'is-active' : ''; ?>" data-tab="checkout-pdf">
+                    <?php echo $icons['file-text'] ?? $icons['layers']; ?>
+                    PDF-documenten
+                    <?php if ( function_exists( 'mkcp_pdf_plugin_active' ) && mkcp_pdf_plugin_active() ) : ?>
+                        <span class="mkcp-nav-dot"></span>
+                    <?php endif; ?>
+                </div>
+
                 <div class="mkcp-nav-item <?php echo $active_tab === 'checkout-thankyou' ? 'is-active' : ''; ?>" data-tab="checkout-thankyou">
                     <?php echo $icons['zap']; ?>
                     Bedankt-pagina
@@ -848,6 +856,21 @@ $icons = [
                         <h3>USP truststrip</h3>
                     </div>
                     <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>USP truststrip tonen</strong>
+                                <small>Zet de hele rij vertrouwenslabels uit zonder de lijst hieronder te hoeven legen</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_usps_enabled" value="1" data-mkcp-mirror="mkcp_usps_enabled" <?php checked( $c['usps_enabled'] ?? true ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">USP truststrip ingeschakeld</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="mkcp-usp-list" id="mkcp-usp-rows">
                             <?php foreach ( $c['usps'] as $usp ) : ?>
                             <div class="mkcp-usp-row">
@@ -1198,7 +1221,7 @@ $icons = [
                         <div class="mkcp-setting-row">
                             <div class="mkcp-setting-label">
                                 <strong>Sterrenbeoordeling tonen</strong>
-                                <small>Toont een sterrenscore + reviewaantal in de winkelwagen-header, bv. van Trusted Shops of WebwinkelKeur. Geen live koppeling — je vult de waarden hieronder zelf in en werkt ze zelf bij.</small>
+                                <small>Toont een sterrenscore + reviewaantal in de winkelwagen-header en, als blok, op de checkoutpagina.</small>
                             </div>
                             <div class="mkcp-setting-control">
                                 <div class="mkcp-toggle-wrap">
@@ -1213,16 +1236,15 @@ $icons = [
 
                         <div class="mkcp-setting-row">
                             <div class="mkcp-setting-label">
-                                <strong>Keurmerk</strong>
+                                <strong>Bron</strong>
+                                <small>Waar de score vandaan komt</small>
                             </div>
                             <div class="mkcp-setting-control">
-                                <select class="mkcp-input" name="mkcp_trust_badge_provider">
+                                <select class="mkcp-input" name="mkcp_trust_badge_provider" id="mkcp-trust-provider">
                                     <?php
                                     $trust_providers = [
-                                        'manual'        => 'Handmatig / eigen keurmerk',
-                                        'trustedshops'  => 'Trusted Shops',
-                                        'webwinkelkeur' => 'WebwinkelKeur',
-                                        'kiyoh'         => 'Kiyoh',
+                                        'manual' => 'Handmatig invullen',
+                                        'google' => 'Google Reviews (live)',
                                     ];
                                     $current_provider = $c['trust_badge_provider'] ?? 'manual';
                                     foreach ( $trust_providers as $val => $label ) :
@@ -1233,37 +1255,148 @@ $icons = [
                             </div>
                         </div>
 
-                        <div class="mkcp-setting-row">
-                            <div class="mkcp-setting-label">
-                                <strong>Score</strong>
-                                <small>Op een schaal van 0 t/m 5</small>
+                        <!-- Handmatig -->
+                        <div class="mkcp-trust-provider-fields" data-provider="manual" style="<?php echo $current_provider !== 'manual' ? 'display:none' : ''; ?>">
+                            <div class="mkcp-setting-row">
+                                <div class="mkcp-setting-label">
+                                    <strong>Score</strong>
+                                    <small>Op een schaal van 0 t/m 5</small>
+                                </div>
+                                <div class="mkcp-setting-control">
+                                    <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_trust_badge_rating"
+                                           value="<?php echo esc_attr( $c['trust_badge_rating'] ?? 4.8 ); ?>" min="0" max="5" step="0.1">
+                                </div>
                             </div>
-                            <div class="mkcp-setting-control">
-                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_trust_badge_rating"
-                                       value="<?php echo esc_attr( $c['trust_badge_rating'] ?? 4.8 ); ?>" min="0" max="5" step="0.1">
+
+                            <div class="mkcp-setting-row">
+                                <div class="mkcp-setting-label">
+                                    <strong>Aantal reviews</strong>
+                                </div>
+                                <div class="mkcp-setting-control">
+                                    <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_trust_badge_review_count"
+                                           value="<?php echo esc_attr( $c['trust_badge_review_count'] ?? 0 ); ?>" min="0" step="1">
+                                </div>
+                            </div>
+
+                            <div class="mkcp-setting-row">
+                                <div class="mkcp-setting-label">
+                                    <strong>Link naar profiel/keurmerkpagina</strong>
+                                    <small>De sterren linken hiernaartoe (optioneel)</small>
+                                </div>
+                                <div class="mkcp-setting-control">
+                                    <input type="url" class="mkcp-input" name="mkcp_trust_badge_url"
+                                           value="<?php echo esc_attr( $c['trust_badge_url'] ?? '' ); ?>" placeholder="https://">
+                                    <?php
+                                    $trust_updated = $c['trust_badge_manual_updated_at'] ?? '';
+                                    if ( $trust_updated ) :
+                                        $trust_days_old = (int) floor( ( time() - strtotime( $trust_updated ) ) / DAY_IN_SECONDS );
+                                        $trust_stale    = $trust_days_old >= 90;
+                                    ?>
+                                    <p class="mkcp-input-hint" style="<?php echo $trust_stale ? 'color:#b45309' : ''; ?>">
+                                        <?php echo $trust_stale ? '⚠ ' : ''; ?>Laatst opgeslagen: <?php echo esc_html( date_i18n( 'd-m-Y', strtotime( $trust_updated ) ) ); ?>
+                                        <?php echo $trust_stale ? ' — controleer of dit cijfer nog klopt.' : ''; ?>
+                                    </p>
+                                    <?php else : ?>
+                                    <p class="mkcp-input-hint">Een handmatig cijfer wordt nooit vanzelf bijgewerkt — controleer 'm af en toe. Overweeg "Google Reviews (live)" hierboven voor een score die zichzelf ververst.</p>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mkcp-setting-row">
-                            <div class="mkcp-setting-label">
-                                <strong>Aantal reviews</strong>
+                        <!-- Google Reviews -->
+                        <div class="mkcp-trust-provider-fields" data-provider="google" style="<?php echo $current_provider !== 'google' ? 'display:none' : ''; ?>">
+                            <div class="mkcp-setting-row">
+                                <div class="mkcp-setting-label">
+                                    <strong>Google API-sleutel</strong>
+                                    <small>Places API — via de Google Cloud Console, gratis binnen het maandelijkse tegoed voor deze schaal</small>
+                                </div>
+                                <div class="mkcp-setting-control">
+                                    <input type="text" class="mkcp-input" name="mkcp_trust_badge_google_key"
+                                           value="<?php echo esc_attr( $c['trust_badge_google_key'] ?? '' ); ?>" placeholder="AIza…" autocomplete="off">
+                                </div>
                             </div>
-                            <div class="mkcp-setting-control">
-                                <input type="number" class="mkcp-input mkcp-input--sm" name="mkcp_trust_badge_review_count"
-                                       value="<?php echo esc_attr( $c['trust_badge_review_count'] ?? 0 ); ?>" min="0" step="1">
+                            <div class="mkcp-setting-row">
+                                <div class="mkcp-setting-label">
+                                    <strong>Google Place ID</strong>
+                                    <small>Op te zoeken via <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" rel="noopener">Google's Place ID Finder</a></small>
+                                </div>
+                                <div class="mkcp-setting-control">
+                                    <input type="text" class="mkcp-input" name="mkcp_trust_badge_google_place_id"
+                                           value="<?php echo esc_attr( $c['trust_badge_google_place_id'] ?? '' ); ?>" placeholder="ChIJ…">
+                                </div>
+                            </div>
+                            <div class="mkcp-setting-row">
+                                <div class="mkcp-setting-label">
+                                    <strong>Status</strong>
+                                    <small>Ververst automatisch één keer per dag op de achtergrond</small>
+                                </div>
+                                <div class="mkcp-setting-control">
+                                    <?php
+                                    $google_cache = function_exists( 'mkcp_trust_badge_google_cache' ) ? mkcp_trust_badge_google_cache() : null;
+                                    ?>
+                                    <div id="mkcp-trust-google-status" class="mkcp-input-hint">
+                                        <?php if ( $google_cache && ! empty( $google_cache['rating'] ) ) : ?>
+                                            ✓ <?php echo esc_html( number_format_i18n( (float) $google_cache['rating'], 1 ) ); ?> ster<?php echo (float) $google_cache['rating'] !== 1.0 ? 'ren' : ''; ?>
+                                            (<?php echo esc_html( number_format_i18n( (int) ( $google_cache['review_count'] ?? 0 ) ) ); ?> reviews)
+                                            — laatst opgehaald: <?php echo esc_html( $google_cache['fetched_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $google_cache['fetched_at'] ) ) : '—' ); ?>
+                                            <?php if ( ! empty( $google_cache['last_error'] ) ) : ?>
+                                                <br><span style="color:#b45309">⚠ laatste ververs-poging mislukt (<?php echo esc_html( $google_cache['last_error'] ); ?>) — bovenstaande score is de laatst bekende.</span>
+                                            <?php endif; ?>
+                                        <?php elseif ( $google_cache && ! empty( $google_cache['last_error'] ) ) : ?>
+                                            <span style="color:#b45309">⚠ Nog niet gelukt: <?php echo esc_html( $google_cache['last_error'] ); ?></span>
+                                        <?php else : ?>
+                                            Nog niet opgehaald — sla eerst de sleutel en Place ID op.
+                                        <?php endif; ?>
+                                    </div>
+                                    <button type="button" class="mkcp-btn mkcp-btn--secondary" id="mkcp-trust-google-refresh" style="margin-top:8px">Nu verversen</button>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mkcp-setting-row">
-                            <div class="mkcp-setting-label">
-                                <strong>Link naar profiel/keurmerkpagina</strong>
-                                <small>De sterren linken hiernaartoe (optioneel)</small>
-                            </div>
-                            <div class="mkcp-setting-control">
-                                <input type="url" class="mkcp-input" name="mkcp_trust_badge_url"
-                                       value="<?php echo esc_attr( $c['trust_badge_url'] ?? '' ); ?>" placeholder="https://">
-                            </div>
-                        </div>
+                        <script>
+                        (function () {
+                            var sel = document.getElementById( 'mkcp-trust-provider' );
+                            if ( ! sel ) return;
+                            function apply() {
+                                var val = sel.value;
+                                document.querySelectorAll( '.mkcp-trust-provider-fields' ).forEach( function ( el ) {
+                                    var list = el.getAttribute( 'data-provider' ).split( ',' );
+                                    el.style.display = list.indexOf( val ) !== -1 ? '' : 'none';
+                                } );
+                            }
+                            sel.addEventListener( 'change', apply );
+                            apply();
+
+                            var btn = document.getElementById( 'mkcp-trust-google-refresh' );
+                            if ( btn && window.jQuery ) {
+                                jQuery( btn ).on( 'click', function () {
+                                    var $btn = jQuery( this );
+                                    var $status = jQuery( '#mkcp-trust-google-status' );
+                                    $btn.prop( 'disabled', true ).text( 'Bezig…' );
+                                    var $keyField     = jQuery( 'input[name="mkcp_trust_badge_google_key"]' );
+                                    var $placeIdField = jQuery( 'input[name="mkcp_trust_badge_google_place_id"]' );
+                                    jQuery.post( ( window.mkcpAdmin && mkcpAdmin.ajaxUrl ) || ajaxurl, {
+                                        action:   'mkcp_trust_badge_refresh_now',
+                                        nonce:    ( window.mkcpAdmin && mkcpAdmin.trustBadgeNonce ) || '',
+                                        api_key:  $keyField.val() || '',
+                                        place_id: $placeIdField.val() || ''
+                                    } ).done( function ( res ) {
+                                        if ( res && res.success && res.data && res.data.cache ) {
+                                            var c = res.data.cache;
+                                            $status.html( '✓ ' + c.rating.toFixed( 1 ) + ' sterren (' + c.review_count + ' reviews) — laatst opgehaald: zojuist' );
+                                        } else {
+                                            var msg = ( res && res.data && res.data.message ) || 'Onbekende fout.';
+                                            $status.html( '<span style="color:#b45309">⚠ ' + msg + '</span>' );
+                                        }
+                                    } ).fail( function () {
+                                        $status.html( '<span style="color:#b45309">⚠ Verzoek mislukt.</span>' );
+                                    } ).always( function () {
+                                        $btn.prop( 'disabled', false ).text( 'Nu verversen' );
+                                    } );
+                                } );
+                            }
+                        })();
+                        </script>
                     </div>
                 </div>
 
@@ -1596,6 +1729,21 @@ $icons = [
                         <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 16px">
                             Upload je eigen betaalmethode icoontjes (SVG, PNG of JPG). Ze worden getoond boven de afrekenen-knop.
                         </p>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Betaalicoontjes tonen</strong>
+                                <small>Zet de hele rij icoontjes uit zonder de lijst hieronder te hoeven legen</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_payment_icons_enabled" value="1" data-mkcp-mirror="mkcp_payment_icons_enabled" <?php checked( $c['payment_icons_enabled'] ?? true ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Betaalicoontjes ingeschakeld</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="mkcp-pay-upload-list" id="mkcp-pay-icons-list">
                             <?php
                             $pay_icons = $c['payment_icons'] ?? [];
@@ -1773,6 +1921,49 @@ $icons = [
                                     </label>
                                     <?php endforeach; ?>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Kleur badge</strong>
+                                <small>Achtergrondkleur van de aantal-badge. Staat standaard gelijk aan de hoofdkleur van de popup.</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <?php $badge_color_val = $c['cart_count_badge_color'] ?: ( $c['style_accent'] ?? '#2e7d32' ); ?>
+                                <div class="mkcp-color-field">
+                                    <input type="color" class="mkcp-color-swatch js-mkcp-style-color"
+                                           id="mkcp_cart_count_badge_color"
+                                           name="mkcp_cart_count_badge_color"
+                                           value="<?php echo esc_attr( $badge_color_val ); ?>">
+                                    <input type="text" class="mkcp-color-hex js-mkcp-style-hex"
+                                           data-for="mkcp_cart_count_badge_color"
+                                           value="<?php echo esc_attr( $badge_color_val ); ?>"
+                                           maxlength="7" spellcheck="false" autocomplete="off"
+                                           aria-label="Kleur badge (hexcode)">
+                                    <button type="button" class="mkcp-color-tool js-mkcp-style-copy" data-for="mkcp_cart_count_badge_color" title="Hexcode kopiëren">
+                                        <?php echo $icons['copy']; ?>
+                                    </button>
+                                    <button type="button" class="mkcp-color-tool js-mkcp-style-eyedrop" data-for="mkcp_cart_count_badge_color" title="Kleur overnemen van je scherm">
+                                        <?php echo $icons['pipette']; ?>
+                                    </button>
+                                </div>
+                                <?php
+                                $badge_detected_colors = $is_premium ? mkcp_detect_theme_colors() : [];
+                                if ( $badge_detected_colors ) :
+                                ?>
+                                <div class="mkcp-detected-swatches" style="margin-top:8px">
+                                    <?php foreach ( $badge_detected_colors as $field => $hex ) : ?>
+                                    <button type="button" class="mkcp-detected-swatch mkcp-detected-swatch--flat js-mkcp-detected-apply"
+                                            data-field="mkcp_cart_count_badge_color"
+                                            data-color="<?php echo esc_attr( $hex ); ?>"
+                                            title="Toepassen: <?php echo esc_attr( strtoupper( $hex ) ); ?>">
+                                        <span class="mkcp-detected-swatch-color" style="background:<?php echo esc_attr( $hex ); ?>"></span>
+                                        <span class="mkcp-detected-swatch-info"><small><?php echo esc_html( strtoupper( $hex ) ); ?></small></span>
+                                    </button>
+                                    <?php endforeach; ?>
+                                </div>
+                                <p class="mkcp-input-hint">Kleuren gevonden in je thema — klik om toe te passen.</p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -2328,6 +2519,30 @@ $icons = [
                 </div>
 
                 <input type="hidden" name="mkcp_blocks" id="mkcp-blocks-json" value="<?php echo esc_attr( wp_json_encode( $c['blocks'] ?? [] ) ); ?>">
+
+                <div class="mkcp-glass" style="margin-bottom:16px">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['eye']; ?></div>
+                        <h3>Vaste onderdelen</h3>
+                    </div>
+                    <div class="mkcp-glass-body" style="display:flex; gap:24px; flex-wrap:wrap">
+                        <div class="mkcp-toggle-wrap">
+                            <label class="mkcp-toggle">
+                                <input type="checkbox" name="mkcp_payment_icons_enabled" value="1" data-mkcp-mirror="mkcp_payment_icons_enabled" <?php checked( $c['payment_icons_enabled'] ?? true ); ?>>
+                                <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                            </label>
+                            <span class="mkcp-toggle-label">Betaalicoontjes</span>
+                        </div>
+                        <div class="mkcp-toggle-wrap">
+                            <label class="mkcp-toggle">
+                                <input type="checkbox" name="mkcp_usps_enabled" value="1" data-mkcp-mirror="mkcp_usps_enabled" <?php checked( $c['usps_enabled'] ?? true ); ?>>
+                                <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                            </label>
+                            <span class="mkcp-toggle-label">USP truststrip</span>
+                        </div>
+                    </div>
+                    <p class="mkcp-input-hint" style="padding:0 20px 14px">Deze twee vaste onderdelen horen niet bij de sleepbare blokken hieronder — dezelfde schakelaar als bij "Instellingen" (Betaalmethode iconen / USP truststrip).</p>
+                </div>
 
                 <div class="mkcp-builder-wrap" data-mkcp-tier="premium">
 
@@ -3321,109 +3536,6 @@ $icons = [
                 </div>
 
                 <?php
-                $pdf_plugin_detected = function_exists( 'mkcp_pdf_plugin_active' ) && mkcp_pdf_plugin_active();
-                ?>
-                <div class="mkcp-glass">
-                    <div class="mkcp-glass-header">
-                        <div class="mkcp-header-icon"><?php echo $icons['package']; ?></div>
-                        <h3>PDF-documenten</h3>
-                    </div>
-                    <div class="mkcp-glass-body">
-
-                        <!-- WP Overnight PDF Invoices & Packing Slips detectie -->
-                        <div style="display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
-                            <div style="width:36px;height:36px;border-radius:8px;background:<?php echo $pdf_plugin_detected ? '#dcfce7' : 'var(--mkcp-ui-bg2)'; ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                                <?php if ( $pdf_plugin_detected ) : ?>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
-                                <?php else : ?>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--mkcp-ui-text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                <?php endif; ?>
-                            </div>
-                            <div>
-                                <strong style="font-size:13px;display:block">PDF Invoices &amp; Packing Slips for WooCommerce</strong>
-                                <span style="font-size:12px;color:<?php echo $pdf_plugin_detected ? '#16a34a' : 'var(--mkcp-ui-text3)'; ?>">
-                                    <?php echo $pdf_plugin_detected ? 'Gedetecteerd en actief' : 'Niet gevonden'; ?>
-                                </span>
-                            </div>
-                        </div>
-                        <p class="mkcp-input-hint" style="margin:0 0 16px">Kies welke gegevens er op de PDF's komen. Elk vinkje geldt voor zowel de factuur als de pakbon. Verzendmethode, opmerking van de klant, telefoon en e-mail regel je in de instellingen van de PDF-plugin zelf.</p>
-
-                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
-                            <div class="mkcp-setting-label">
-                                <strong>Bezorg-/afhaalkop bovenaan</strong>
-                                <small>Opvallend kader onder de documenttitel</small>
-                            </div>
-                            <div class="mkcp-setting-control">
-                                <div class="mkcp-toggle-wrap">
-                                    <label class="mkcp-toggle">
-                                        <input type="checkbox" name="mkcp_checkout_pdf_headline" value="1"
-                                            <?php checked( ! empty( $cfg_co['pdf_headline'] ) ); ?>>
-                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
-                                    </label>
-                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
-                                </div>
-                                <p class="mkcp-input-hint">Toont bv. <em>Bezorgen: Dinsdag 29 september 2026, 15:00</em> of <em>Afhalen: ..., locatie + adres</em>, zodat het meteen te zien is.</p>
-                            </div>
-                        </div>
-
-                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
-                            <div class="mkcp-setting-label">
-                                <strong>Bezorgdatum en tijdvak</strong>
-                                <small>Rij in de ordergegevens</small>
-                            </div>
-                            <div class="mkcp-setting-control">
-                                <div class="mkcp-toggle-wrap">
-                                    <label class="mkcp-toggle">
-                                        <input type="checkbox" name="mkcp_checkout_pdf_delivery_info" value="1"
-                                            <?php checked( ! empty( $cfg_co['pdf_delivery_info'] ) ); ?>>
-                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
-                                    </label>
-                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
-                                </div>
-                                <p class="mkcp-input-hint">De gekozen bezorgdatum (en tijdvak) bij de overige ordergegevens.</p>
-                            </div>
-                        </div>
-
-                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
-                            <div class="mkcp-setting-label">
-                                <strong>Afhaalgegevens</strong>
-                                <small>Rij in de ordergegevens</small>
-                            </div>
-                            <div class="mkcp-setting-control">
-                                <div class="mkcp-toggle-wrap">
-                                    <label class="mkcp-toggle">
-                                        <input type="checkbox" name="mkcp_checkout_pdf_pickup_info" value="1"
-                                            <?php checked( ! empty( $cfg_co['pdf_pickup_info'] ) ); ?>>
-                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
-                                    </label>
-                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
-                                </div>
-                                <p class="mkcp-input-hint">Afhaaldatum, tijdvak, locatie en adres bij de overige ordergegevens.</p>
-                            </div>
-                        </div>
-
-                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected || ! $vat_checker_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>">
-                            <div class="mkcp-setting-label">
-                                <strong>BTW-nummer en BTW-verlegging</strong>
-                                <small>Alleen als de klant een BTW-nummer heeft ingevuld</small>
-                            </div>
-                            <div class="mkcp-setting-control">
-                                <div class="mkcp-toggle-wrap">
-                                    <label class="mkcp-toggle">
-                                        <input type="checkbox" name="mkcp_checkout_pdf_vat_info" value="1"
-                                            <?php checked( ! empty( $cfg_co['pdf_vat_info'] ) ); ?>>
-                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
-                                    </label>
-                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
-                                </div>
-                                <p class="mkcp-input-hint">Toont het BTW-nummer en of de BTW is verlegd of gewoon berekend. Vereist de EU/UK VAT Validation Manager.</p>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <?php
                 $country_visible = isset( $cfg_co['country_field_visible'] ) ? (bool) $cfg_co['country_field_visible'] : true;
                 $country_locked  = ! empty( $cfg_co['country_field_locked'] );
                 ?>
@@ -3634,6 +3746,33 @@ $icons = [
 
                     </div>
                 </div>
+
+                <div class="mkcp-glass">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['shield']; ?></div>
+                        <h3>Vertrouwensbadge <?php if ( ! $is_premium ) echo '<span class="mkcp-premium-badge">Premium</span>'; ?></h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Vertrouwensbadge-blok</strong>
+                                <small>Losse aan/uit, los van "Badge ingeschakeld" bij Cart Popup → Vertrouwensbadge (dezelfde score/bron, maar de winkelwagen en de checkout hoeven 'm niet allebei te tonen)</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_trust_badge_enabled" value="1"
+                                            <?php checked( ! empty( $cfg_co['trust_badge_checkout_enabled'] ) ); ?> <?php echo $is_premium ? '' : 'disabled'; ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op checkout tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Staat dit uit, dan laat het blok in de Content Builder ook bij toevoegen niets zien. De score/bron zelf stel je in bij Cart Popup → Vertrouwensbadge. Staat dit aan: sleep het blok "Vertrouwensbadge" in de Content Builder naar de gewenste plek.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <script>
                 (function(){
                     var cb = document.getElementById('mkcp-country-visible');
@@ -4038,6 +4177,13 @@ $icons = [
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="8" width="18" height="8" rx="4"/></svg>
                                     </span>
                                     <span>Knop</span>
+                                </button>
+                                <button type="button" class="mkcp-block-add-btn" draggable="true" data-type="trust-badge" <?php echo $co_disabled; ?> title="Gebruikt de score/reviews van Cart Popup → Vertrouwensbadge">
+                                    <span class="mkcp-block-add-drag">⠿</span>
+                                    <span class="mkcp-block-add-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/></svg>
+                                    </span>
+                                    <span>Vertrouwensbadge</span>
                                 </button>
                             </div>
                         </div>
@@ -4924,6 +5070,22 @@ $icons = [
                             </div>
                         </div>
 
+                        <?php $pu_addr_mode = $cfg_co['pickup_address_mode'] ?? 'required'; ?>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Adresvelden bij afhalen</strong>
+                                <small>Straat, huisnummer, toevoeging, postcode en plaats op de checkout</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <select name="mkcp_pu_address_mode" <?php echo $co_disabled; ?>>
+                                    <option value="required" <?php selected( $pu_addr_mode, 'required' ); ?>>Verplicht (zoals bij bezorgen)</option>
+                                    <option value="optional" <?php selected( $pu_addr_mode, 'optional' ); ?>>Niet verplicht</option>
+                                    <option value="hidden" <?php selected( $pu_addr_mode, 'hidden' ); ?>>Weghalen</option>
+                                </select>
+                                <p class="mkcp-input-hint">Geldt alleen zodra de klant afhalen kiest; bezorgen blijft altijd volledig verplicht. <strong>Verplicht</strong>: het hele adres invullen. <strong>Niet verplicht</strong>: de velden blijven staan, zonder sterretje. <strong>Weghalen</strong>: de velden verdwijnen bij afhalen (naam, e-mail en telefoon blijven). De klant moet eerst postcode en huisnummer invullen om de verzend- en afhaalopties te zien; daarna kunnen de velden bij afhalen weg. Wisselt de klant terug naar bezorgen, dan komen ze direct terug.</p>
+                            </div>
+                        </div>
+
                         <?php if ( empty( $pu_methods ) ) : ?>
                         <p style="font-size:13px;color:var(--mkcp-ui-text3)">
                             Er is nog geen "Local pickup"-verzendmethode geconfigureerd. Maak er een aan via
@@ -5363,6 +5525,142 @@ $icons = [
                 </div>
 
                 </div><!-- /.mkcp-subpanel[data-subpanel="afhaalmeldingen"] -->
+
+                <div class="mkcp-save-bar">
+                    <button type="submit" class="mkcp-btn mkcp-btn--primary" <?php echo $co_disabled; ?>>
+                        <?php echo $icons['check']; ?> Opslaan
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="mkcp-panel mkcp-panel--checkout-pdf <?php echo $active_tab === 'checkout-pdf' ? 'is-active' : ''; ?>" data-panel="checkout-pdf">
+
+                <div class="mkcp-page-header">
+                    <h2>PDF-documenten <span class="mkcp-premium-badge">Premium</span></h2>
+                    <p>Welke gegevens er op de facturen en pakbonnen van de PDF-plugin komen.</p>
+                </div>
+
+                <?php
+                $pdf_plugin_detected = function_exists( 'mkcp_pdf_plugin_active' ) && mkcp_pdf_plugin_active();
+                ?>
+                <div class="mkcp-glass">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['package']; ?></div>
+                        <h3>PDF-documenten</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <!-- WP Overnight PDF Invoices & Packing Slips detectie -->
+                        <div style="display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div style="width:36px;height:36px;border-radius:8px;background:<?php echo $pdf_plugin_detected ? '#dcfce7' : 'var(--mkcp-ui-bg2)'; ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                <?php if ( $pdf_plugin_detected ) : ?>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+                                <?php else : ?>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--mkcp-ui-text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                <?php endif; ?>
+                            </div>
+                            <div>
+                                <strong style="font-size:13px;display:block">PDF Invoices &amp; Packing Slips for WooCommerce</strong>
+                                <span style="font-size:12px;color:<?php echo $pdf_plugin_detected ? '#16a34a' : 'var(--mkcp-ui-text3)'; ?>">
+                                    <?php echo $pdf_plugin_detected ? 'Gedetecteerd en actief' : 'Niet gevonden'; ?>
+                                </span>
+                            </div>
+                        </div>
+                        <p class="mkcp-input-hint" style="margin:0 0 16px">Kies welke gegevens er op de PDF's komen. Elk vinkje geldt voor zowel de factuur als de pakbon. Verzendmethode, opmerking van de klant, telefoon en e-mail regel je in de instellingen van de PDF-plugin zelf.</p>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Bezorg-/afhaalkop bovenaan</strong>
+                                <small>Opvallend kader onder de documenttitel</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_headline" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_headline'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Toont bv. <em>Bezorgen: Dinsdag 29 september 2026, 15:00</em> of <em>Afhalen: ..., locatie + adres</em>, zodat het meteen te zien is. Staat dit aan, dan worden de rijen <em>Bezorgdatum</em> en <em>Afhaalgegevens</em> in de ordergegevens niet nog eens getoond.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Bezorgdatum en tijdvak</strong>
+                                <small>Rij in de ordergegevens</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_delivery_info" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_delivery_info'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">De gekozen bezorgdatum (en tijdvak) bij de overige ordergegevens.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Afhaalgegevens</strong>
+                                <small>Rij in de ordergegevens</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_pickup_info" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_pickup_info'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Afhaaldatum, tijdvak, locatie en adres bij de overige ordergegevens.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>padding-bottom:16px;border-bottom:1px solid var(--mkcp-ui-border);margin-bottom:16px">
+                            <div class="mkcp-setting-label">
+                                <strong>Telefoon en e-mail op pakbon bij afhalen</strong>
+                                <small>Alleen pakbon, alleen bij afhaalbestellingen</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_pickup_contact" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_pickup_contact'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Bij afhalen staat er geen verzendadres op de pakbon; zo heb je toch het telefoonnummer en e-mailadres bij de hand als de bestelling klaarstaat. Wat de PDF-plugin zelf al toont wordt niet dubbel gezet.</p>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="<?php echo ( ! $pdf_plugin_detected || ! $vat_checker_detected ) ? 'opacity:.5;pointer-events:none;' : ''; ?>">
+                            <div class="mkcp-setting-label">
+                                <strong>BTW-nummer en BTW-verlegging</strong>
+                                <small>Alleen als de klant een BTW-nummer heeft ingevuld</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_checkout_pdf_vat_info" value="1"
+                                            <?php checked( ! empty( $cfg_co['pdf_vat_info'] ) ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Op PDF tonen</span>
+                                </div>
+                                <p class="mkcp-input-hint">Toont het BTW-nummer en of de BTW is verlegd of gewoon berekend. Vereist de EU/UK VAT Validation Manager.</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
 
                 <div class="mkcp-save-bar">
                     <button type="submit" class="mkcp-btn mkcp-btn--primary" <?php echo $co_disabled; ?>>

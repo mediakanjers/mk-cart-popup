@@ -57,6 +57,7 @@
     var cartCountBadgeEnabled  = params.cart_count_badge_enabled === '1';
     var cartCountBadgeSelector = params.cart_count_badge_selector  || '';
     var cartCountBadgePosition = params.cart_count_badge_position || 'top-right';
+    var cartCountBadgeColor    = params.cart_count_badge_color    || '';
 
     var wcStats           = params.analytics_wc_stats === '1';
     var debugMode         = params.analytics_debug    === '1';
@@ -1647,6 +1648,7 @@
         var $badge = $( '<span class="mkcp-cart-count-badge mkcp-cart-count-badge--' + cartCountBadgePosition + '" aria-label="' + count + ' in winkelwagen">' +
             count +
             '</span>' );
+        if ( cartCountBadgeColor ) $badge.css( 'background', cartCountBadgeColor );
         var selector = cartCountBadgeSelector
             ? cartCountBadgeSelector
             : DEFAULT_CART_ICON_SELECTOR;

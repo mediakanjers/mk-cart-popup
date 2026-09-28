@@ -1036,16 +1036,22 @@
 
     $(document).on('updated_checkout', function () {
         refreshAll();
-        // Vangnet: mkco_reorganize() (checkout-frontend.php) ruimt de oude
-        // kopie van de verzendkeuze-kaarten (en dus ook onze data-eilandjes
-        // daarbinnen) pas ~80ms na dit event op — ván vóór die opruiming kan
-        // idLast() nog de net-verwijderde oude rol zien staan, waardoor de
-        // sectie-brede voortgang/eindsamenvatting een rol te veel/te weinig
-        // toont totdat er weer iets geklikt wordt. Nog een keer verversen ná
-        // die opruiming garandeert dat ze altijd op de definitieve DOM
-        // gebaseerd zijn, ook zonder verdere klant-interactie.
+        // Vangnet met een gegokte vaste vertraging, voor het geval het
+        // 'mkcp:co-reorganized'-event hieronder (om wat voor reden dan ook)
+        // uitblijft — de eigenlijke, precieze synchronisatie loopt via dat
+        // event, niet via deze timer.
         setTimeout(refreshAll, 150);
     });
+
+    // mkco_reorganize() (checkout-frontend.php) meldt hiermee dat de
+    // verzendkeuze-kaarten (en dus ook onze data-eilandjes daarbinnen) na een
+    // AJAX-refresh definitief op hun plek staan, oude kopieën opgeruimd — pas
+    // op dát moment weten we zeker dat idLast() niet nog een net-verwijderde
+    // oude rol (bv. "Afhaaldatum" na omschakelen naar "Laten bezorgen") ziet.
+    // Voorkomt dat de eindsamenvatting (#mkcp-dd-final-summary) bij een
+    // tragere opruim-cyclus dan de vaste 150ms hierboven een verdwenen rol
+    // blijft tonen totdat er weer iets geklikt wordt.
+    $(document).on('mkcp:co-reorganized', refreshAll);
 
     $(document).ready(function () {
         refreshAll();

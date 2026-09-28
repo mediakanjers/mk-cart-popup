@@ -267,7 +267,7 @@ jQuery( function ( $ ) {
         } );
         var ZONE_ORDER = Object.keys( ZONE_LABELS );
 
-        var TYPE_LABELS = { text: 'Tekst', divider: 'Scheidingslijn', usp: 'USP', image: 'Afbeelding', banner: 'Banner', button: 'Knop' };
+        var TYPE_LABELS = { text: 'Tekst', divider: 'Scheidingslijn', usp: 'USP', image: 'Afbeelding', banner: 'Banner', button: 'Knop', 'trust-badge': 'Vertrouwensbadge' };
         var CO_FIELDS   = ( typeof mkcpCheckoutBuilder !== 'undefined' && mkcpCheckoutBuilder.fields ) || {};
 
         var DRAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">' +
@@ -295,6 +295,7 @@ jQuery( function ( $ ) {
             if ( block.type === 'image' )   return block.url ? block.url.split( '/' ).pop() : 'afbeelding';
             if ( block.type === 'banner' )  return block.text || 'Banner tekst';
             if ( block.type === 'button' )  return block.text || 'Knoptekst';
+            if ( block.type === 'trust-badge' ) return 'Score/reviews — instelbaar bij Cart Popup → Vertrouwensbadge';
             return '';
         }
 
@@ -513,6 +514,13 @@ jQuery( function ( $ ) {
                     '<option value="right"' + sel( block.align, 'right' ) + '>Rechts</option>' +
                     '</select></div></div>';
             }
+            if ( type === 'trust-badge' ) {
+                return zoneField +
+                    '<div class="mkcp-editor-field"><p style="color:var(--mkcp-ui-text2);font-size:13px;margin:0">' +
+                    'Toont dezelfde sterrenscore en reviews als de winkelwagen-popup — pas die aan bij ' +
+                    '<strong>Cart Popup → Vertrouwensbadge</strong>. Hier kies je alleen waar de badge op de checkout komt.</p></div>';
+            }
+
             return zoneField;
         }
 
@@ -566,6 +574,7 @@ jQuery( function ( $ ) {
             else if ( type === 'image' )   block = { type: 'image',   zone: zone, url: $( '#mkcp-co-editor-image-url' ).val(), link: $( '#mkcp-co-editor-image-link' ).val(), alt: $( '#mkcp-co-editor-image-alt' ).val() };
             else if ( type === 'banner' )  block = { type: 'banner',  zone: zone, text: $( '#mkcp-co-editor-banner-text' ).val(), variant: $( '#mkcp-co-editor-banner-variant' ).val() };
             else if ( type === 'button' )  block = { type: 'button',  zone: zone, text: $( '#mkcp-co-editor-button-text' ).val(), url: $( '#mkcp-co-editor-button-url' ).val(), variant: $( '#mkcp-co-editor-button-variant' ).val(), align: $( '#mkcp-co-editor-button-align' ).val() };
+            else if ( type === 'trust-badge' ) block = { type: 'trust-badge', zone: zone };
             if ( ! block ) return;
 
             if ( editingIndex === -1 ) {

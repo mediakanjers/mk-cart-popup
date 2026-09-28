@@ -3905,6 +3905,17 @@ add_action( 'wp', function() {
                 if (window.jQuery) jQuery(window).trigger('resize');
 
                 _done = true;
+
+                // Signaal voor delivery-date.js: de verzendkeuze-kaarten (en dus
+                // de bezorg-/afhaal-widgets erin, zie stap 0 hierboven) staan nu
+                // gegarandeerd op hun definitieve plek, oude kopieën opgeruimd.
+                // Precies op dít moment verversen i.p.v. op een gegokte vaste
+                // vertraging na 'updated_checkout' — die kon bij een tragere
+                // cyclus de eindsamenvatting (#mkcp-dd-final-summary) nog een
+                // inmiddels-verwijderde rol (bv. "Afhaaldatum" na omschakelen
+                // naar "Laten bezorgen") laten tonen totdat er weer iets
+                // geklikt werd.
+                if (window.jQuery) jQuery(document).trigger('mkcp:co-reorganized');
             }
 
             // Wacht even zodat delivery-date.js zijn renderCards() eerst uitvoert.
@@ -4324,6 +4335,40 @@ function mkcp_checkout_maybe_register_payment_icons_strip() {
 }
 add_action( 'wp', 'mkcp_checkout_maybe_register_payment_icons_strip', 21 );
 add_action( 'woocommerce_checkout_update_order_review', 'mkcp_checkout_maybe_register_payment_icons_strip', 1 );
+
+
+// ── Vertrouwensbadge: vast onder de betaalmethode-iconenstrip ──────────────────
+//
+// Los van het "Vertrouwensbadge"-content-builder-blok (dat je zelf ergens
+// naartoe sleept) — dit is de standaardplek zodra "Op checkout tonen" (Cart
+// Checkout → Algemeen) aan staat, zonder dat er iets gesleept hoeft te
+// worden: direct onder .mkcp-co-payment-icons, vóór de betaalmethodes.
+// Zelfde twee-hakenpatroon (normale laad + AJAX-ververting) als de
+// iconenstrip hierboven — #order_review wordt bij elke adres-/verzend-
+// wijziging vervangen, dus zonder herregistratie verdwijnt de badge bij de
+// eerstvolgende ververting.
+function mkcp_checkout_render_trust_badge_strip() {
+    if ( ! function_exists( 'mkcp_trust_badge_html' ) ) return;
+    $html = mkcp_trust_badge_html( 'checkout' );
+    if ( $html === '' ) return;
+    echo '<div class="mkcp-co-trust-badge">' . $html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- mkcp_trust_badge_html() escaped al.
+}
+
+function mkcp_checkout_maybe_register_trust_badge_strip() {
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
+    if ( ! mkcp_license_has( 'premium' ) ) return;
+    if ( mkcp_checkout_uses_blocks() ) return;
+
+    $cfg = mkcp_checkout_config();
+    if ( empty( $cfg['checkout_enabled'] ) ) return;
+    if ( empty( $cfg['trust_badge_checkout_enabled'] ) ) return;
+
+    // Priority 16: net na de betaalmethode-iconenstrip (15), nog steeds vóór
+    // #payment (20) — ongeacht of de iconenstrip zelf aan staat.
+    add_action( 'woocommerce_checkout_order_review', 'mkcp_checkout_render_trust_badge_strip', 16 );
+}
+add_action( 'wp', 'mkcp_checkout_maybe_register_trust_badge_strip', 21 );
+add_action( 'woocommerce_checkout_update_order_review', 'mkcp_checkout_maybe_register_trust_badge_strip', 1 );
 
 
 // ── Custom header ─────────────────────────────────────────────────────────────

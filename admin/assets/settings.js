@@ -1,5 +1,22 @@
 (function() {
 
+    // ── Gespiegelde velden ──────────────────────────────────────────────────
+    //
+    // Sommige instellingen (bv. "Betaalicoontjes"/"USP truststrip" aan/uit)
+    // staan bewust op twee plekken in het formulier — het eigen tabblad én
+    // de Content Builder — zodat je 'm kan aanpassen waar je toch al aan het
+    // werk bent. Beide checkboxen delen dezelfde name (dus altijd hetzelfde
+    // veld bij het opslaan), maar de zichtbare "aan"-stand moet ook visueel
+    // in sync blijven zodra je 'm op één van de twee plekken omzet.
+    document.querySelectorAll('[data-mkcp-mirror]').forEach(function(el) {
+        el.addEventListener('change', function() {
+            var group = el.dataset.mkcpMirror;
+            document.querySelectorAll('[data-mkcp-mirror="' + group + '"]').forEach(function(other) {
+                if (other !== el) other.checked = el.checked;
+            });
+        });
+    });
+
     // ── Tab navigation ───────────────────────────────────────────────────────
 
     var navItems  = document.querySelectorAll('.mkcp-nav-item[data-tab]');

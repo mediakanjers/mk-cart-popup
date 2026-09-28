@@ -82,8 +82,8 @@ function mkcp_pdf_fulfilment_lines( $order ): array {
         $rate_id = (string) $order->get_meta( '_mkcp_pickup_rate_id' );
         $loc     = function_exists( 'mkcp_pickup_location_for_rate' ) ? mkcp_pickup_location_for_rate( $rate_id ) : null;
         $label   = $loc['location_label'] ?? ( $order->get_meta( '_mkcp_pickup_location' ) ?: __( 'Afhaallocatie', 'mk-cart-popup' ) );
-        $extra   = $label;
-        if ( ! empty( $loc['address'] ) ) $extra .= "\n" . $loc['address'];
+        $extra   = rtrim( (string) $label, ': ' );
+        if ( ! empty( $loc['address'] ) ) $extra .= ': ' . $loc['address'];
         $lines[] = [
             'label' => __( 'Afhalen', 'mk-cart-popup' ),
             'text'  => mkcp_dd_format_date( $p_date ) . ( $slot ? ', ' . $slot : '' ),
@@ -104,12 +104,13 @@ add_action( 'wpo_wcpdf_after_document_label', function( $document_type, $order )
     $lines = mkcp_pdf_fulfilment_lines( $order );
     if ( ! $lines ) return;
 
-    echo '<div class="mkcp-pdf-headline" style="margin:0 0 14px;padding:8px 12px;border:1px solid #999;">';
+    echo '<div class="mkcp-pdf-headline" style="margin:0 0 12px;padding:7px 12px;border:1px solid #999;background:#f5f5f5;">';
     foreach ( $lines as $line ) {
         echo '<div style="font-size:12pt;font-weight:bold;"><span style="font-weight:normal;">'
             . esc_html( $line['label'] ) . ':</span> ' . esc_html( $line['text'] ) . '</div>';
         if ( $line['extra'] !== '' ) {
-            echo '<div style="font-size:9pt;">' . nl2br( esc_html( $line['extra'] ) ) . '</div>';
+            // Locatie + adres op één regel i.p.v. een lange kolom.
+            echo '<div style="font-size:9pt;">' . esc_html( preg_replace( '/\s*\n\s*/', ', ', $line['extra'] ) ) . '</div>';
         }
     }
     echo '</div>';
@@ -128,8 +129,30 @@ mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
 
     $exempt = $order->get_meta( 'is_vat_exempt' ) === 'yes';
 
-    echo '<tr class="mkcp-vat-info"><th><strong>' . esc_html__( 'BTW-nummer', 'mk-cart-popup' ) . '</strong></th><td>'
+    echo '<tr class="mkcp-vat-info"><th>' . esc_html__( 'BTW-nummer:', 'mk-cart-popup' ) . '</th><td>'
         . esc_html( $vat ) . '<br>'
         . esc_html( $exempt ? __( 'BTW verlegd naar afnemer (0%)', 'mk-cart-popup' ) : __( 'BTW berekend', 'mk-cart-popup' ) )
         . '</td></tr>';
 }, 12 );
+
+// ── Pakbon bij afhalen: telefoon en e-mail van de klant ───────────────────────
+//
+// Bij afhalen wissen we het verzendadres, waardoor er op de pakbon alleen een
+// naam overblijft. Voor "je bestelling staat klaar" heb je het telefoonnummer
+// en e-mailadres nodig. Alleen wat de PDF-plugin zelf niet al toont (op basis
+// van zijn eigen instellingen voor de pakbon), zodat er niets dubbel staat.
+add_action( 'wpo_wcpdf_after_shipping_address', function( $document_type, $order ) {
+    if ( $document_type !== 'packing-slip' || ! $order || ! mkcp_pdf_option( 'pdf_pickup_contact' ) ) return;
+    if ( ! $order->get_meta( '_mkcp_pickup_date' ) ) return;
+
+    $settings = (array) get_option( 'wpo_wcpdf_documents_settings_packing-slip', [] );
+    $email    = $order->get_billing_email();
+    $phone    = $order->get_billing_phone();
+
+    if ( $email !== '' && ! isset( $settings['display_email'] ) ) {
+        echo '<div class="mkcp-pdf-contact">' . esc_html( $email ) . '</div>';
+    }
+    if ( $phone !== '' && ! isset( $settings['display_phone'] ) ) {
+        echo '<div class="mkcp-pdf-contact">' . esc_html( $phone ) . '</div>';
+    }
+}, 10, 2 );

@@ -25,6 +25,8 @@ export var ICON = {
     user     : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     calendar : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     star     : '<polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/>',
+    shieldCheck : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 3.2v5.6c0 5-3.2 8.9-7.5 10.6C7.7 20.2 4.5 16.3 4.5 11.3V5.7z"/><polyline points="8.5 12 11 14.5 15.5 9.5"/></svg>',
+    chevronRight : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>',
     // Sleutels moeten exact overeenkomen met mkcp_usp_icons() in config.php
     // (de PHP-kant die op de live site rendert) — een sleutel die hier
     // ontbreekt valt terug op 'check' in de live preview, ook al rendert het

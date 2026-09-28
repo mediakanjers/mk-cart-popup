@@ -247,7 +247,7 @@ body.mkcp-distraction-free-checkout {
     }
 
     .mkcp-checkout-header__logo {
-        max-height: 35px;
+        max-height: 20px;
     }
 
     // Logo + stappen + SSL-badge pasten hier nooit alle drie naast elkaar
@@ -425,6 +425,11 @@ body.mkcp-distraction-free-checkout {
         // box-shadow    : 0 1px 4px rgba(0, 0, 0, .04);
     }
 
+    .mkcp-co-trust-badge {
+        grid-column : 2;
+        grid-row    : 5;
+    }
+
     .mkcp-co-payment-icons {
         grid-column : 2;
         grid-row    : 4;
@@ -448,7 +453,7 @@ body.mkcp-distraction-free-checkout {
 
     #payment {
         grid-column : 2;
-        grid-row    : 5;
+        grid-row    : 6;
     }
 
     /* WooCommerce col-set */
@@ -1620,13 +1625,33 @@ body.mkcp-distraction-free-checkout .shop_table.woocommerce-checkout-review-orde
         }
     }
 
-    // Lijntjes tussen de productregels onderling weg — de scheiding komt nu
-    // via één lijn onder de BTW-switch (zie hieronder) i.p.v. onder elk
-    // product apart. Subtotaal/verzendkosten/totaal-rijen behouden gewoon
-    // hun eigen scheidingslijn.
+    // Was hier eerder: helemaal geen lijn tussen productregels ("één lijn
+    // onder de BTW-switch volstaat"). In de praktijk had een product met
+    // variatie-attributen toch al een eigen lijntje (op dl.variation, ín de
+    // td.product-name-cel) — maar dat kon nooit verder lopen dan die ene
+    // kolom, dus het stopte halverwege de rij i.p.v. door te lopen tot onder
+    // de prijskolom. Nu een echte lijn op de hele rij (alle cellen van
+    // .cart_item delen dezelfde rijhoogte, dus border-bottom op elke cel
+    // geeft één doorlopende lijn over de volle breedte) — vervangt dl.
+    // variation's kapotte kolom-brede lijntje hierboven.
     .cart_item {
+        &:not(:last-child) {
+            th, td {
+                border-bottom: 1px solid var(--mkcp-light1, $light1);
+            }
+        }
+
         th, td {
             border-top: none;
+            // Bij een product met variatie-attributen wordt de rij een stuk
+            // hoger dan de thumbnail/prijs-cellen nodig hebben. De algemene
+            // vertical-align:middle hierboven centreert die cellen dan in de
+            // VOLLE (hoge) rijhoogte, waardoor thumbnail en prijs halverwege
+            // de attributenlijst komen te zweven i.p.v. bovenaan bij de
+            // productnaam. Bovenaan uitlijnen houdt thumbnail/naam/prijs
+            // allemaal samen met de eerste regel, ongeacht hoe lang de
+            // attributenlijst is.
+            vertical-align: top;
         }
     }
 
@@ -1922,7 +1947,13 @@ body.mkcp-distraction-free-checkout .shop_table {
             row-gap                : 3px;
             margin                 : 8px 0 0;
             padding-top            : 8px;
-            border-top             : 1px solid var(--mkcp-light1, $light1);
+            // Géén eigen border-top meer: dl.variation zit ALLEEN in de
+            // td.product-name-cel, dus zo'n lijntje kan nooit verder lopen
+            // dan die ene kolom — bij een tabel met een aparte prijskolom
+            // (td.product-total) stopt de lijn dan halverwege de rij i.p.v.
+            // over de volle breedte door te lopen. De echte, volle-breedte
+            // scheidingslijn onder het hele product staat nu op .cart_item
+            // zelf (border-bottom op alle cellen van de rij, hieronder).
             font-size              : 11.5px;
             clear                  : both;
             min-width              : 0;
@@ -2343,7 +2374,7 @@ body.mkcp-distraction-free-checkout #payment {
         font-weight    : 500;
         color          : var(--mkcp-text, $text);
         cursor         : pointer;
-        padding        : 9px 12px;
+        padding        : 9px 12px !important;
         border         : 1px solid var(--mkcp-light1, $light1);
         border-radius  : 8px;
         margin         : 0;
@@ -2845,6 +2876,25 @@ body.mkcp-distraction-free-checkout .mkcp-switcher-tab {
     }
 }
 
+@media (max-width: 600px) {
+    body.mkcp-distraction-free-checkout .mkcp-switcher-tab {
+        gap      : 5px;
+        padding  : 9px 8px;
+        font-size: 11px;
+
+        svg {
+            width : 13px;
+            height: 13px;
+        }
+
+        &__chevron {
+            width      : 10px;
+            height     : 10px;
+            margin-left: 0;
+        }
+    }
+}
+
 /* ── Popup (login- én account-modal delen deze markup/CSS) ───────────────────
  * checkout-frontend.php's JS verplaatst .woocommerce-form-login resp.
  * .woocommerce-account-fields hierin i.p.v. inline te tonen — de tab-klik
@@ -3266,6 +3316,41 @@ body.mkcp-distraction-free-checkout .woocommerce-form-login {
         }
 
         &.is-submitting .woocommerce-form-login__submit::before { animation: none; }
+    }
+}
+
+// Gebruikersnaam/wachtwoord naast elkaar (1fr 1fr, hierboven) laat op smalle
+// schermen te weinig ruimte over voor label + verplicht-sterretje + het oog-
+// icoontje samen — vandaar hier onder elkaar i.p.v. naast elkaar, elk
+// vol-breed. NA het basisblok hierboven staan (i.p.v. ervoor) is bewust: bij
+// gelijke selector-specificiteit wint anders de latere, media-loze regel
+// alsnog, ongeacht viewport.
+@media (max-width: 480px) {
+    body.mkcp-distraction-free-checkout .woocommerce-form-login {
+        grid-template-columns: 1fr;
+        grid-template-areas  :
+            "msg"
+            "info"
+            "user"
+            "pass"
+            "remember"
+            "forgot"
+            "submit"
+            "trust";
+        gap: 0;
+
+        .form-row-first,
+        .form-row-last {
+            margin-bottom: 12px;
+        }
+
+        // "Onthouden" en "Wachtwoord vergeten?" ook onder elkaar i.p.v.
+        // naast elkaar — anders staan ze bij een vol-breed grid-item nog
+        // steeds in elkaars weg via .form-row:has(...):contents hierboven.
+        .lost_password {
+            justify-self: start;
+            margin-top  : 8px;
+        }
     }
 }
 
@@ -3922,6 +4007,7 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         .mkcp-co-btw-switch,
         #order_review,
         .mkcp-co-payment-icons,
+        .mkcp-co-trust-badge,
         #payment {
             grid-column : 1;
             grid-row    : auto;
@@ -3933,16 +4019,23 @@ body.mkcp-distraction-free-checkout .mkcp-co-section--payment #payment {
         }
 
         .mkcp-co-payment-icons {
-            padding: 10px 10px;
+            padding: 10px 0;
         }
 
         .mkcp-co-crosssell {
             display : none;
         }
 
-        .mkcp-co-payment-icons,
-        #payment {
+        .mkcp-co-payment-icons {
             order : 4;
+        }
+
+        .mkcp-co-trust-badge {
+            order : 5;
+        }
+
+        #payment {
+            order : 6;
         }
 
         #order_review {
@@ -4415,7 +4508,7 @@ body.mkcp-distraction-free-checkout .mkcp-review-modal-close {
 .mkcp-checkout-steps {
     display     : flex;
     align-items : center;
-    gap         : 6px;
+    gap         : 3px;
     margin-left: auto;
     margin-right: 20px;
 }
@@ -4471,7 +4564,7 @@ body.mkcp-distraction-free-checkout .mkcp-review-modal-close {
 @media (max-width: 600px) {
     .mkcp-checkout-step__label  { display   : none; }
     .mkcp-checkout-steps__arrow { font-size : 13px; }
-    .mkcp-checkout-step__num    { width: 20px; height: 20px; font-size: 10px; }
+    .mkcp-checkout-step__num    { width: 16px; height: 16px; font-size: 8px; }
 }
 
 

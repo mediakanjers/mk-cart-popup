@@ -1077,7 +1077,7 @@ add_action( 'wp_ajax_mkcp_account_reorder', function() {
             if ( $resolved ) $variation = $resolved;
         }
 
-        $added_key = WC()->cart->add_to_cart( $product_id, $item->get_quantity(), $variation_id, $variation );
+        $added_key = mkcp_add_to_cart_validated( $product_id, $item->get_quantity(), $variation_id, $variation );
         if ( ! $added_key ) {
             $skipped[] = $name;
         } else {

@@ -133,7 +133,9 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             show_coupon            : checked( 'mkcp_show_coupon' ),
             min_order_amount       : parseFloat( val( 'mkcp_min_order_amount' ) ) || 0,
             payment_icons          : payIcons,
+            payment_icons_enabled  : checked( 'mkcp_payment_icons_enabled' ),
             usps                   : usps,
+            usps_enabled           : checked( 'mkcp_usps_enabled' ),
             save_for_later         : checked( 'mkcp_save_for_later' ),
             stock_indicator        : checked( 'mkcp_stock_indicator' ),
             stock_threshold        : parseInt( val( 'mkcp_stock_threshold' ), 10 ) || 5,
@@ -146,6 +148,8 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             trust_badge            : checked( 'mkcp_trust_badge_enabled' ),
             trust_rating           : Math.max( 0, Math.min( 5, parseFloat( val( 'mkcp_trust_badge_rating' ) ) || 0 ) ),
             trust_review_count     : Math.max( 0, parseInt( val( 'mkcp_trust_badge_review_count' ), 10 ) || 0 ),
+            trust_provider         : val( 'mkcp_trust_badge_provider' ) || 'manual',
+            trust_url              : val( 'mkcp_trust_badge_url' ),
             delivery_preview       : checked( 'mkcp_delivery_preview_enabled' ),
             expand_enabled         : checked( 'mkcp_style_expand_enabled' ),
             resize_enabled         : checked( 'mkcp_style_resize_enabled' ),
@@ -494,6 +498,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             'mkcp_save_for_later', 'mkcp_stock_indicator', 'mkcp_save_cart_url', 'mkcp_save_cart_email',
             'mkcp_account_link_enabled', 'mkcp_trust_badge_enabled', 'mkcp_delivery_preview_enabled',
             'mkcp_style_expand_enabled', 'mkcp_style_resize_enabled',
+            'mkcp_payment_icons_enabled', 'mkcp_usps_enabled',
         ];
         boolFields.forEach( function ( name ) {
             data[ name ] = $form.find( '[name="' + name + '"]' ).is( ':checked' ) ? '1' : '';
@@ -1037,6 +1042,11 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
     // als templates/cart-popup.php).
     function tplUtilityRow( cfg ) {
         if ( ! cfg.btw_split && ! cfg.account_link ) return '';
+        // De schakelaar zelf (track/thumb/vinkje) blijft staan — dat laat zien
+        // hoe die er in de echte winkelwagen uitziet. Hij is puur decoratief
+        // (checked + disabled): de "BTW-schakelaar"-balk hierboven in de
+        // Content Builder (tplExtras) is de eigenlijke aan/uit-bediening. De
+        // grijzere, niet-klikbare opmaak hiervoor staat in builder.css.
         var btw = cfg.btw_split
             ? '<div class="mk-cart-popup__btw-switch">' +
               '<label class="mk-cart-popup__btw-toggle">' +
@@ -1053,20 +1063,42 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         return '<div class="mk-cart-popup__utility-row">' + btw + account + '</div>';
     }
 
+    var TRUST_PROVIDER_LABELS = { google: 'Google' };
+    var TRUST_STAR_PATH = 'M12 2.5l2.95 5.98 6.6.96-4.78 4.65 1.13 6.57L12 17.6l-5.9 3.1 1.13-6.57L2.45 9.44l6.6-.96z';
+
+    // Spiegelt mkcp_trust_badge_stars_html() (config.php) — zelfde markup/
+    // classes (.cart-trustbadge), puur als preview (geen echte link nodig).
     function tplTrustBadge( cfg ) {
+        var rating = cfg.trust_rating;
+        var uid    = 'mkcp-ctb-preview-' + Math.random().toString( 36 ).slice( 2, 8 );
+
         var stars = '';
         for ( var i = 1; i <= 5; i++ ) {
-            var fill = Math.max( 0, Math.min( 100, ( cfg.trust_rating - ( i - 1 ) ) * 100 ) );
-            stars += '<span class="mk-cart-popup__trust-star" style="--mkcp-star-fill:' + fill + '%">' +
-                     '<svg class="mk-cart-popup__trust-star-bg" viewBox="0 0 24 24">' + ICON.star + '</svg>' +
-                     '<svg class="mk-cart-popup__trust-star-fill" viewBox="0 0 24 24">' + ICON.star + '</svg></span>';
+            var fill   = Math.max( 0, Math.min( 100, ( rating - ( i - 1 ) ) * 100 ) );
+            var gradId = uid + '-s' + i;
+            stars += '<svg class="cart-trustbadge__star" viewBox="0 0 24 24" aria-hidden="true">' +
+                     '<defs><linearGradient id="' + gradId + '">' +
+                     '<stop offset="' + fill + '%" stop-color="#f0a01f"/>' +
+                     '<stop offset="' + fill + '%" stop-color="#d4dcd4"/>' +
+                     '</linearGradient></defs>' +
+                     '<path d="' + TRUST_STAR_PATH + '" fill="url(#' + gradId + ')"/></svg>';
         }
-        var count = cfg.trust_review_count > 0
-            ? ' <span class="mk-cart-popup__trust-badge-count">(' + cfg.trust_review_count + ')</span>'
-            : '';
-        return '<div class="mk-cart-popup__trust-badge">' +
-               '<span class="mk-cart-popup__trust-badge-stars">' + stars + '</span>' +
-               '<span class="mk-cart-popup__trust-badge-text">' + cfg.trust_rating.toFixed( 1 ).replace( '.', ',' ) + count + '</span>' +
+
+        var label = '';
+        if ( rating >= 4.5 ) label = 'Uitstekend';
+        else if ( rating >= 4.0 ) label = 'Zeer goed';
+        else if ( rating >= 3.5 ) label = 'Goed';
+
+        var providerLabel = TRUST_PROVIDER_LABELS[ cfg.trust_provider ] || 'onze klantbeoordelingen';
+
+        return '<div class="cart-trustbadge" style="pointer-events:none">' +
+               '<div class="cart-trustbadge__score">' + rating.toFixed( 1 ).replace( '.', ',' ) + '<span class="cart-trustbadge__scale">van 5</span></div>' +
+               '<div class="cart-trustbadge__details">' +
+               '<div class="cart-trustbadge__stars">' + stars + '</div>' +
+               '<div class="cart-trustbadge__label">' + ( label ? '<strong>' + label + '</strong> · ' : '' ) + cfg.trust_review_count + ' beoordelingen</div>' +
+               '<div class="cart-trustbadge__verified">' + ICON.shieldCheck + ' Geverifieerd via ' + esc( providerLabel ) + '</div>' +
+               '</div>' +
+               ( cfg.trust_url ? '<span class="cart-trustbadge__arrow">' + ICON.chevronRight + '</span>' : '' ) +
                '</div>';
     }
 
@@ -1145,6 +1177,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
     }
 
     function tplPaymentIcons( cfg ) {
+        if ( ! cfg.payment_icons_enabled ) return '';
         var icons = cfg.payment_icons.filter( function ( p ) { return p.url; } );
         if ( ! icons.length ) return '';
         return '<div class="mk-cart-popup__payment-icons">' +
@@ -1243,7 +1276,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             ? '<div class="mk-cart-popup__min-order-warning" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Minimale bestelling: ' + money( minOrder ) + '. Voeg nog ' + money( minOrder - subtotal ) + ' toe.</div>'
             : ( minOrder > 0 ? '<div class="mkcp-preview-note">&#128270; preview &middot; min. bestelbedrag ' + money( minOrder ) + ' bereikt</div>' : '' );
 
-        var uspStrip = cfg.usps.length
+        var uspStrip = ( cfg.usps_enabled && cfg.usps.length )
             ? '<div class="mk-cart-popup__usps">' +
               cfg.usps.map( function ( u ) { return '<span class="mk-cart-popup__usp">' + ( ICON.usp[ u.icon ] || ICON.usp.check ) + ' ' + esc( u.text ) + '</span>'; } ).join( '' ) +
               '</div>'
@@ -1280,12 +1313,12 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             tplTotals( cfg ) +
             renderZoneHtml( 'below-totals' ) +
             minOrderNote +
-            tplPaymentIcons( cfg ) +
+            optionalSection( 'mkcp_payment_icons_enabled', 'Betaalicoontjes', cfg.payment_icons_enabled, isBuilder, tplPaymentIcons( cfg ), cfg.payment_icons_enabled && cfg.payment_icons.length > 0 ) +
             renderZoneHtml( 'below-payment' ) +
             tplCta( cfg, isBuilder, belowMinimum ) +
             renderZoneHtml( 'below-checkout' ) +
             tplShare( cfg, isBuilder ) +
-            uspStrip +
+            optionalSection( 'mkcp_usps_enabled', 'USP truststrip', cfg.usps_enabled, isBuilder, uspStrip, cfg.usps_enabled && cfg.usps.length > 0 ) +
             '</div>' + // footer
 
             optionalSection( 'mkcp_save_for_later', 'Bewaar voor later', cfg.save_for_later, isBuilder, tplSavedItems() ) +

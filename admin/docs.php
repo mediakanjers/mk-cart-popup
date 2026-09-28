@@ -32,6 +32,8 @@ function mkcp_render_docs_page() {
     $has_checkout_hooks  = file_exists( $scaffold_dir . '/checkout-hooks.php' );
     $has_style_css       = file_exists( $scaffold_dir . '/style.css' );
     $has_checkout_css    = file_exists( $scaffold_dir . '/checkout.css' );
+    $has_script_js       = file_exists( $scaffold_dir . '/script.js' );
+    $has_checkout_js     = file_exists( $scaffold_dir . '/checkout.js' );
     $child_theme    = get_stylesheet();
     $settings_url   = admin_url( 'admin.php?page=mkcp-settings' );
     $version        = MKCP_VER;
@@ -182,6 +184,8 @@ function mkcp_render_docs_page() {
                             <code>includes/delivery-date.php</code> — bezorgdatum kiezer (premium)<br>
                             <code>includes/pickup.php</code> — afhaallocaties, tijdvakken en de locatie-info op de checkout (premium)<br>
                             <code>includes/shipping-choice.php</code> — Ophalen/Bezorgen-keuzekaarten, zie sectie 3 (premium)<br>
+                            <code>includes/pdf-documents.php</code> — koppeling met PDF Invoices &amp; Packing Slips, zie sectie 3 (premium)<br>
+                            <code>includes/trust-badge-google.php</code> — live Google Reviews-score voor de vertrouwensbadge (premium)<br>
                             <code>includes/abandoned-cart.php</code> — herinneringsmail bij verlaten winkelmand (premium)<br>
                             <code>admin/assets/checkout.js</code> — admin-interface voor de Checkout-instellingen
                         </div>
@@ -216,8 +220,22 @@ function mkcp_render_docs_page() {
                                 <tr><td><code>Minimum bestelbedrag</code></td><td style="color:var(--mkcp-ui-text2)">Blokkeer afrekenen-knop als subtotaal hieronder blijft. 0 = uitgeschakeld.</td><td style="color:var(--mkcp-ui-text3)">0 (uit)</td></tr>
 
                                 <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Weergave</td></tr>
+                                <tr><td><code>Betaalicoontjes ingeschakeld</code></td><td style="color:var(--mkcp-ui-text2)">Losse aan/uit voor de hele rij, zonder de upload-lijst te hoeven legen. Staat zowel hier als in de Content Builder (mirrored, altijd in sync).</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
                                 <tr><td><code>Betaalicoontjes</code></td><td style="color:var(--mkcp-ui-text2)">Upload eigen SVG/PNG/JPG iconen. Verschijnen boven de afrekenen-knop.</td><td style="color:var(--mkcp-ui-text3)">Geen</td></tr>
+                                <tr><td><code>USP truststrip ingeschakeld</code></td><td style="color:var(--mkcp-ui-text2)">Losse aan/uit voor de hele rij, zonder de USP-lijst te hoeven legen. Staat zowel hier als in de Content Builder (mirrored, altijd in sync).</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
                                 <tr><td><code>USPs</code></td><td style="color:var(--mkcp-ui-text2)">Rij vertrouwenslabels onderaan de popup (icoon + tekst).</td><td style="color:var(--mkcp-ui-text3)">3 standaard</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Aantal in winkelwagen</td></tr>
+                                <tr><td><code>Aantal-badge ingeschakeld</code></td><td style="color:var(--mkcp-ui-text2)">Toont het aantal producten in de winkelwagen als badge op het cart-icoon in je header. Werkt live mee, ook zonder pagina-ververs.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                                <tr><td><code>CSS selector cart-icoon</code></td><td style="color:var(--mkcp-ui-text2)">Selector van het winkelwagen-icoon in de header waarop de badge verschijnt. Leeg = standaard WooCommerce-selectors.</td><td style="color:var(--mkcp-ui-text3)">Leeg</td></tr>
+                                <tr><td><code>Positie badge</code></td><td style="color:var(--mkcp-ui-text2)">Hoek waar de badge verschijnt t.o.v. het cart-icoon.</td><td style="color:var(--mkcp-ui-text3)">Rechtsboven</td></tr>
+                                <tr><td><code>Kleur badge</code></td><td style="color:var(--mkcp-ui-text2)">Achtergrondkleur van de badge. Kleurkiezer + hexveld, met snelkeuze-swatches uit de kleuren die de plugin in je thema heeft gevonden (premium — zie <code>mkcp_detect_theme_colors()</code>, sectie 4).</td><td style="color:var(--mkcp-ui-text3)">Volgt hoofdkleur</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Vertrouwensbadge <span style="font-size:9px;background:var(--mkcp-ui-accent-soft);color:var(--mkcp-ui-accent);border-radius:3px;padding:1px 5px;margin-left:6px;letter-spacing:0;text-transform:none;font-weight:600">Premium</span></td></tr>
+                                <tr><td><code>Badge ingeschakeld</code></td><td style="color:var(--mkcp-ui-text2)">Toont een sterren-badge (score + aantal beoordelingen) in de popup. Eigen aan/uit, los van de checkout-variant — zie sectie 3.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                                <tr><td><code>Bron</code></td><td style="color:var(--mkcp-ui-text2)">Handmatig (zelf een score/aantal invullen) of Google Reviews (live opgehaald via de Google Places API).</td><td style="color:var(--mkcp-ui-text3)">Handmatig</td></tr>
+                                <tr><td><code>Score</code> / <code>Aantal beoordelingen</code> / <code>Link</code></td><td style="color:var(--mkcp-ui-text2)">Alleen bij bron "Handmatig": zelf ingevulde sterrenscore (0–5), aantal reviews en een optionele link (bv. naar het Google-profiel).</td><td style="color:var(--mkcp-ui-text3)">4.8 / 0 / geen</td></tr>
+                                <tr><td><code>Google API-sleutel</code> / <code>Place ID</code></td><td style="color:var(--mkcp-ui-text2)">Alleen bij bron "Google Reviews": API-sleutel (Places API) en de Place ID van de vestiging. Een dagelijkse WP-Cron-taak haalt de score op en cachet 'm; de badge zelf doet nooit een live call. <strong>Nu verversen</strong> test met de live formulierwaarden (ook ongesaved), niet per se de opgeslagen instelling.</td><td style="color:var(--mkcp-ui-text3)">Leeg</td></tr>
 
                                 <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Conversie &amp; tracking <span style="font-size:9px;background:var(--mkcp-ui-accent-soft);color:var(--mkcp-ui-accent);border-radius:3px;padding:1px 5px;margin-left:6px;letter-spacing:0;text-transform:none;font-weight:600">Premium</span></td></tr>
                                 <tr><td><code>BTW opsplitsing</code></td><td style="color:var(--mkcp-ui-text2)">Voegt een incl./excl. BTW-schakelaar toe in de popup. Voorkeur wordt opgeslagen in <code>localStorage['mkcp_btw_pref']</code>.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
@@ -290,12 +308,17 @@ function mkcp_render_docs_page() {
 
                         <p style="font-size:12px; color:var(--mkcp-ui-text3); margin:24px 0 6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Afhalen, bezorgdatum &amp; keuzekaarten</p>
 
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 10px">
+                            Bezorgdatum en afhalen sluiten elkaar niet uit: een winkelwagentje kan tegelijk een pakket in "bezorg"-rol en een pakket in "afhaal"-rol hebben (bijv. bij gesplitste verzendpakketten). In dat geval toont de checkout <strong>beide widgets tegelijk</strong>, elk onder de kaartgroep van zijn eigen pakket — rol-gebaseerd, niet per pakket-index, want een order heeft nooit meer dan één actieve bezorg- én één actieve afhaal-rate tegelijk. Vlak boven de bestelknop verschijnt dan automatisch een samengevoegd overzichtsblok (<code>#mkcp-dd-final-summary</code>) met beide gekozen data/tijdvakken — dat blok verschijnt uitsluitend als beide rollen tegelijk actief zijn.
+                        </p>
+
                         <table class="mkcp-docs-table" style="margin-bottom:14px">
                             <thead><tr><th>Instelling</th><th>Wat het doet</th><th>Standaard</th></tr></thead>
                             <tbody>
                                 <tr><td><code>Bezorgdatum inschakelen</code></td><td style="color:var(--mkcp-ui-text2)">Toont een datumkiezer op de checkout (chips + kalender), rekening houdend met cutoff-tijd, verzenddagen, geblokkeerde datums en optioneel een dagcapaciteit.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
-                                <tr><td><code>Afhalen inschakelen</code></td><td style="color:var(--mkcp-ui-text2)">Koppelt een of meer afhaallocaties (adres, tijdvakken) aan een bestaande <code>local_pickup</code>-verzendmethode via de rate-id.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
-                                <tr><td><code>Ophalen/Bezorgen-keuzekaarten</code></td><td style="color:var(--mkcp-ui-text2)">Zodra "Afhalen" aan staat en een verzendpakket zowel een gewone verzendmethode als een <code>local_pickup</code>-methode bevat, vervangt de plugin de standaard WooCommerce-verzendlijst automatisch door twee duidelijke keuzekaarten. Geen aparte instelling — volgt automatisch uit "Afhalen inschakelen".</td><td style="color:var(--mkcp-ui-text3)">Automatisch</td></tr>
+                                <tr><td><code>Afhalen inschakelen</code></td><td style="color:var(--mkcp-ui-text2)">Hoofdschakelaar voor de hele afhaal-functionaliteit. Koppelt een of meer afhaallocaties (adres, openingstijden, tijdvakken) aan bestaande <code>local_pickup</code>-verzendmethodes via hun rate-id — één locatie per "Ophalen"-verzendmethode-instantie.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                                <tr><td><code>Adresvelden bij afhalen</code></td><td style="color:var(--mkcp-ui-text2)">Drie standen: <strong>Verplicht</strong> (adres altijd invullen, zoals bij bezorgen), <strong>Niet verplicht</strong> (velden blijven staan, zonder sterretje) of <strong>Weghalen</strong> (adresvelden verdwijnen zodra de klant afhalen kiest — naam, e-mail en telefoon blijven staan). Geldt alleen zodra "Afhalen" gekozen is; bezorgen blijft altijd volledig verplicht. De klant vult sowieso eerst postcode + huisnummer in om de verzend-/afhaalopties te zien; wisselt hij terug naar bezorgen, dan komen weggehaalde velden direct terug.</td><td style="color:var(--mkcp-ui-text3)">Verplicht</td></tr>
+                                <tr><td><code>Ophalen/Bezorgen-keuzekaarten</code></td><td style="color:var(--mkcp-ui-text2)">Zodra een verzendpakket zowel een gewone verzendmethode als een <code>local_pickup</code>-methode bevat, vervangt de plugin de standaard WooCommerce-verzendlijst automatisch door duidelijke keuzekaarten. Los van de licentie premium-gated, verder geen aparte instelling.</td><td style="color:var(--mkcp-ui-text3)">Automatisch</td></tr>
                             </tbody>
                         </table>
 
@@ -306,6 +329,29 @@ function mkcp_render_docs_page() {
                         <div class="mkcp-docs-callout mkcp-docs-callout--info" style="margin-top:8px">
                             <strong>PHP:</strong> de instellingen worden opgeslagen als <code>mkcp_checkout_settings</code>. Ophalen via <code>mkcp_checkout_config()</code> — zie sectie 8 voor alle beschikbare functies.
                         </div>
+
+                        <p style="font-size:12px; color:var(--mkcp-ui-text3); margin:24px 0 6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Vertrouwensbadge op de checkout</p>
+
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 10px">
+                            Hetzelfde sterren-badge-blok als in de popup (zie sectie 2), maar met een <strong>eigen</strong> aan/uit-instelling: <code>Vertrouwensbadge-blok</code> onder Checkout → Content Builder. Zo kan de badge bijvoorbeeld wél op de checkout staan zonder ook in de winkelwagen te verschijnen, of andersom. De score/bron (handmatig of live Google Reviews) stel je centraal in bij Cart Popup → Vertrouwensbadge; op de checkout sleep je alleen het blok "Vertrouwensbadge" naar de gewenste plek in de Content Builder — het verschijnt daarmee automatisch onder de betaalicoontjes-strip.
+                        </p>
+
+                        <p style="font-size:12px; color:var(--mkcp-ui-text3); margin:24px 0 6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">PDF-documenten (WooCommerce PDF Invoices &amp; Packing Slips)</p>
+
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 10px">
+                            Voegt bezorg-/afhaalgegevens en BTW-info toe aan facturen en pakbonnen van de gratis WP Overnight-plugin <strong>PDF Invoices &amp; Packing Slips for WooCommerce</strong> — via de hooks van die plugin, zonder een sjabloon te kopiëren. Werkt daardoor ook door op een eigen (thema-)PDF-sjabloon, met een automatische fallback als dat sjabloon een van de gebruikelijke hook-posities mist. Instelbaar onder <strong>Checkout → PDF-documenten</strong>; alleen zichtbaar/actief als de PDF-plugin van WP Overnight geïnstalleerd en actief is.
+                        </p>
+
+                        <table class="mkcp-docs-table" style="margin-bottom:14px">
+                            <thead><tr><th>Instelling</th><th>Wat het doet</th><th>Standaard</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>pdf_headline</code></td><td style="color:var(--mkcp-ui-text2)">Opvallende kop direct onder de documenttitel met bezorg- en/of afhaaldatum + tijdvak (en bij afhalen de locatie/adres).</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
+                                <tr><td><code>pdf_delivery_info</code></td><td style="color:var(--mkcp-ui-text2)">Bezorgdatum + tijdvak als losse regel in de ordergegevens-tabel. Wordt overgeslagen als de kop (<code>pdf_headline</code>) al aan staat, om dubbele info te voorkomen.</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
+                                <tr><td><code>pdf_pickup_info</code></td><td style="color:var(--mkcp-ui-text2)">Afhaaldatum + tijdvak + locatie als losse regel in de ordergegevens-tabel. Zelfde uitzondering bij een actieve kop.</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
+                                <tr><td><code>pdf_vat_info</code></td><td style="color:var(--mkcp-ui-text2)">Toont het BTW-nummer van de klant + "BTW verlegd"/"BTW berekend" op de factuur, als er een EU-BTW-nummer op de order staat (EU/UK VAT Validation Manager).</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
+                                <tr><td><code>pdf_pickup_contact</code></td><td style="color:var(--mkcp-ui-text2)">Toont e-mail en telefoon op de pakbon bij een afhaal-order — nodig omdat het verzendadres bij afhalen leeg is en er anders alleen een naam op de pakbon staat. Alleen de velden die de PDF-plugin zelf nog niet al toont.</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
+                            </tbody>
+                        </table>
 
                     </div>
                 </div>
@@ -329,28 +375,61 @@ function mkcp_render_docs_page() {
                             <code><?php echo esc_html( $child_theme ); ?>/mk-cart-popup/style.css</code>. De plugin laadt dit bestand automatisch.
                         </div>
 
+                        <div class="mkcp-docs-callout mkcp-docs-callout--info" style="margin-top:10px">
+                            <strong>Waarom <code>em</code> i.p.v. <code>rem</code> bij spacing/typografie?</strong> Deze tokens zijn bewust in <code>em</code> uitgedrukt, relatief aan de vaste <code>font-size: 16px</code> die op <code>.mk-cart-popup</code> zelf gepind staat — niet aan de root <code>font-size</code> van de pagina. Thema's zetten regelmatig een eigen <code>html</code>/<code>body</code>-lettergrootte (bijv. 62,5% of 20px) voor hun eigen type-schaal; met <code>rem</code> zou de hele popup daarin meeschalen. Met <code>em</code>, geankerd aan onze eigen vaste 16px, blijven de verhoudingen van de popup op elk thema identiek — terwijl hij wél meeschaalt met de browser-zoom van de bezoeker.
+                        </div>
+
                         <table class="mkcp-docs-table" style="margin-top:14px">
                             <thead><tr><th>Variabele</th><th>Standaardwaarde</th><th>Waarvoor</th></tr></thead>
                             <tbody>
-                                <tr><td><code>--mkcp-accent</code></td><td style="color:var(--mkcp-ui-text3)">#2e7d32</td><td style="color:var(--mkcp-ui-text2)">Accentkleur — knop, progressbalk, links</td></tr>
-                                <tr><td><code>--mkcp-width</code></td><td style="color:var(--mkcp-ui-text3)">470px</td><td style="color:var(--mkcp-ui-text2)">Breedte van de drawer</td></tr>
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Layout &amp; surface</td></tr>
+                                <tr><td><code>--mkcp-width</code></td><td style="color:var(--mkcp-ui-text3)">500px</td><td style="color:var(--mkcp-ui-text2)">Breedte van de drawer</td></tr>
                                 <tr><td><code>--mkcp-z</code></td><td style="color:var(--mkcp-ui-text3)">10000000</td><td style="color:var(--mkcp-ui-text2)">Z-index van de popup</td></tr>
+                                <tr><td><code>--mkcp-anim</code></td><td style="color:var(--mkcp-ui-text3)">300ms cubic-bezier(0.22,1,0.36,1)</td><td style="color:var(--mkcp-ui-text2)">Open/sluit-animatie (duur + easing)</td></tr>
                                 <tr><td><code>--mkcp-bg</code></td><td style="color:var(--mkcp-ui-text3)">#ffffff</td><td style="color:var(--mkcp-ui-text2)">Achtergrond van de drawer</td></tr>
-                                <tr><td><code>--mkcp-backdrop</code></td><td style="color:var(--mkcp-ui-text3)">rgba(0,0,0,0.5)</td><td style="color:var(--mkcp-ui-text2)">Kleur van het overlay</td></tr>
+                                <tr><td><code>--mkcp-shadow</code></td><td style="color:var(--mkcp-ui-text3)">-4px 0 32px rgba(0,0,0,.12)</td><td style="color:var(--mkcp-ui-text2)">Schaduw aan de linkerzijde van de drawer</td></tr>
+                                <tr><td><code>--mkcp-backdrop</code></td><td style="color:var(--mkcp-ui-text3)">rgba(0,0,0,0.4)</td><td style="color:var(--mkcp-ui-text2)">Kleur van het overlay</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Merk / accent</td></tr>
+                                <tr><td><code>--mkcp-accent</code></td><td style="color:var(--mkcp-ui-text3)">#2e7d32</td><td style="color:var(--mkcp-ui-text2)">Accentkleur — knop, progressbalk, links</td></tr>
+                                <tr><td><code>--mkcp-primary</code></td><td style="color:var(--mkcp-ui-text3)">#2e7d32 (= accent)</td><td style="color:var(--mkcp-ui-text2)">Alias van <code>--mkcp-accent</code>, voor plekken die bewust niet automatisch meeschalen met een lokale accent-override</td></tr>
+                                <tr><td><code>--mkcp-accent-soft</code></td><td style="color:var(--mkcp-ui-text3)">color-mix(accent 12%, bg 88%)</td><td style="color:var(--mkcp-ui-text2)">Zachte accenttint — fallback-kaart, USP-chips, flash-animatie</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Tekst &amp; randen</td></tr>
                                 <tr><td><code>--mkcp-text</code></td><td style="color:var(--mkcp-ui-text3)">#1a1a1a</td><td style="color:var(--mkcp-ui-text2)">Hoofdtekstkleur</td></tr>
+                                <tr><td><code>--mkcp-text-light</code></td><td style="color:var(--mkcp-ui-text3)">#5b6472</td><td style="color:var(--mkcp-ui-text2)">Gedempte tekst (meta, hints) — WCAG AA op zowel wit als de kaartachtergrond</td></tr>
+                                <tr><td><code>--mkcp-dark</code></td><td style="color:var(--mkcp-ui-text3)">#333333</td><td style="color:var(--mkcp-ui-text2)">Secundaire donkere tekst</td></tr>
+                                <tr><td><code>--mkcp-light</code></td><td style="color:var(--mkcp-ui-text3)">#f5f5f5</td><td style="color:var(--mkcp-ui-text2)">Hover-achtergronden</td></tr>
+                                <tr><td><code>--mkcp-light1</code></td><td style="color:var(--mkcp-ui-text3)">#e8e8e8</td><td style="color:var(--mkcp-ui-text2)">Randen, scheidingslijnen</td></tr>
+                                <tr><td><code>--mkcp-light2</code></td><td style="color:var(--mkcp-ui-text3)">#cccccc</td><td style="color:var(--mkcp-ui-text2)">Secundaire randen (o.a. secundaire knop)</td></tr>
                                 <tr><td><code>--mkcp-danger</code></td><td style="color:var(--mkcp-ui-text3)">#d32f2f</td><td style="color:var(--mkcp-ui-text2)">Verwijder-knop</td></tr>
-                                <tr><td><code>--mkcp-btn-p-bg</code></td><td style="color:var(--mkcp-ui-text3)">var(--mkcp-accent)</td><td style="color:var(--mkcp-ui-text2)">Achtergrond afrekenknop</td></tr>
+                                <tr><td><code>--mkcp-progress-bg</code></td><td style="color:var(--mkcp-ui-text3)">#e3f2fd</td><td style="color:var(--mkcp-ui-text2)">Achtergrond van de gratis-verzending-voortgangsbalk</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Knoppen</td></tr>
+                                <tr><td><code>--mkcp-btn-p-bg</code></td><td style="color:var(--mkcp-ui-text3)">var(--mkcp-accent)</td><td style="color:var(--mkcp-ui-text2)">Achtergrond afrekenknop (primair)</td></tr>
                                 <tr><td><code>--mkcp-btn-p-text</code></td><td style="color:var(--mkcp-ui-text3)">#ffffff</td><td style="color:var(--mkcp-ui-text2)">Tekstkleur afrekenknop</td></tr>
-                                <tr><td><code>--mkcp-space-outer</code></td><td style="color:var(--mkcp-ui-text3)">1.5rem</td><td style="color:var(--mkcp-ui-text2)">Horizontale padding (header, footer, items)</td></tr>
-                                <tr><td><code>--mkcp-space-inner</code></td><td style="color:var(--mkcp-ui-text3)">1.25rem</td><td style="color:var(--mkcp-ui-text2)">Verticale padding (header, item-rijen)</td></tr>
-                                <tr><td><code>--mkcp-space-sm</code></td><td style="color:var(--mkcp-ui-text3)">0.875rem</td><td style="color:var(--mkcp-ui-text2)">Kleine tussenruimte (badges, sectie-headers)</td></tr>
-                                <tr><td><code>--mkcp-font-title</code></td><td style="color:var(--mkcp-ui-text3)">1.75rem</td><td style="color:var(--mkcp-ui-text2)">Popup-koptekst</td></tr>
-                                <tr><td><code>--mkcp-font-base</code></td><td style="color:var(--mkcp-ui-text3)">1.25rem</td><td style="color:var(--mkcp-ui-text2)">Standaard tekst (productnamen, prijzen)</td></tr>
-                                <tr><td><code>--mkcp-font-sm</code></td><td style="color:var(--mkcp-ui-text3)">1.125rem</td><td style="color:var(--mkcp-ui-text2)">Secondaire tekst (meta, labels)</td></tr>
-                                <tr><td><code>--mkcp-font-xs</code></td><td style="color:var(--mkcp-ui-text3)">1rem</td><td style="color:var(--mkcp-ui-text2)">Kleinste tekst (badges, hints)</td></tr>
-                                <tr><td><code>--mkcp-img-size</code></td><td style="color:var(--mkcp-ui-text3)">5rem</td><td style="color:var(--mkcp-ui-text2)">Afmeting productafbeelding in winkelwagen-rij</td></tr>
+                                <tr><td><code>--mkcp-btn-p-border</code></td><td style="color:var(--mkcp-ui-text3)">none</td><td style="color:var(--mkcp-ui-text2)">Rand afrekenknop</td></tr>
+                                <tr><td><code>--mkcp-btn-s-bg</code></td><td style="color:var(--mkcp-ui-text3)">transparent</td><td style="color:var(--mkcp-ui-text2)">Achtergrond secundaire knop (bv. "Verder winkelen")</td></tr>
+                                <tr><td><code>--mkcp-btn-s-text</code></td><td style="color:var(--mkcp-ui-text3)">var(--mkcp-text)</td><td style="color:var(--mkcp-ui-text2)">Tekstkleur secundaire knop</td></tr>
+                                <tr><td><code>--mkcp-btn-s-border</code></td><td style="color:var(--mkcp-ui-text3)">var(--mkcp-light2)</td><td style="color:var(--mkcp-ui-text2)">Rand secundaire knop</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Ruimte &amp; typografie (em — zie toelichting hierboven)</td></tr>
+                                <tr><td><code>--mkcp-space-outer</code></td><td style="color:var(--mkcp-ui-text3)">1.25em (20px)</td><td style="color:var(--mkcp-ui-text2)">Horizontale padding (header, footer, items, progressbalk)</td></tr>
+                                <tr><td><code>--mkcp-space-inner</code></td><td style="color:var(--mkcp-ui-text3)">1em (16px)</td><td style="color:var(--mkcp-ui-text2)">Verticale padding (header, item-rijen, footer)</td></tr>
+                                <tr><td><code>--mkcp-space-sm</code></td><td style="color:var(--mkcp-ui-text3)">0.75em (12px)</td><td style="color:var(--mkcp-ui-text2)">Kleine tussenruimte (progressbalk, badges, sectie-headers)</td></tr>
+                                <tr><td><code>--mkcp-font-title</code></td><td style="color:var(--mkcp-ui-text3)">1.25em (20px)</td><td style="color:var(--mkcp-ui-text2)">Popup-koptekst</td></tr>
+                                <tr><td><code>--mkcp-font-base</code></td><td style="color:var(--mkcp-ui-text3)">0.875em (14px)</td><td style="color:var(--mkcp-ui-text2)">Standaard tekst (productnamen, prijzen)</td></tr>
+                                <tr><td><code>--mkcp-font-sm</code></td><td style="color:var(--mkcp-ui-text3)">0.75em (12px)</td><td style="color:var(--mkcp-ui-text2)">Secondaire tekst (meta, labels)</td></tr>
+                                <tr><td><code>--mkcp-font-xs</code></td><td style="color:var(--mkcp-ui-text3)">0.6875em (11px)</td><td style="color:var(--mkcp-ui-text2)">Kleinste tekst (badges, hints)</td></tr>
+                                <tr><td><code>--mkcp-font-meta</code></td><td style="color:var(--mkcp-ui-text3)">0.72em (~11,5px)</td><td style="color:var(--mkcp-ui-text2)">Dichte variatie-/metalijst (<code>dl.variation</code>)</td></tr>
+                                <tr><td><code>--mkcp-font-2xs</code></td><td style="color:var(--mkcp-ui-text3)">0.625em (~10px)</td><td style="color:var(--mkcp-ui-text2)">Kleine uppercase labels (cross-sell)</td></tr>
+                                <tr><td><code>--mkcp-img-size</code></td><td style="color:var(--mkcp-ui-text3)">3.5em (56px)</td><td style="color:var(--mkcp-ui-text2)">Afmeting productafbeelding in winkelwagen-rij</td></tr>
                             </tbody>
                         </table>
+
+                        <div class="mkcp-docs-callout mkcp-docs-callout--info" style="margin-top:12px">
+                            <strong>Checkout gebruikt deels dezelfde tokens:</strong> <code>checkout.scss</code> heeft geen eigen losse <code>:root</code>-variabelenset — de checkout-stijlen hergebruiken <code>--mkcp-accent</code>, <code>--mkcp-text</code>, <code>--mkcp-bg</code>, <code>--mkcp-light2</code>, e.d. via <code>var(--mkcp-accent, #fallback)</code>. Een override in <code>mk-cart-popup/style.css</code> werkt dus automatisch ook door op de checkout; specifiek checkout-only maatwerk (padding, kolombreedtes, floating labels) hoort in <code>mk-cart-popup/checkout.css</code> — zie sectie 10.
+                        </div>
 
                         <p style="font-size:12px; color:var(--mkcp-ui-text3); margin:14px 0 6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Voorbeeld — brandkleur en bredere popup</p>
                         <code class="mkcp-docs-code"><span class="cm">/* In je thema CSS of in mk-cart-popup/style.css */</span>
@@ -610,7 +689,10 @@ cp <?php echo esc_html( MKCP_PATH ); ?>templates/cart-popup.php \
                                 <tr><td><code>mkcp_icon( $key )</code></td><td style="color:var(--mkcp-ui-text2)">Echoet inline SVG voor USP-icoon (shield, truck, phone, star, check).</td></tr>
                                 <tr><td><code>mkcp_get_fragment()</code></td><td style="color:var(--mkcp-ui-text2)">Rendert het popup-template als WC-fragment array. Intern gebruikt door alle AJAX-handlers.</td></tr>
                                 <tr><td><code>mkcp_scaffold_create( $overwrite )</code></td><td style="color:var(--mkcp-ui-text2)">Maakt de scaffold bestanden aan in het child thema. Geeft <code>['created' => [], 'errors' => []]</code> terug.</td></tr>
-                                <tr><td><code>mkcp_checkout_config()</code></td><td style="color:var(--mkcp-ui-text2)">Geeft de volledige Cart Checkout-configuratie terug als array (header, stappenindicator, footer, betaalicoontjes). Gecached per request.</td></tr>
+                                <tr><td><code>mkcp_checkout_config()</code></td><td style="color:var(--mkcp-ui-text2)">Geeft de volledige Cart Checkout-configuratie terug als array (header, stappenindicator, footer, betaalicoontjes, PDF-instellingen). Gecached per request.</td></tr>
+                                <tr><td><code>mkcp_license_has( $tier )</code></td><td style="color:var(--mkcp-ui-text2)">Geeft <code>true</code> als de actieve licentie minimaal het opgegeven niveau heeft (<code>'basic'</code> of <code>'premium'</code>).</td></tr>
+                                <tr><td><code>mkcp_trust_badge_html( $context )</code></td><td style="color:var(--mkcp-ui-text2)">Rendert de vertrouwensbadge-HTML (sterren + score) voor <code>'popup'</code> of <code>'checkout'</code>, of een lege string als de badge daar uit staat, geen premium-licentie is, of er niets te tonen is. Premium.</td></tr>
+                                <tr><td><code>mkcp_pdf_plugin_active()</code></td><td style="color:var(--mkcp-ui-text2)">Geeft <code>true</code> als de gratis WP Overnight-plugin "PDF Invoices &amp; Packing Slips" actief is — de voorwaarde voor de PDF-instellingen in sectie 3.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -752,6 +834,27 @@ cp <?php echo esc_html( MKCP_PATH ); ?>templates/cart-popup.php \
                                     'Test deliverability gratis via <strong>mail-tester.com</strong>.',
                                 ],
                             ],
+                            [
+                                'title' => 'Google-score wordt niet opgehaald / geeft een foutmelding',
+                                'tag'   => 'Vertrouwensbadge / Google',
+                                'steps' => [
+                                    'Klik op <strong>Nu verversen</strong> bij Cart Popup → Vertrouwensbadge — die knop test met de waarden die nú in de API-sleutel/Place ID-velden staan, ook als je nog niet op "Opslaan" hebt geklikt.',
+                                    'Google\'s eigen statuscode staat letterlijk in de foutmelding (bv. <code>REQUEST_DENIED</code> = sleutel ongeldig of Places API niet ingeschakeld in Google Cloud, <code>NOT_FOUND</code> = verkeerde Place ID).',
+                                    'De achtergrond-cron probeert een falende sleutel maar één keer per 5 minuten opnieuw — dat is bewust, om Google niet te bestoken bij elke admin-paginalaad. Verwacht dus geen onmiddellijk herstel na een sleutelwijziging zonder op "Nu verversen" te klikken.',
+                                    'Een eerder succesvol opgehaalde score blijft gewoon zichtbaar zolang een nieuwe poging mislukt — de badge verdwijnt nooit door een tijdelijke Google-storing, alleen de foutmelding in de admin wijst erop.',
+                                    'Zonder premium-licentie of met "Badge ingeschakeld" uit draait de cron sowieso niet — die schakelt zichzelf automatisch aan/uit met de instelling.',
+                                ],
+                            ],
+                            [
+                                'title' => '"Adresvelden bij afhalen" doet niets of het verkeerde',
+                                'tag'   => 'Checkout / Afhalen',
+                                'steps' => [
+                                    'De instelling geldt alléén zodra de klant "Afhalen" als verzendmethode heeft gekozen — bij "Bezorgen" blijft het adres altijd volledig verplicht, ongeacht deze stand.',
+                                    'De klant moet sowieso eerst postcode + huisnummer invullen voordat de verzend-/afhaalkeuze (en dus deze logica) zichtbaar wordt.',
+                                    'Bij "Weghalen" verdwijnen alleen de adresvelden (straat, huisnummer, toevoeging, postcode, plaats) — naam, e-mail en telefoon blijven altijd staan.',
+                                    'Wisselt de klant terug naar "Bezorgen" nadat de velden waren weggehaald of optioneel gemaakt, dan komen ze automatisch weer terug als verplicht.',
+                                ],
+                            ],
                         ];
                         ?>
 
@@ -795,6 +898,8 @@ cp <?php echo esc_html( MKCP_PATH ); ?>templates/cart-popup.php \
                             $scaffold_items = [
                                 [ 'file' => 'style.css',          'desc' => 'CSS overrides voor de popup — auto-geladen na de plugin-CSS',              'exists' => $has_style_css       ],
                                 [ 'file' => 'checkout.css',       'desc' => 'CSS overrides voor de checkout — auto-geladen na de checkout-CSS (premium)', 'exists' => $has_checkout_css    ],
+                                [ 'file' => 'script.js',          'desc' => 'JS overrides voor de popup — auto-geladen na de plugin-JS',                'exists' => $has_script_js       ],
+                                [ 'file' => 'checkout.js',        'desc' => 'JS overrides voor de checkout — auto-geladen na de checkout-JS (premium)',  'exists' => $has_checkout_js     ],
                                 [ 'file' => 'cart-hooks.php',     'desc' => 'Algemene cart/popup hooks — auto-geladen bij plugins_loaded',                'exists' => $has_hooks           ],
                                 [ 'file' => 'checkout-hooks.php', 'desc' => 'Checkout-specifieke hooks — auto-geladen bij plugins_loaded',                 'exists' => $has_checkout_hooks  ],
                                 [ 'file' => 'cart-popup.php',     'desc' => 'Volledige template override — vervangt templates/cart-popup.php',            'exists' => $has_template        ],
@@ -955,7 +1060,8 @@ cp <?php echo esc_html( MKCP_PATH ); ?>templates/cart-popup.php \
                         <table class="mkcp-docs-table" style="margin-bottom:20px">
                             <thead><tr><th>Branch</th><th>Doel</th></tr></thead>
                             <tbody>
-                                <tr><td><code>main</code></td><td style="color:var(--mkcp-ui-text2)">Stabiele releases — wat klanten ontvangen via de auto-updater</td></tr>
+                                <tr><td><code>main</code></td><td style="color:var(--mkcp-ui-text2)">Stabiele releases — wat klanten ontvangen via de auto-updater. Nooit een bèta.</td></tr>
+                                <tr><td><code>pre-release</code></td><td style="color:var(--mkcp-ui-text2)">Bèta-kanaal — alleen sleutels met "Pre-release-toegang" checken dit manifest. Zie DEVELOPMENT.md → Pre-releases.</td></tr>
                                 <tr><td><code>dev</code></td><td style="color:var(--mkcp-ui-text2)">Lopende ontwikkeling — hier worden features gebouwd en getest</td></tr>
                             </tbody>
                         </table>

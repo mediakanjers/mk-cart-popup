@@ -1769,8 +1769,14 @@ body.mkcp-cart-resizing {
     color         : var(--mkcp-dark);
     text-transform: uppercase;
     letter-spacing: .5px;
-    margin-bottom : 8px;
-    padding       : 0 var(--mkcp-space-outer);
+    margin-bottom : 0;
+    /* px, niet var(--mkcp-space-outer): die is in em en schaalt hier mee met
+       het kleine font-size van deze titel, wat een kleinere inspring gaf dan
+       de 20px die de kaartjes eronder hebben. */
+    padding-top   : 0;
+    padding-right : 20px;
+    padding-bottom: 0;
+    padding-left  : 20px;
 }
 
 .mk-cart-popup__crosssell-track {
@@ -1833,12 +1839,15 @@ body.mkcp-cart-resizing {
         user-select: none;
     }
 
-    /* Webkit clips start-padding in overflow flex — spacer pseudo fixes it */
+    /* Webkit clips start-padding in overflow flex — spacer pseudo fixes it.
+       margin-right cancels out the flex `gap` that would otherwise add extra
+       space before the first card on top of the padding. */
     &::before {
-        content    : '';
-        flex-shrink: 0;
-        width      : 1px;
-        margin-left: -1px;
+        content     : '';
+        flex-shrink : 0;
+        width       : 1px;
+        margin-left : -1px;
+        margin-right: -8px;
     }
 }
 
@@ -2515,58 +2524,143 @@ a.mk-cart-popup__utility-icon--account:focus-visible {
  * --mkcp-star-fill (0–100%), zodat ook decimale scores (bv. 4.7) een half-
  * gevulde ster tonen zonder een los "halve ster"-icoon nodig te hebben. ──── */
 
-.mk-cart-popup__trust-badge {
+// ── Vertrouwensbadge "scorekaart" ────────────────────────────────────────────
+//
+// Eigen, scope-begrensde class (los van de --mkcp-* tokens): een bewust
+// groene "geverifieerd/vertrouwd"-kleurtaal, ongeacht de geconfigureerde
+// accentkleur van de shop — vergelijkbaar met hoe keurmerken dat zelf ook
+// altijd in groen tonen. Config.php (mkcp_trust_badge_stars_html()) bouwt
+// de HTML; hier alleen opmaak.
+.cart-trustbadge {
     display        : flex;
     align-items    : center;
     gap            : 8px;
-    padding        : 6px var(--mkcp-space-outer);
-    border-bottom  : 1px solid var(--mkcp-light1);
-    flex-shrink    : 0;
-    color          : var(--mkcp-text);
+    margin         : 6px 0;
+    padding        : 8px 10px;
+    background     : #eef4ee;
+    border         : 1px solid #d3e2d3;
+    border-radius  : 10px;
+    color          : #1f2420;
     text-decoration: none !important;
+    transition     : border-color 150ms ease;
 }
 
-.mk-cart-popup__trust-badge-stars {
-    display: inline-flex;
+// Horizontale marge alleen in de winkelwagen-popup (zelfde zijmarge als de
+// rest van de popup-content) — niet op de checkout: daar zit het al in een
+// kolom die zelf al de juiste zijmarge/padding heeft (.mkcp-co-trust-badge
+// hangt in de order-review-tabel, geen eigen buitenmarge nodig).
+.mk-cart-popup .cart-trustbadge {
+    margin-left : var(--mkcp-space-outer);
+    margin-right: var(--mkcp-space-outer);
+}
+
+a.cart-trustbadge:hover {
+    border-color: #b9cfb9;
+}
+
+a.cart-trustbadge:hover .cart-trustbadge__arrow {
+    background: #2b7a2f;
+}
+
+a.cart-trustbadge:hover .cart-trustbadge__arrow svg {
+    stroke: #fff;
+}
+
+a.cart-trustbadge:focus-visible {
+    outline       : 2px solid #2b7a2f;
+    outline-offset: 2px;
+}
+
+.cart-trustbadge__score {
+    flex-shrink   : 0;
+    min-width     : 40px;
+    padding-right : 8px;
+    border-right  : 1px solid #cddccd;
+    font-size     : 20px;
+    font-weight   : 700;
+    line-height   : 1;
+    letter-spacing: -0.5px;
+    color         : #1d4d21;
+}
+
+.cart-trustbadge__scale {
+    display    : block;
+    margin-top : 1px;
+    font-size  : 8.5px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: normal;
+    color      : #56625a;
+}
+
+.cart-trustbadge__details {
+    display    : flex;
+    flex-direction: column;
+    gap        : 3px;
+    flex-grow  : 1;
+    min-width  : 0;
+}
+
+.cart-trustbadge__stars {
+    display: flex;
     gap    : 1px;
+    margin-bottom: 1px;
 }
 
-.mk-cart-popup__trust-star {
-    position     : relative;
-    display      : inline-block;
-    width        : 13px;
-    height       : 13px;
+.cart-trustbadge__star {
+    width : 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.cart-trustbadge__label {
+    font-size  : 11px;
+    font-weight: 400;
+    line-height: 1.2;
+    color      : #56625a;
+
+    strong { font-weight: 600; color: #1f2420; }
+}
+
+.cart-trustbadge__verified {
+    display    : flex;
+    align-items: center;
+    gap        : 3px;
+    font-size  : 10px;
+    line-height: 1.2;
+    color      : #56625a;
 
     svg {
-        position: absolute;
-        inset   : 0;
-        width   : 100%;
-        height  : 100%;
-        display : block;
+        flex-shrink: 0;
+        width      : 10px;
+        height     : 10px;
+        stroke     : #2b7a2f;
     }
 }
 
-// Twee identieke sterren gestapeld: een grijze "leeg"-laag eronder, en een
-// gele "gevuld"-laag erboven die met clip-path wordt afgeknipt op het
-// --mkcp-star-fill-percentage (PHP berekent dit per ster) — zo tonen ook
-// decimale scores (bv. 4.7) een deels gevulde ster, zonder een los half-
-// ster-icoon nodig te hebben.
-.mk-cart-popup__trust-star-bg   { fill: var(--mkcp-light2); }
+.cart-trustbadge__arrow {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    flex-shrink    : 0;
+    width          : 22px;
+    height         : 22px;
+    border-radius  : 50%;
+    background     : #fff;
+    border         : 1.5px solid #2b7a2f;
+    transition     : background 150ms ease;
 
-.mk-cart-popup__trust-star-fill {
-    fill      : #f5a623;
-    clip-path : inset(0 calc(100% - var(--mkcp-star-fill, 0%)) 0 0);
+    svg {
+        width     : 11px;
+        height    : 11px;
+        stroke    : #2b7a2f;
+        transition: stroke 150ms ease;
+    }
 }
 
-.mk-cart-popup__trust-badge-text {
-    font-size  : var(--mkcp-font-xs);
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.mk-cart-popup__trust-badge-count {
-    font-weight: 400;
-    color      : var(--mkcp-text-light);
+@media (max-width: 360px) {
+    .cart-trustbadge__score  { font-size: 17px; min-width: 32px; }
+    .cart-trustbadge__arrow  { width: 20px; height: 20px; }
 }
 
 
@@ -2655,7 +2749,16 @@ a.mk-cart-popup__utility-icon--account:focus-visible {
         position: absolute;
         inset   : 0;
         margin  : 0;
-        opacity : 0;
+        // !important nodig tegen wp-admin's eigen
+        // input[type="checkbox"]:disabled { opacity: .7 } (wp-admin/css/
+        // forms.css) — die selector is specifieker dan deze (attribuut +
+        // pseudo-class vs. 1 class + element) en wint dus zonder !important.
+        // Alleen zichtbaar in de Content Builder-preview: daar staat dit
+        // vinkje bewust "checked disabled" (puur decoratief), en zonder deze
+        // regel scheen WordPress' eigen groene vinkje/checkbox er dan
+        // gedeeltelijk doorheen, bovenop onze eigen schakelaar. Op de echte
+        // site is het vinkje nooit disabled, dus daar verandert dit niets.
+        opacity : 0 !important;
         cursor  : pointer;
         z-index : 1;
     }

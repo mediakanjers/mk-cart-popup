@@ -45,6 +45,7 @@ function mkcp_defaults() {
             [ 'icon' => 'truck',  'text' => __( 'Snelle levering',        'mk-cart-popup' ) ],
             [ 'icon' => 'phone',  'text' => __( 'Gratis advies',          'mk-cart-popup' ) ],
         ],
+        'usps_enabled'            => true,
         'analytics_enabled'       => false,
         'analytics_wc_stats'      => false,
         'analytics_debug'         => false,
@@ -52,6 +53,7 @@ function mkcp_defaults() {
         'min_order_notice'        => __( 'Minimale bestelling: %1$s. Voeg nog %2$s toe.', 'mk-cart-popup' ),
         'show_coupon'             => true,
         'payment_icons'           => [],
+        'payment_icons_enabled'   => true,
         'delivery_preview_enabled' => false,
         'blocks'                  => [],
         'save_for_later'          => false,
@@ -62,6 +64,7 @@ function mkcp_defaults() {
         'cart_count_badge_enabled'  => false,
         'cart_count_badge_selector' => '',
         'cart_count_badge_position' => 'top-right',
+        'cart_count_badge_color'    => '#2e7d32',
         'save_cart_url'           => false,
         'save_cart_email'         => false,
         'save_cart_email_subject' => 'Jouw bewaarde winkelmand',
@@ -94,6 +97,9 @@ function mkcp_defaults() {
         'trust_badge_rating'      => 4.8,
         'trust_badge_review_count'=> 0,
         'trust_badge_url'         => '',
+        'trust_badge_google_key'      => '',
+        'trust_badge_google_place_id' => '',
+        'trust_badge_manual_updated_at' => '',
     ];
 }
 
@@ -558,6 +564,134 @@ function mkcp_render_zone_row( $zone, $blocks ) {
 }
 
 /**
+ * Leesbare naam van een reviewbron, voor "Geverifieerd via {platform}".
+ */
+function mkcp_trust_badge_provider_label( string $provider ): string {
+    return $provider === 'google' ? 'Google' : 'onze klantbeoordelingen';
+}
+
+/**
+ * "Scorekaart": kant-en-klare HTML voor de vertrouwensbadge — één klikbare
+ * kaart met de score groot links, 5 sterren + kwalificatielabel + herkomst
+ * in het midden, en een pijlknopje rechts. Los bruikbaar voor zowel de
+ * handmatig ingevulde score als de live Google-score, zodat beide er
+ * identiek uitzien. Alles onder de eigen, scope-begrensde class
+ * .cart-trustbadge (CSS: cart-popup.scss) — raakt geen andere popup-styling.
+ */
+function mkcp_trust_badge_stars_html( float $rating, int $review_count, string $url, string $provider = 'manual' ): string {
+    static $instance = 0;
+    $instance++;
+    $uid = 'mkcp-ctb-' . $instance . '-' . substr( md5( (string) mt_rand() ), 0, 6 );
+
+    $tag = $url ? 'a' : 'div';
+
+    // 5 sterren, elk een eigen lineargradient met twee stops op hetzelfde
+    // offset (= harde knip i.p.v. een vloeiende overgang) — zo toont ook een
+    // score als 4,3 een deels gevulde ster, zonder een aparte "half"-icoon.
+    $star_path = 'M12 2.5l2.95 5.98 6.6.96-4.78 4.65 1.13 6.57L12 17.6l-5.9 3.1 1.13-6.57L2.45 9.44l6.6-.96z';
+    $stars     = '';
+    for ( $i = 1; $i <= 5; $i++ ) {
+        $fill_pct  = max( 0, min( 100, ( $rating - ( $i - 1 ) ) * 100 ) );
+        $grad_id   = $uid . '-s' . $i;
+        $stars    .= '<svg class="cart-trustbadge__star" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">'
+            . '<defs><linearGradient id="' . esc_attr( $grad_id ) . '">'
+            . '<stop offset="' . esc_attr( $fill_pct ) . '%" stop-color="#f0a01f"/>'
+            . '<stop offset="' . esc_attr( $fill_pct ) . '%" stop-color="#d4dcd4"/>'
+            . '</linearGradient></defs>'
+            . '<path d="' . esc_attr( $star_path ) . '" fill="url(#' . esc_attr( $grad_id ) . ')"/>'
+            . '</svg>';
+    }
+
+    // Kwalificatielabel o.b.v. de score — geen label onder de 3,5.
+    $label = '';
+    if ( $rating >= 4.5 ) $label = 'Uitstekend';
+    elseif ( $rating >= 4.0 ) $label = 'Zeer goed';
+    elseif ( $rating >= 3.5 ) $label = 'Goed';
+
+    $rating_display = number_format_i18n( $rating, 1 ); // NL: komma als decimaalteken
+
+    $aria_label = sprintf(
+        'Bekijk alle reviews – %s van 5 sterren, %s beoordelingen',
+        $rating_display,
+        number_format_i18n( $review_count )
+    );
+
+    $attrs = ' class="cart-trustbadge"';
+    if ( $url ) {
+        $attrs .= ' href="' . esc_url( $url ) . '" target="_blank" rel="noopener nofollow"';
+    }
+    $attrs .= ' aria-label="' . esc_attr( $aria_label ) . '"';
+
+    $html  = '<' . $tag . $attrs . '>';
+    $html .= '<div class="cart-trustbadge__score">' . esc_html( $rating_display ) . '<span class="cart-trustbadge__scale">van 5</span></div>';
+    $html .= '<div class="cart-trustbadge__details">';
+    $html .= '<div class="cart-trustbadge__stars">' . $stars . '</div>';
+    $html .= '<div class="cart-trustbadge__label">';
+    if ( $label !== '' ) $html .= '<strong>' . esc_html( $label ) . '</strong> · ';
+    $html .= esc_html( number_format_i18n( $review_count ) ) . ' beoordelingen</div>';
+    $html .= '<div class="cart-trustbadge__verified">'
+        . '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 3.2v5.6c0 5-3.2 8.9-7.5 10.6C7.7 20.2 4.5 16.3 4.5 11.3V5.7z"/><polyline points="8.5 12 11 14.5 15.5 9.5"/></svg> '
+        . esc_html( 'Geverifieerd via ' . mkcp_trust_badge_provider_label( $provider ) )
+        . '</div>';
+    $html .= '</div>'; // /__details
+    // Pijlknopje alleen als er ook echt iets te openen valt — zonder link is
+    // het geen knop maar decoratie die niets doet, en dat oogt kapot.
+    if ( $url ) {
+        $html .= '<span class="cart-trustbadge__arrow" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>';
+    }
+    $html .= '</' . $tag . '>';
+
+    return $html;
+}
+
+/**
+ * Vertrouwensbadge als kant-en-klare HTML. Eén bron van waarheid voor de
+ * score/reviews zelf — dezelfde instellingen (Cart Popup → Vertrouwensbadge)
+ * als de winkelwagen-popup gebruikt (templates/cart-popup.php) én het
+ * gelijknamige checkout-blok (mkcp_render_block()) — maar met een EIGEN
+ * aan/uit per plek: de popup gebruikt "Badge ingeschakeld" (Cart Popup →
+ * Vertrouwensbadge), het checkout-blok gebruikt een losse instelling
+ * (Cart Checkout → Content Builder, "trust_badge_checkout_enabled"). Zo kan
+ * de badge bv. wél op de checkout staan zonder ook in de winkelwagen te
+ * verschijnen, of andersom. Leeg ('') als de betreffende plek uit staat,
+ * geen premium licentie, of er niets te tonen is.
+ *
+ * Twee bronnen (instelling "Bron"):
+ * - manual: handmatig ingevulde score/aantal/link.
+ * - google: live via de Google Places API, ververst op de achtergrond (zie
+ *   includes/trust-badge-google.php) — hier alleen de laatst opgehaalde,
+ *   gecachte waarde lezen; NOOIT een live HTTP-call tijdens paginaweergave.
+ *
+ * @param string $context 'popup' (default) of 'checkout' — bepaalt welke
+ *                         aan/uit-instelling geldt.
+ */
+function mkcp_trust_badge_html( string $context = 'popup' ): string {
+    if ( ! function_exists( 'mkcp_license_has' ) || ! mkcp_license_has( 'premium' ) ) return '';
+
+    $config = mkcp_config();
+
+    if ( $context === 'checkout' ) {
+        $checkout_cfg = function_exists( 'mkcp_checkout_config' ) ? mkcp_checkout_config() : [];
+        if ( empty( $checkout_cfg['trust_badge_checkout_enabled'] ) ) return '';
+    } elseif ( empty( $config['trust_badge_enabled'] ) ) {
+        return '';
+    }
+
+    $provider = $config['trust_badge_provider'] ?? 'manual';
+
+    if ( $provider === 'google' ) {
+        $cache = function_exists( 'mkcp_trust_badge_google_cache' ) ? mkcp_trust_badge_google_cache() : null;
+        if ( ! $cache || empty( $cache['rating'] ) ) return '';
+        return mkcp_trust_badge_stars_html( round( (float) $cache['rating'], 1 ), (int) ( $cache['review_count'] ?? 0 ), (string) ( $cache['url'] ?? '' ), 'google' );
+    }
+
+    // manual (of een onbekende/verouderde waarde: veilig terugvallen op handmatig)
+    $rating = round( (float) ( $config['trust_badge_rating'] ?? 0 ), 1 );
+    if ( $rating <= 0 ) return '';
+    return mkcp_trust_badge_stars_html( $rating, (int) ( $config['trust_badge_review_count'] ?? 0 ), (string) ( $config['trust_badge_url'] ?? '' ), 'manual' );
+}
+
+/**
  * Rendert een content-builder-blok op de live site.
  *
  * Heeft een JS-tegenhanger — renderBlockHtml() in
@@ -614,6 +748,13 @@ function mkcp_render_block( array $block ) {
                 echo '</div>';
             }
             break;
+        case 'trust-badge':
+            // Alleen als checkout-blok bereikbaar (picker staat enkel in de
+            // checkout-builder, zie admin/views/settings-page.php) — eigen
+            // aan/uit, los van de vertrouwensbadge in de winkelwagen-popup.
+            $html = mkcp_trust_badge_html( 'checkout' );
+            if ( $html !== '' ) echo '<div class="mkcp-block mkcp-block--trust-badge">' . $html . '</div>';
+            break;
     }
 }
 
@@ -634,7 +775,7 @@ function mkcp_render_block( array $block ) {
 function mkcp_sanitize_blocks( $json, $valid_zones = null ) {
     $blocks = json_decode( $json, true );
     if ( ! is_array( $blocks ) ) return [];
-    $valid_types  = [ 'text', 'divider', 'usp', 'image', 'banner', 'button' ];
+    $valid_types  = [ 'text', 'divider', 'usp', 'image', 'banner', 'button', 'trust-badge' ];
     $valid_styles = [ 'solid', 'dashed', 'dotted', 'spacer' ];
 
     $is_dynamic = is_callable( $valid_zones );

@@ -464,7 +464,7 @@ add_filter( 'woocommerce_email_order_meta_fields', function( $fields, $sent_to_a
 // in delivery-date.php) — vandaar een <tr> die dezelfde <th>/<td>-opmaak
 // volgt als de omliggende rijen, i.p.v. de eerder gebruikte <div>.
 mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
-    if ( ! $order || ! mkcp_pdf_option( 'pdf_pickup_info' ) ) return;
+    if ( ! $order || ! mkcp_pdf_option( 'pdf_pickup_info' ) || mkcp_pdf_option( 'pdf_headline' ) ) return;
     $date = $order->get_meta( '_mkcp_pickup_date' );
     if ( ! $date ) return;
 
@@ -473,7 +473,7 @@ mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
     $label   = $loc['location_label'] ?? $order->get_meta( '_mkcp_pickup_location' ) ?: __( 'Afhaallocatie', 'mk-cart-popup' );
     $slot    = $order->get_meta( '_mkcp_pickup_slot' );
 
-    echo '<tr class="mkcp-pickup-info"><th>' . esc_html__( 'Afhalen', 'mk-cart-popup' ) . '</th><td>'
+    echo '<tr class="mkcp-pickup-info"><th>' . esc_html__( 'Afhalen:', 'mk-cart-popup' ) . '</th><td>'
         . esc_html( mkcp_dd_format_date( $date ) . ( $slot ? ', ' . $slot : '' ) ) . '<br>'
         . esc_html( $label );
     if ( ! empty( $loc['address'] ) ) {
@@ -481,3 +481,203 @@ mkcp_pdf_add_order_data_row( function( $document_type, $order ) {
     }
     echo '</td></tr>';
 } );
+
+
+// ── Adresvelden bij afhalen: verplicht, optioneel of weg ──────────────────────
+//
+// Instelling "Adresvelden bij afhalen" (standaard 'required' = gedrag zoals
+// altijd). 'optional': bij een afhaalmethode zijn straat, huisnummer,
+// toevoeging, postcode en plaats niet verplicht. 'hidden': die velden zijn dan
+// ook niet zichtbaar. De server bepaalt dat aan de hand van de geposte (bij het
+// tonen: de gekozen) verzendmethode; JS past het live aan zodra de klant tussen
+// bezorgen en afhalen wisselt.
+
+function mkcp_pickup_address_fields(): array {
+    return [ 'billing_postcode', 'billing_house_number', 'billing_house_number_suffix', 'billing_street_name', 'billing_city', 'billing_address_1', 'billing_address_2' ];
+}
+
+function mkcp_pickup_address_mode(): string {
+    $cfg  = function_exists( 'mkcp_checkout_config' ) ? mkcp_checkout_config() : [];
+    $mode = $cfg['pickup_address_mode'] ?? 'required';
+    return in_array( $mode, [ 'required', 'optional', 'hidden' ], true ) ? $mode : 'required';
+}
+
+/** Is er nu een afhaalmethode gekozen (geposte methode, anders sessie)? */
+function mkcp_pickup_chosen_now(): bool {
+    if ( ! empty( $_POST['shipping_method'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        return (bool) mkcp_pickup_rate_id_from_post();
+    }
+    $chosen = ( function_exists( 'WC' ) && WC()->session ) ? (array) WC()->session->get( 'chosen_shipping_methods', [] ) : [];
+    foreach ( $chosen as $rate ) {
+        if ( is_string( $rate ) && strpos( $rate, 'local_pickup:' ) === 0 ) return true;
+    }
+    return false;
+}
+
+add_filter( 'woocommerce_checkout_fields', function( $fields ) {
+    if ( mkcp_pickup_address_mode() === 'required' || ! mkcp_pickup_chosen_now() ) return $fields;
+    foreach ( mkcp_pickup_address_fields() as $key ) {
+        if ( isset( $fields['billing'][ $key ] ) ) $fields['billing'][ $key ]['required'] = false;
+    }
+    return $fields;
+}, 1001 );
+
+add_action( 'wp_footer', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || mkcp_pickup_address_mode() === 'required' ) return;
+    $ids = mkcp_pickup_address_fields();
+    ?>
+    <style>
+        body.mkcp-pickup-addr-hidden <?php echo implode( ', body.mkcp-pickup-addr-hidden ', array_map( function( $id ) { return '#' . $id . '_field'; }, $ids ) ); ?>,
+        body.mkcp-pickup-addr-hidden .woocommerce-billing-fields .mkcp-pc-status { display: none !important; }
+    </style>
+    <script>
+    (function () {
+        var IDS  = <?php echo wp_json_encode( $ids ); ?>;
+        var MODE = <?php echo wp_json_encode( mkcp_pickup_address_mode() ); ?>;
+        var REQ  = [ 'billing_postcode', 'billing_house_number', 'billing_street_name', 'billing_city' ];
+        var lastState = null;
+
+        function pickupChosen() {
+            var radios = document.querySelectorAll( 'input[name^="shipping_method"]' );
+            for ( var i = 0; i < radios.length; i++ ) {
+                var r = radios[ i ];
+                if ( ( r.type === 'radio' ? r.checked : true ) && String( r.value ).indexOf( 'local_pickup:' ) === 0 ) return true;
+            }
+            return false;
+        }
+
+        function apply() {
+            var pickup = pickupChosen();
+            if ( pickup === lastState ) return;
+            lastState = pickup;
+            // De afhaalopties verschijnen pas nadat de klant postcode + huisnummer
+            // heeft ingevuld ("Vul hierboven eerst je postcode en huisnummer in"),
+            // dus bij afhalen zijn de velden altijd al gevuld en kunnen weg.
+            document.body.classList.toggle( 'mkcp-pickup-addr-hidden', pickup && MODE === 'hidden' );
+            IDS.forEach( function ( id ) {
+                var row = document.getElementById( id + '_field' );
+                if ( ! row ) return;
+                var star = row.querySelector( 'abbr.required' );
+                if ( row.dataset.mkcpWasRequired === undefined ) {
+                    // Pagina al op afhalen geladen: de server gaf dan geen sterretje mee.
+                    row.dataset.mkcpWasRequired = ( star || ( pickup && REQ.indexOf( id ) !== -1 ) ) ? '1' : '0';
+                }
+                var wasReq = row.dataset.mkcpWasRequired === '1';
+                row.classList.toggle( 'validate-required', ! pickup && wasReq );
+                if ( ! pickup && wasReq && ! star ) {
+                    var label = row.querySelector( 'label' );
+                    if ( label ) {
+                        var opt = label.querySelector( '.optional' );
+                        if ( opt ) opt.remove();
+                        star = document.createElement( 'abbr' );
+                        star.className = 'required';
+                        star.title = 'verplicht';
+                        star.textContent = '*';
+                        label.appendChild( document.createTextNode( ' ' ) );
+                        label.appendChild( star );
+                    }
+                }
+                if ( star ) star.style.display = pickup ? 'none' : '';
+                var input = row.querySelector( 'input, select' );
+                if ( input && wasReq ) input.setAttribute( 'aria-required', pickup ? 'false' : 'true' );
+            } );
+        }
+
+        // Meerdere routes: het wisselen tussen bezorgen en afhalen gebeurt ook via
+        // eigen tabs/kaarten die de keuze zetten zonder een native change-event
+        // (jQuery .trigger('change') bereikt addEventListener niet). Daarom
+        // jQuery-delegatie + native events + updated_checkout + een lichte controle.
+        document.addEventListener( 'change', apply, true );
+        document.addEventListener( 'click', function () { setTimeout( apply, 0 ); }, true );
+        if ( window.jQuery ) {
+            jQuery( document.body ).on( 'change click', 'input[name^="shipping_method"]', apply );
+            jQuery( document.body ).on( 'updated_checkout', apply );
+        }
+        setInterval( apply, 400 );
+        apply();
+    })();
+    </script>
+    <?php
+}, 40 );
+
+
+// ── "Verzenden naar een ander adres?" verbergen bij afhalen ───────────────────
+//
+// Bij afhalen wordt er niets verzonden, dus de vraag of de bestelling naar een
+// ander adres moet is dan onzinnig. Zodra een afhaalmethode gekozen is: het
+// vinkje + de bijbehorende adresvelden verbergen en het vinkje uitzetten (zodat
+// een eerder ingevuld ander adres niet alsnog wordt meegestuurd); terug naar
+// bezorgen toont alles weer. De server negeert een meegestuurd "ander adres"
+// bij afhalen ook, mocht er zonder JS toch iets binnenkomen.
+add_action( 'woocommerce_checkout_process', function() {
+    if ( ! mkcp_pickup_rate_id_from_post() ) return;
+    unset( $_POST['ship_to_different_address'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+}, 0 );
+
+add_action( 'wp_footer', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    ?>
+    <style>
+        body.mkcp-pickup-chosen #ship-to-different-address,
+        body.mkcp-pickup-chosen .shipping_address { display: none !important; }
+    </style>
+    <script>
+    (function () {
+        var lastState = null;
+        function pickupChosen() {
+            var radios = document.querySelectorAll( 'input[name^="shipping_method"]' );
+            for ( var i = 0; i < radios.length; i++ ) {
+                var r = radios[ i ];
+                if ( ( r.type === 'radio' ? r.checked : true ) && String( r.value ).indexOf( 'local_pickup:' ) === 0 ) return true;
+            }
+            return false;
+        }
+        function apply() {
+            var pickup = pickupChosen();
+            if ( pickup === lastState ) return;
+            lastState = pickup;
+            document.body.classList.toggle( 'mkcp-pickup-chosen', pickup );
+            if ( pickup ) {
+                var cb = document.getElementById( 'ship-to-different-address-checkbox' );
+                if ( cb && cb.checked ) {
+                    cb.checked = false;
+                    if ( window.jQuery ) jQuery( cb ).trigger( 'change' );
+                }
+            }
+        }
+        document.addEventListener( 'change', apply, true );
+        document.addEventListener( 'click', function () { setTimeout( apply, 0 ); }, true );
+        if ( window.jQuery ) {
+            jQuery( document.body ).on( 'change click', 'input[name^="shipping_method"]', apply );
+            jQuery( document.body ).on( 'updated_checkout', apply );
+        }
+        setInterval( apply, 400 );
+        apply();
+    })();
+    </script>
+    <?php
+}, 41 );
+
+
+// ── Half verzendadres bij afhalen opruimen ────────────────────────────────────
+//
+// Bij afhalen wist het thema het verzendadres, waarna de postcode-checker er
+// alleen straat + huisnummer weer in zet ("Teststraat 12" zonder postcode en
+// plaats). Een half adres is erger dan geen adres: als de rest van het
+// verzendadres leeg is, ook die regel leegmaken. (Het factuuradres blijft.)
+add_action( 'woocommerce_checkout_order_processed', function( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) return;
+
+    $is_pickup = false;
+    foreach ( $order->get_shipping_methods() as $line ) {
+        if ( strpos( (string) $line->get_method_id(), 'local_pickup' ) === 0 ) { $is_pickup = true; break; }
+    }
+    if ( ! $is_pickup ) return;
+    if ( $order->get_shipping_postcode() !== '' || $order->get_shipping_city() !== '' ) return;
+    if ( $order->get_shipping_address_1() === '' && $order->get_shipping_address_2() === '' ) return;
+
+    $order->set_shipping_address_1( '' );
+    $order->set_shipping_address_2( '' );
+    $order->save();
+}, 999 );

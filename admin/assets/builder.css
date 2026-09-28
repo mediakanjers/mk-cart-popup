@@ -1094,6 +1094,56 @@
     transform       : translateY( 0 );
 }
 
+/* BTW-schakelaar in de preview: alleen decoratief (laat zien hoe 'm er in de
+   echte winkelwagen uitziet, "aan"-stand), niet aanklikbaar — op de echte
+   site staat dit vinkje nooit vast. Zonder deze regels ziet 'm er identiek
+   uit aan een werkende schakelaar (zelfde kleuren, cursor:pointer uit de
+   basisstijl in assets/cart-popup.css), wat verwarrend is: je verwacht 'm
+   te kunnen aanklikken. Grijzer + duidelijke "niet-toegestaan"-cursor +
+   een tooltip bij hover maken dat hier ondubbelzinnig, zonder de
+   flex-verdeling van de rij (BTW-schakelaar / account-link) te verstoren.
+   :has() is breed genoeg ondersteund (alle moderne browsers sinds 2023);
+   zonder :has() zou dit een losse wrapper-class in de builder-JS vergen. */
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__btw-toggle {
+    position: relative;
+    filter: grayscale(0.6);
+    opacity: 0.75;
+    cursor: not-allowed;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__btw-toggle input {
+    cursor: not-allowed;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__utility-row {
+    position: relative;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__utility-row:has(.mk-cart-popup__btw-toggle)::before {
+    content: 'Voorbeeld — niet klikbaar';
+    position: absolute;
+    top: -6px;
+    left: var(--mkcp-space-outer, 16px);
+    transform: translateY(-100%);
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(30, 30, 40, 0.88);
+    color: #fff;
+    font-size: 10.5px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__utility-row:has(.mk-cart-popup__btw-toggle:hover)::before {
+    opacity: 1;
+}
+
+.mkcp-popup-sidebar .mk-cart-popup.mkcp-is-preview .mk-cart-popup__utility-row:has(.mk-cart-popup__btw-toggle:hover)::before {
+    opacity: 1;
+}
+
 #mkcp-edit-tip.is-out {
     opacity         : 0;
     transform       : translateY( -4px );

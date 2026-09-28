@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
- * Version:      1.14.31-beta.55
+ * Version:      1.14.31-beta.70
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.14.31-beta.55' );
+define( 'MKCP_VER',  '1.14.31-beta.70' );
 
 // Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
 // (admin/settings.php + de clamp in config.php), de sleepgreep-template
@@ -75,6 +75,7 @@ require_once MKCP_PATH . 'includes/account-wishlist.php';
 require_once MKCP_PATH . 'includes/account-admin.php';
 require_once MKCP_PATH . 'includes/wishlist-icon.php';
 require_once MKCP_PATH . 'includes/abandoned-cart.php';
+require_once MKCP_PATH . 'includes/trust-badge-google.php';
 require_once MKCP_PATH . 'includes/pdf-documents.php';
 require_once MKCP_PATH . 'includes/delivery-date.php';
 require_once MKCP_PATH . 'includes/pickup.php';
@@ -322,6 +323,7 @@ add_action( 'wp_enqueue_scripts', function() {
         'cart_count_badge_enabled'  => ! empty( $config['cart_count_badge_enabled'] ) ? '1' : '0',
         'cart_count_badge_selector' => sanitize_text_field( $config['cart_count_badge_selector']  ?? '' ),
         'cart_count_badge_position' => sanitize_text_field( $config['cart_count_badge_position'] ?? 'top-right' ),
+        'cart_count_badge_color'    => sanitize_hex_color( $config['cart_count_badge_color'] ?? '' ) ?: '',
         'save_cart_url'        => ! empty( $config['save_cart_url'] ) ? '1' : '0',
         'save_cart_email'      => ! empty( $config['save_cart_email'] ) ? '1' : '0',
     ] );
@@ -705,6 +707,21 @@ function mkcp_ajax_check_stock() {
 }
 
 
+/**
+ * WC_Cart::add_to_cart() draait de filter woocommerce_add_to_cart_validation NIET
+ * zelf -- die draait WooCommerce alleen in zijn formulier- en AJAX-handlers. Onze
+ * eigen paden (opnieuw toevoegen na verwijderen, winkelwagen herstellen,
+ * "Opnieuw bestellen", verlanglijst) riepen add_to_cart() rechtstreeks aan en
+ * omzeilden daardoor elke regel die een site via die filter afdwingt (bv. "verse
+ * bloemen niet combineren met andere producten"). Deze wrapper draait dezelfde
+ * validatie eerst. Geeft hetzelfde terug als add_to_cart(): cart-item-key of false.
+ */
+function mkcp_add_to_cart_validated( $product_id, $quantity = 1, $variation_id = 0, $variation = [] ) {
+    $passed = apply_filters( 'woocommerce_add_to_cart_validation', true, $product_id, $quantity, $variation_id, $variation );
+    if ( ! $passed ) return false;
+    return WC()->cart->add_to_cart( $product_id, $quantity, $variation_id, $variation );
+}
+
 // ── AJAX: re-add item (undo remove) ───────────────────────────────────────────
 
 add_action( 'wp_ajax_mkcp_re_add_item',        'mkcp_ajax_re_add_item' );
@@ -723,7 +740,7 @@ function mkcp_ajax_re_add_item() {
         return;
     }
 
-    $result = WC()->cart->add_to_cart(
+    $result = mkcp_add_to_cart_validated(
         $product_id,
         $qty,
         $variation_id,
@@ -894,7 +911,7 @@ add_action( 'wp', function() {
 
     WC()->cart->empty_cart();
     foreach ( $items as $item ) {
-        WC()->cart->add_to_cart(
+        mkcp_add_to_cart_validated(
             absint( $item['product_id'] ),
             max( 1, intval( $item['qty'] ) ),
             absint( $item['variation_id'] ?? 0 ),

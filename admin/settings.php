@@ -162,6 +162,8 @@ add_action( 'admin_init', function() {
         'pdf_delivery_info'            => ! empty( $post['mkcp_checkout_pdf_delivery_info'] ),
         'pdf_pickup_info'              => ! empty( $post['mkcp_checkout_pdf_pickup_info'] ),
         'pdf_vat_info'                 => ! empty( $post['mkcp_checkout_pdf_vat_info'] ),
+        'pdf_pickup_contact'           => ! empty( $post['mkcp_checkout_pdf_pickup_contact'] ),
+        'trust_badge_checkout_enabled' => ! empty( $post['mkcp_checkout_trust_badge_enabled'] ),
 
         // Bezorgdatum kiezer
         'delivery_date_enabled'        => ! empty( $post['mkcp_dd_enabled'] ),
@@ -181,6 +183,7 @@ add_action( 'admin_init', function() {
 
         // Afhalen
         'pickup_enabled'   => ! empty( $post['mkcp_pu_feature_enabled'] ),
+        'pickup_address_mode'    => in_array( $post['mkcp_pu_address_mode'] ?? '', [ 'required', 'optional', 'hidden' ], true ) ? $post['mkcp_pu_address_mode'] : 'required',
         'pickup_locations' => mkcp_sanitize_pickup_locations( $post ),
 
         // Afhaalmeldingen
@@ -307,14 +310,17 @@ add_action( 'admin_init', function() {
         'redirect_cart'           => ! empty( $post['mkcp_redirect_cart'] ),
         'redirect_cart_url'       => esc_url_raw( $post['mkcp_redirect_cart_url']              ?? '' ),
         'usps'                    => $usps,
+        'usps_enabled'            => ! empty( $post['mkcp_usps_enabled'] ),
         // Idem: een negatief minimumbedrag is betekenisloos (0 = geen minimum).
         'min_order_amount'        => max( 0, floatval( $post['mkcp_min_order_amount'] ?? 0 ) ),
         'show_coupon'             => ! empty( $post['mkcp_show_coupon'] ),
         'payment_icons'           => $payment_icons,
+        'payment_icons_enabled'   => ! empty( $post['mkcp_payment_icons_enabled'] ),
         'delivery_preview_enabled' => ! empty( $post['mkcp_delivery_preview_enabled'] ),
         'cart_count_badge_enabled'  => ! empty( $post['mkcp_cart_count_badge_enabled'] ),
         'cart_count_badge_selector' => sanitize_text_field( wp_unslash( $post['mkcp_cart_count_badge_selector'] ?? '' ) ),
         'cart_count_badge_position' => in_array( $post['mkcp_cart_count_badge_position'] ?? '', [ 'top-right', 'top-left', 'bottom-right', 'bottom-left' ], true ) ? $post['mkcp_cart_count_badge_position'] : 'top-right',
+        'cart_count_badge_color'    => sanitize_hex_color( $post['mkcp_cart_count_badge_color'] ?? '' ) ?: '#2e7d32',
 
         // Premium velden — alleen bijgewerkt bij premium tier, anders bestaande waarde behouden.
         'btw_split'               => $is_premium ? ! empty( $post['mkcp_btw_split'] )                                                          : (bool) ( $existing['btw_split'] ?? false ),
@@ -358,10 +364,19 @@ add_action( 'admin_init', function() {
         'account_link_enabled'    => $is_premium ? ! empty( $post['mkcp_account_link_enabled'] )                               : (bool) ( $existing['account_link_enabled'] ?? true ),
         'style_resize_enabled'    => $is_premium ? ! empty( $post['mkcp_style_resize_enabled'] )                               : (bool) ( $existing['style_resize_enabled'] ?? true ),
         'trust_badge_enabled'     => $is_premium ? ! empty( $post['mkcp_trust_badge_enabled'] )                                 : (bool) ( $existing['trust_badge_enabled'] ?? false ),
-        'trust_badge_provider'    => $is_premium ? ( in_array( $post['mkcp_trust_badge_provider'] ?? '', [ 'manual', 'trustedshops', 'webwinkelkeur', 'kiyoh' ], true ) ? $post['mkcp_trust_badge_provider'] : 'manual' ) : (string) ( $existing['trust_badge_provider'] ?? 'manual' ),
+        'trust_badge_provider'    => $is_premium ? ( in_array( $post['mkcp_trust_badge_provider'] ?? '', [ 'manual', 'google' ], true ) ? $post['mkcp_trust_badge_provider'] : 'manual' ) : (string) ( $existing['trust_badge_provider'] ?? 'manual' ),
         'trust_badge_rating'      => $is_premium ? max( 0, min( 5, (float) ( $post['mkcp_trust_badge_rating'] ?? 4.8 ) ) )       : (float) ( $existing['trust_badge_rating'] ?? 4.8 ),
         'trust_badge_review_count'=> $is_premium ? max( 0, absint( $post['mkcp_trust_badge_review_count'] ?? 0 ) )              : (int) ( $existing['trust_badge_review_count'] ?? 0 ),
         'trust_badge_url'         => $is_premium ? esc_url_raw( $post['mkcp_trust_badge_url'] ?? '' )                          : (string) ( $existing['trust_badge_url'] ?? '' ),
+        // Google Reviews (live, via Places API — zie includes/trust-badge-google.php)
+        'trust_badge_google_key'      => $is_premium ? sanitize_text_field( $post['mkcp_trust_badge_google_key'] ?? '' )       : (string) ( $existing['trust_badge_google_key'] ?? '' ),
+        'trust_badge_google_place_id' => $is_premium ? sanitize_text_field( $post['mkcp_trust_badge_google_place_id'] ?? '' )  : (string) ( $existing['trust_badge_google_place_id'] ?? '' ),
+        // Alleen bij handmatig: stempel wanneer het cijfer voor het laatst is
+        // opgeslagen, zodat de admin een "dit is X dagen oud"-waarschuwing kan
+        // tonen i.p.v. een cijfer dat voor altijd "4.8" blijft zonder controle.
+        'trust_badge_manual_updated_at' => ( $is_premium && ( $post['mkcp_trust_badge_provider'] ?? 'manual' ) === 'manual' )
+            ? current_time( 'mysql' )
+            : (string) ( $existing['trust_badge_manual_updated_at'] ?? '' ),
     ];
 
     update_option( 'mkcp_settings', $settings );
@@ -391,6 +406,7 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
             'themeNonce'     => wp_create_nonce( 'mkcp_admin_theme' ),
             'returnsNonce'   => wp_create_nonce( 'mkcp_account_admin_returns' ),
             'accountSetupNonce' => wp_create_nonce( 'mkcp_account_setup' ),
+            'trustBadgeNonce' => wp_create_nonce( 'mkcp_trust_badge_refresh' ),
             'homeUrl'        => home_url( '/' ),
         ] );
 
@@ -488,7 +504,7 @@ add_action( 'wp_ajax_mkcp_builder_save', function() {
     // de builder-UI vergrendelt ze alleen visueel, niet server-side.
     // 'cart_count_badge_enabled' hoort hier bewust niet bij: geen builder-veld
     // (zit in Shipping-tab), dus zou elke quick-save 'm terugzetten naar uit.
-    $allowed_bool          = [ 'free_shipping_bar', 'show_coupon', 'crosssell_enabled', 'delivery_preview_enabled' ];
+    $allowed_bool          = [ 'free_shipping_bar', 'show_coupon', 'crosssell_enabled', 'delivery_preview_enabled', 'payment_icons_enabled', 'usps_enabled' ];
     $allowed_bool_premium  = [ 'btw_split', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email',
                                'account_link_enabled', 'trust_badge_enabled', 'style_expand_enabled', 'style_resize_enabled' ];
 

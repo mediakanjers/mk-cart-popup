@@ -754,7 +754,7 @@ add_action( 'wp_ajax_mkcp_account_wishlist_item_to_cart', function() {
         wp_send_json_error( [ 'code' => 'options_required', 'message' => __( 'Kies eerst de opties voor dit product op de productpagina.', 'mk-cart-popup' ) ], 400 );
     }
 
-    $added = WC()->cart->add_to_cart( $product_id, 1, $variation_id ?: 0, $variation );
+    $added = mkcp_add_to_cart_validated( $product_id, 1, $variation_id ?: 0, $variation );
     if ( ! $added ) {
         wp_send_json_error( [ 'code' => 'add_to_cart_failed', 'message' => __( 'Kon niet worden toegevoegd (niet meer beschikbaar).', 'mk-cart-popup' ) ], 400 );
     }
@@ -896,7 +896,7 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_to_cart', function() {
         $variation = mkcp_account_wishlist_variation_attributes( $variation_id );
         if ( false === $variation ) { $failed++; continue; }
 
-        if ( $product_id && WC()->cart->add_to_cart( $product_id, 1, $variation_id ?: 0, $variation ) ) {
+        if ( $product_id && mkcp_add_to_cart_validated( $product_id, 1, $variation_id ?: 0, $variation ) ) {
             $added++;
         } else {
             $failed++;

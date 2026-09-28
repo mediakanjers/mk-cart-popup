@@ -504,7 +504,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                  split-layout, zie cart-popup.scss) — zelfde content als de
                  footer-versie hieronder, die in deze situatie wordt verborgen
                  zodra de kolom bestaat, zodat ze niet dubbel getoond worden. -->
-            <?php if ( ! empty( $config['usps'] ) ) : ?>
+            <?php if ( ! empty( $config['usps'] ) && ! empty( $config['usps_enabled'] ) ) : ?>
             <div class="mk-cart-popup__usps mk-cart-popup__cross-usps">
                 <div class="mk-cart-popup__cross-usps-title"><?php esc_html_e( 'Waarom klanten voor ons kiezen', 'mk-cart-popup' ); ?></div>
                 <?php foreach ( $config['usps'] as $usp ) : ?>
@@ -522,34 +522,11 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
             <div class="mk-cart-popup__divider mk-cart-popup__divider--side" aria-hidden="true"></div>
             <div class="mk-cart-popup__col-side">
 
-            <?php if ( $trust_badge_active ) :
-                $trust_rating       = round( (float) $config['trust_badge_rating'], 1 );
-                $trust_review_count = (int) ( $config['trust_badge_review_count'] ?? 0 );
-                $trust_url          = $config['trust_badge_url'] ?? '';
-                $trust_tag          = $trust_url ? 'a' : 'div';
+            <?php
+            // Gedeeld met de content-builder (mkcp_trust_badge_html() in config.php,
+            // ook bruikbaar als checkout-blok) — één opmaak, één plek om aan te passen.
+            if ( $trust_badge_active ) echo mkcp_trust_badge_html();
             ?>
-            <<?php echo esc_html( $trust_tag ); ?> <?php if ( $trust_url ) : ?>href="<?php echo esc_url( $trust_url ); ?>" target="_blank" rel="noopener nofollow"<?php endif; ?> class="mk-cart-popup__trust-badge">
-                <span class="mk-cart-popup__trust-badge-stars" aria-hidden="true">
-                    <?php
-                    // Vijf sterren, deels gevuld via clip-path op basis van het
-                    // percentage — geen los "halve ster"-icoon nodig.
-                    for ( $i = 1; $i <= 5; $i++ ) :
-                        $fill_pct = max( 0, min( 100, ( $trust_rating - ( $i - 1 ) ) * 100 ) );
-                        ?>
-                        <span class="mk-cart-popup__trust-star" style="--mkcp-star-fill: <?php echo esc_attr( $fill_pct ); ?>%">
-                            <svg class="mk-cart-popup__trust-star-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/></svg>
-                            <svg class="mk-cart-popup__trust-star-fill" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 17.8 5.5 21.5 7 14.5 2 9.5 9 9"/></svg>
-                        </span>
-                    <?php endfor; ?>
-                </span>
-                <span class="mk-cart-popup__trust-badge-text">
-                    <?php echo esc_html( number_format_i18n( $trust_rating, 1 ) ); ?>
-                    <?php if ( $trust_review_count > 0 ) : ?>
-                        <span class="mk-cart-popup__trust-badge-count">(<?php echo esc_html( number_format_i18n( $trust_review_count ) ); ?>)</span>
-                    <?php endif; ?>
-                </span>
-            </<?php echo esc_html( $trust_tag ); ?>>
-            <?php endif; ?>
 
             <?php if ( $config['free_shipping_bar'] && $threshold > 0 ) : ?>
             <div class="mk-cart-popup__progress">
@@ -687,7 +664,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                     return is_array( $i ) && ! empty( $i['url'] );
                 } );
                 ?>
-                <?php if ( ! empty( $payment_icons_display ) ) : ?>
+                <?php if ( ! empty( $payment_icons_display ) && ! empty( $config['payment_icons_enabled'] ) ) : ?>
                 <div class="mk-cart-popup__payment-icons">
                     <?php foreach ( $payment_icons_display as $pi ) : ?>
                     <img src="<?php echo esc_url( $pi['url'] ); ?>" alt="<?php echo esc_attr( $pi['label'] ?? '' ); ?>" loading="lazy">
@@ -777,7 +754,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                 <?php endif; ?>
 
                 <!-- USP strip -->
-                <?php if ( ! empty( $config['usps'] ) ) : ?>
+                <?php if ( ! empty( $config['usps'] ) && ! empty( $config['usps_enabled'] ) ) : ?>
                 <div class="mk-cart-popup__usps">
                     <?php foreach ( $config['usps'] as $usp ) : ?>
                     <span class="mk-cart-popup__usp">
