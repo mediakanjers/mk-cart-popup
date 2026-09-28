@@ -31,6 +31,14 @@ $gray-light: #5b6472;
  * reset only fires on the plugin checkout page, not on the rest of the site.
  * ─────────────────────────────────────────────────────────────────────────── */
 
+// <html> zelf ook — overflow-x:hidden op alleen <body> voorkomt op mobiel
+// (vooral iOS Safari) niet altijd de rubber-band-achtige horizontale pan van
+// de hele pagina; deze template (templates/checkout-page.php) rendert zijn
+// eigen <html>/<body>, dus dit raakt nergens anders op de site.
+html {
+    overflow-x: hidden;
+}
+
 body.mkcp-distraction-free-checkout {
     margin      : 0;
     padding     : 0;
@@ -428,6 +436,19 @@ body.mkcp-distraction-free-checkout {
     .mkcp-co-trust-badge {
         grid-column : 2;
         grid-row    : 5;
+    }
+
+    // Scheidingslijntje boven de badge, maar ALLEEN als er ook echt
+    // betaalicoontjes direct erboven staan (aangrenzende-sibling-selector,
+    // hier bewust NIET met "&" genest — die draagt op dit nesting-niveau de
+    // hele "body.mkcp-distraction-free-checkout .mkcp-co-trust-badge"-keten
+    // mee, wat een kapotte selector zou geven). Staan de iconen uit, dan zou
+    // dit lijntje samen met de badge's eigen kaartrand (cart-popup.scss,
+    // .cart-trustbadge) twee lijntjes vlak na elkaar geven i.p.v. één
+    // duidelijke scheiding.
+    .mkcp-co-payment-icons + .mkcp-co-trust-badge {
+        border-top  : 1px solid var(--mkcp-light1, $light1);
+        padding-top : 0;
     }
 
     .mkcp-co-payment-icons {
@@ -2140,8 +2161,8 @@ body.mkcp-distraction-free-checkout {
     .mk-cart-popup__btw-switch {
         width         : 100%;
         font-size     : 13px;
-        padding       : 0 0 16px;
-        margin-bottom : 20px;
+        padding       : 0 0 10px;
+        margin-bottom : 10px;
         border-bottom : 1px solid var(--mkcp-light1, $light1);
     }
 
@@ -2246,16 +2267,41 @@ body.mkcp-distraction-free-checkout {
         transform   : translateY(-1px);
     }
 
+    // Draaiende ring i.p.v. alleen een gedimde knop — zelfde patroon (en
+    // keyframes) als .mk-cart-popup__crosssell-atc in de winkelwagen-popup.
     &.is-loading {
-        opacity       : .6;
         pointer-events: none;
+        border-color  : transparent;
+
+        svg { display: none; }
+
+        &::after {
+            content         : '';
+            display         : block;
+            width           : 14px;
+            height          : 14px;
+            border          : 2px solid var(--mkcp-accent, $accent);
+            border-top-color: transparent;
+            border-radius   : 50%;
+            animation       : mkcp-co-cs-spin .6s linear infinite;
+        }
     }
 
     &.is-added {
         color       : #fff;
         background  : var(--mkcp-accent, $accent);
         border-color: var(--mkcp-accent, $accent);
+        animation   : mkcp-co-cs-pop .35s ease;
     }
+}
+
+@keyframes mkcp-co-cs-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes mkcp-co-cs-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.35); }
+    100% { transform: scale(1); }
 }
 
 .mkcp-co-crosssell__view {

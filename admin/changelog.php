@@ -22,6 +22,24 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.14.31-beta.72',
+            'date'    => '2026-09-28',
+            'items'   => [
+                // ── Winkelwagen-popup ──
+                'Fix: snel herhaald tikken op mobiel (bv. op de aantal-knoppen) kon door de browser als dubbeltik-zoom-gebaar worden opgevat. Scrollen en pinch-zoom blijven gewoon werken.',
+                'Fix: de brede 2-koloms-lay-out (productkaarten, cross-sell-kolom, USP\'s) werkte alleen als de "volledig scherm"-knop aanstond of je zo ver sleepte dat de popup automatisch naar volledig scherm omsloeg. Staat alleen de breedte-sleepgreep aan, dan bleef je in de tussenliggende breedtes op de oude, smalle opmaak hangen. Reageert nu rechtstreeks op de daadwerkelijke breedte van de winkelwagen, ongeacht hoe je daar kwam.',
+                'Fix: de sleepgreep zonder "volledig scherm"-knop toonde nog de oude, dunne grijze lijn-stijl i.p.v. de nieuwe, bredere witte capsule met schaduw. Beide varianten zien er nu hetzelfde uit.',
+                'Fix: tekst in een waarschuwingsblok (Content Builder) was flink groter dan alle andere blok-teksten.',
+
+                // ── Checkout ──
+                'Fix: de checkout-pagina kon op mobiel soms onbedoeld zijwaarts scrollen/bewegen.',
+                'Fix: WooCommerce\'s eigen interne verzendzone-debugmelding ("Klant komt overeen met zone ...") kon na een adres-/verzendwijziging blijven terugkomen — deze melding is nooit voor de klant bedoeld.',
+                'Verbetering: bij het toevoegen van een cross-sell-suggestie onder het besteloverzicht draait er nu een laad-ringetje tijdens het toevoegen, en springt het rondje kort op met een vinkje zodra het gelukt is — was voorheen geen zichtbare bevestiging.',
+                'Nieuw: scheidingslijntje tussen de betaalicoontjes en de vertrouwensbadge, maar alleen als beide ook echt naast elkaar getoond worden (geen dubbel lijntje als de icoontjes uit staan).',
+                'Verbetering: iets compactere ruimte rond de BTW-schakelaar.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.71',
             'date'    => '2026-09-28',
             'items'   => [

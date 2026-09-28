@@ -5003,3 +5003,41 @@ function mkcp_checkout_render_footer() {
     </div>
     <?php
 }
+
+
+// ── WooCommerce's eigen "verzendzone"-debugmelding verbergen ────────────────
+//
+// WooCommerce kan bij het berekenen van verzendkosten een interne
+// debugmelding tonen ("Klant komt overeen met zone ...", een
+// .woocommerce-message/.woocommerce-info-notice) — bedoeld voor de
+// winkelier tijdens het instellen van verzendzones, nooit voor de klant.
+// Het thema had hier al een eigen verbergfunctie voor (src/js/woo/
+// checkout.js), maar die luisterde alleen naar 'updated_cart_totals'/
+// 'wc_fragments_refreshed' (cart-pagina-events) — niet naar 'updated_checkout',
+// het event dat de checkout-pagina zelf bij elke AJAX-ververs gebruikt.
+// Daardoor kon de melding op checkout na een adres-/verzendwijziging weer
+// terugkomen. Hier op de plugin zelf i.p.v. het thema, zodat het ongeacht
+// "Theme hooks uitschakelen" altijd werkt.
+add_action( 'wp', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
+
+    add_action( 'wp_footer', function() {
+        ?>
+        <script>
+        (function ($) {
+            function mkcp_hideZoneDebugNotice() {
+                $( '.woocommerce-message, .woocommerce-info' ).each( function () {
+                    var text = $( this ).text();
+                    if ( text.indexOf( 'komt overeen met zone' ) !== -1 || text.indexOf( 'matches zone' ) !== -1 ) {
+                        $( this ).remove();
+                    }
+                } );
+            }
+            mkcp_hideZoneDebugNotice();
+            $( document ).on( 'updated_checkout', mkcp_hideZoneDebugNotice );
+        })( jQuery );
+        </script>
+        <?php
+    }, 25 );
+}, 5 );

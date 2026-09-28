@@ -107,6 +107,14 @@
     pointer-events: none;
     visibility : hidden;
     transition : visibility 0s var(--mkcp-anim);
+    /* Voorkomt dat snel herhaald tikken (bv. de qty +/- knoppen) door de
+       mobiele browser als dubbeltik-zoom-gebaar wordt opgevat. Blokkeert
+       alleen dat gebaar (en de ~300ms tik-vertraging) — pinch-zoom en
+       normaal scrollen/vegen blijven werken. Elementen die zelf al een
+       striktere touch-action hebben (bv. de backdrop/sleepgreep hieronder,
+       touch-action:none) blijven dat gewoon, want de striktere waarde wint
+       altijd bij overlap. */
+    touch-action: manipulation;
     &.is-open {
         pointer-events: all;
         visibility : visible;
@@ -142,6 +150,15 @@
     transform     : translateX(100%);
     opacity       : 0;
     transition    : transform var(--mkcp-anim), opacity var(--mkcp-anim), width var(--mkcp-anim), max-width var(--mkcp-anim);
+    /* De brede 2-kolommen-lay-out hieronder (was: @media min-width:720px +
+       .is-expanded) reageert nu op de daadwerkelijke drawer-breedte i.p.v. op
+       de vensterbreedte + de expliciete "volledig scherm"-stand. Zo krijgt
+       een klant die de drawer alleen handmatig breed sleept (K1-sleepgreep,
+       zonder ooit de uitklap-knop te gebruiken) dezelfde lay-out zodra er
+       genoeg ruimte is — voorheen bleef dat de smalle, oudere opmaak tonen
+       totdat de drawer via de magnetische drempel alsnog naar .is-expanded
+       (100vw) omsloeg. */
+    container-type: inline-size;
     .is-open & {
         transform: translateX(0);
         opacity  : 1;
@@ -200,7 +217,11 @@
 // zichtbaar (subtiel) greep-icoontje, dat pas nadrukkelijker wordt bij hover/
 // focus i.p.v. pas dan zichtbaar te wórden.
 .mk-cart-popup__resize-handle {
-    --mkcp-rh-offset: 8px; // halve breedte van de hitbox — overschreven door --combo hieronder
+    // Zelfde hitbox-breedte voor de kale én de combi-variant (voorheen 8px
+    // vs. 13px — de kale variant gebruikte een smallere hitbox, afgestemd op
+    // de oude dunne grijze lijn hieronder die inmiddels is vervangen door
+    // dezelfde brede capsule als de combi-variant).
+    --mkcp-rh-offset: 13px;
 
     position   : absolute;
     top        : 0;
@@ -294,102 +315,66 @@
     left : auto;
 }
 
-// Herzien: vlak op de drawer-rand (flex-centered in de hitbox, dus precies
-// op de grens tussen drawer en backdrop) i.p.v. er half overheen "zwevend".
-// Compacter (smaller + korter) en met een zachte halo/ring i.p.v. een harde
-// rand, zodat 'ie op elke achtergrond (licht, donker, foto) voldoende opvalt
-// zonder een duidelijk zichtbaar kader te tekenen.
+// Brede, witte, zwevende capsule met zachte schaduw — zelfde vorm of de
+// "volledig scherm"-knop er wel of niet in zit (--combo hieronder voegt
+// alleen de knop/het streepje toe en maakt 'm iets hoger, geen andere
+// basisvorm meer). Was voorheen een dunne, grijze 5px-lijn zodra alleen de
+// sleepgreep aanstond zonder de knop — oogde daardoor duidelijk ouder/
+// flitser dan de combi-variant, terwijl beide dezelfde sleepfunctie zijn.
 .mk-cart-popup__resize-handle-grip {
     position       : relative;
-    width          : 5px;
-    height         : 36px;
+    width          : 22px;
+    height         : 40px;
     border-radius  : 999px;
-    background     : var(--mkcp-light2);
-    box-shadow     : 0 0 0 3px color-mix(in srgb, var(--mkcp-bg) 85%, transparent);
-    transition     : background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    background     : var(--mkcp-bg);
+    box-shadow     : 0 3px 14px rgba(0, 0, 0, .22), 0 0 0 1px rgba(0, 0, 0, .05);
+    transition     : box-shadow 150ms ease;
     display        : flex;
     align-items    : center;
     justify-content: center;
 }
 
 // Twee stippen i.p.v. drie — leest nog steeds als grijpbaar, maar oogt
-// rustiger op een greep die al smaller/korter is. Eigen element i.p.v.
-// ::before, want in de --combo-variant hieronder moet 'm los van het
-// expand-knopje/streepje gepositioneerd kunnen worden.
+// rustiger op een compacte capsule. Eigen element i.p.v. ::before, want in
+// de --combo-variant hieronder moet 'm los van het expand-knopje/streepje
+// gepositioneerd kunnen worden.
 .mk-cart-popup__resize-handle-dots {
     position     : relative;
     width        : 2.5px;
     height       : 2.5px;
     border-radius: 50%;
-    background   : var(--mkcp-bg);
-    box-shadow   : 0 -5px 0 var(--mkcp-bg), 0 5px 0 var(--mkcp-bg);
+    background   : var(--mkcp-light2);
+    box-shadow   : 0 -5px 0 var(--mkcp-light2), 0 5px 0 var(--mkcp-light2);
     transition   : background-color 150ms ease, box-shadow 150ms ease;
 }
 
 .mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-grip,
 .mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-grip,
 .mkcp-cart-resizing .mk-cart-popup__resize-handle-grip {
-    background   : var(--mkcp-accent);
-    box-shadow   : 0 0 0 3px color-mix(in srgb, var(--mkcp-accent) 20%, transparent);
-    transform    : scaleX(1.4);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .3), 0 0 0 1px rgba(0, 0, 0, .05);
 }
 
 .mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-dots,
 .mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-dots,
 .mkcp-cart-resizing .mk-cart-popup__resize-handle-dots {
-    background: #fff;
-    box-shadow: 0 -5px 0 #fff, 0 5px 0 #fff;
+    background: var(--mkcp-accent);
+    box-shadow: 0 -5px 0 var(--mkcp-accent), 0 5px 0 var(--mkcp-accent);
 }
 
-/* ── Combi-variant: sleepgreep + volledig-scherm-knopje in 1 capsule ──────────
+/* ── Combi-variant: dezelfde capsule, plus het volledig-scherm-knopje ────────
  * Alleen aanwezig als beide instellingen (style_resize_enabled +
- * style_expand_enabled) aan staan. Capsule blijft altijd wit/neutraal — alleen
- * de losse onderdelen (knopje, stippen) reageren op hover — zodat het duidelijk
- *2 aparte klikdoelen blijft i.p.v. 1 groot gekleurd blok. */
-.mk-cart-popup__resize-handle--combo {
-    --mkcp-rh-offset: 13px; // moet in sync blijven met de breedte van --grip-combo hieronder (2x = 26px)
-    width: 26px;
-}
-
+ * style_expand_enabled) aan staan — dan wordt de capsule iets hoger om het
+ * knopje + streepje boven de stippen te laten passen. */
 .mk-cart-popup__resize-handle-grip--combo {
-    width          : 22px;
     height         : 66px;
-    border-radius  : 999px;
-    background     : var(--mkcp-bg);
-    box-shadow     : 0 3px 14px rgba(0, 0, 0, .22), 0 0 0 1px rgba(0, 0, 0, .05);
     flex-direction : column;
     align-items    : center;
     justify-content: flex-start;
     padding        : 7px 0;
-    transform      : none; // overschrijft de scaleX-hover van de basisklasse hierboven
 
-    // BUGFIX: de stippen gebruiken standaard --mkcp-bg (wit) — logisch op de
-    // vorige dunne, grijze pil (wit contrasteert daar prima), maar de combi-
-    // capsule zélf is ook --mkcp-bg (wit), dus de stippen waren onzichtbaar
-    // (wit op wit). Eigen kleuren i.p.v. de generieke .mk-cart-popup__resize-
-    // handle-dots-regels hierboven: grijs in rust, accentkleur bij hover
-    // (i.p.v. wit — de capsule zelf kleurt bij de combo-variant nooit vol
-    // accent, zie de hover-regel hieronder, dus wit zou daar alsnog wegvallen).
     .mk-cart-popup__resize-handle-dots {
-        margin    : auto 0; // verticaal gecentreerd in de ruimte ónder knopje+streepje
-        background: var(--mkcp-light2);
-        box-shadow: 0 -5px 0 var(--mkcp-light2), 0 5px 0 var(--mkcp-light2);
+        margin: auto 0; // verticaal gecentreerd in de ruimte ónder knopje+streepje
     }
-}
-
-.mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-grip--combo,
-.mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-grip--combo,
-.mkcp-cart-resizing .mk-cart-popup__resize-handle-grip--combo {
-    background: var(--mkcp-bg);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, .3), 0 0 0 1px rgba(0, 0, 0, .05);
-    transform : none;
-}
-
-.mk-cart-popup__resize-handle:hover .mk-cart-popup__resize-handle-grip--combo .mk-cart-popup__resize-handle-dots,
-.mk-cart-popup__resize-handle:focus-visible .mk-cart-popup__resize-handle-grip--combo .mk-cart-popup__resize-handle-dots,
-.mkcp-cart-resizing .mk-cart-popup__resize-handle-grip--combo .mk-cart-popup__resize-handle-dots {
-    background: var(--mkcp-accent);
-    box-shadow: 0 -5px 0 var(--mkcp-accent), 0 5px 0 var(--mkcp-accent);
 }
 
 .mk-cart-popup__resize-handle-expand-btn {
@@ -511,19 +496,27 @@ body.mkcp-cart-resizing {
     display: none;
 }
 
-@media screen and (min-width: 720px) {
+/* Was: @media screen and (min-width: 720px) + .is-expanded-prefix op elke
+   selector hieronder — dat liet deze hele lay-out afhangen van "staat de
+   uitklap-knop-stand aan", terwijl een klant de drawer ook (zonder ooit die
+   knop te gebruiken) handmatig breed kan slepen via de K1-sleepgreep. Een
+   @container-query op de daadwerkelijke drawer-breedte (container-type
+   hierboven op .mk-cart-popup__drawer) dekt nu beide gevallen tegelijk: de
+   uitklap-stand (drawer=100vw) én een handmatig gesleepte brede drawer,
+   zonder los te hoeven bijhouden via welke van de twee je zo breed kwam. */
+@container (min-width: 680px) {
 
-    .is-expanded .mk-cart-popup__body {
+    .mk-cart-popup__body {
         overflow: hidden;
     }
 
-    .is-expanded .mk-cart-popup__content {
+    .mk-cart-popup__content {
         display   : flex;
         flex      : 1;
         min-height: 0;
     }
 
-    .is-expanded .mk-cart-popup__col-items {
+    .mk-cart-popup__col-items {
         display   : block;
         flex      : 3 1 0%; // 75% zonder cross-sell-kolom
         min-width : 0;
@@ -537,21 +530,21 @@ body.mkcp-cart-resizing {
         transition: opacity 320ms ease, transform 320ms ease;
     }
 
-    .is-expanded .mk-cart-popup__content:has(.mk-cart-popup__col-cross) .mk-cart-popup__col-items {
+    .mk-cart-popup__content:has(.mk-cart-popup__col-cross) .mk-cart-popup__col-items {
         flex: 2 1 0%; // 50% zodra de cross-sell-kolom er wél is
     }
 
     /* ── Producten als kaarten i.p.v. rijen, in een grid die meeschaalt met de
        beschikbare breedte. Dezelfde HTML als de normale lijst — puur een
        CSS-herschikking, net als bij de cross-sell-kolom hiernaast. */
-    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__items {
+    .mk-cart-popup__col-items .mk-cart-popup__items {
         display              : grid;
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
         align-items          : start;
         gap                  : 14px;
     }
 
-    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item {
+    .mk-cart-popup__col-items .mk-cart-popup__item {
         grid-template-columns: 1fr;
         gap          : 0;
         padding      : 12px;
@@ -559,7 +552,7 @@ body.mkcp-cart-resizing {
         border-radius: 12px;
     }
 
-    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item-image {
+    .mk-cart-popup__col-items .mk-cart-popup__item-image {
         width        : 100%;
         height        : 120px;
         margin-bottom: 10px;
@@ -572,12 +565,12 @@ body.mkcp-cart-resizing {
         }
     }
 
-    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item-actions {
+    .mk-cart-popup__col-items .mk-cart-popup__item-actions {
         flex-wrap      : wrap;
         justify-content: space-between;
     }
 
-    .is-expanded .mk-cart-popup__col-items .mk-cart-popup__item-col-price {
+    .mk-cart-popup__col-items .mk-cart-popup__item-col-price {
         margin-top : 8px;
         padding-top: 8px;
         border-top : 1px solid var(--mkcp-light1);
@@ -590,7 +583,7 @@ body.mkcp-cart-resizing {
         }
     }
 
-    .is-expanded .mk-cart-popup__col-cross {
+    .mk-cart-popup__col-cross {
         display         : flex;
         flex-direction  : column;
         flex            : 1 1 0%; // 25%
@@ -612,8 +605,8 @@ body.mkcp-cart-resizing {
     /* ── 70/30 hoogtesplit: cross-sell (of de fallback-melding) bovenin,
        USP's onderin — altijd in deze verhouding, ongeacht hoeveel content
        er daadwerkelijk in elke zone staat. */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell,
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-fallback {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell,
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-fallback {
         flex      : 7 1 0%;
         min-height: 0;
         overflow-y: auto;
@@ -626,7 +619,7 @@ body.mkcp-cart-resizing {
     }
 
 
-    .is-expanded .mk-cart-popup__progress-link {
+    .mk-cart-popup__progress-link {
         display      : inline-flex;
         align-items  : center;
         gap          : 4px;
@@ -648,7 +641,7 @@ body.mkcp-cart-resizing {
     /* Compacte balk → uitgelichte kaart met echt wat aanwezigheid: groot
        icoon-badge in de accentkleur, duidelijke typografische hiërarchie en
        genoeg ademruimte i.p.v. alles tegen elkaar aan. */
-    .is-expanded .mk-cart-popup__delivery-preview {
+    .mk-cart-popup__delivery-preview {
         align-items  : center;
         gap          : 14px;
         // Verticale marge (naast de horizontale) zodat de kaart niet meer
@@ -661,7 +654,7 @@ body.mkcp-cart-resizing {
         box-shadow   : 0 1px 3px rgba(0, 0, 0, .06);
     }
 
-    .is-expanded .mk-cart-popup__delivery-preview-icon {
+    .mk-cart-popup__delivery-preview-icon {
         width          : 48px;
         height         : 48px;
         align-items    : center;
@@ -673,13 +666,13 @@ body.mkcp-cart-resizing {
         svg { width: 23px; height: 23px; }
     }
 
-    .is-expanded .mk-cart-popup__delivery-preview-text {
+    .mk-cart-popup__delivery-preview-text {
         flex-direction: column;
         align-items   : flex-start;
         gap           : 2px;
     }
 
-    .is-expanded .mk-cart-popup__delivery-preview-label {
+    .mk-cart-popup__delivery-preview-label {
         font-size     : var(--mkcp-font-sm);
         font-weight   : 700;
         line-height   : 1.2;
@@ -692,14 +685,14 @@ body.mkcp-cart-resizing {
         }
     }
 
-    .is-expanded .mk-cart-popup__delivery-preview-date {
+    .mk-cart-popup__delivery-preview-date {
         font-size  : 1.45em;
         font-weight: 700;
         line-height: 1.2;
         color      : var(--mkcp-dark);
     }
 
-    .is-expanded .mk-cart-popup__delivery-preview-note {
+    .mk-cart-popup__delivery-preview-note {
         display    : block;
         margin-top : 3px;
         font-size  : var(--mkcp-font-sm);
@@ -707,7 +700,7 @@ body.mkcp-cart-resizing {
         line-height: 1.35;
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-fallback {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-fallback {
         display      : flex;
         align-items  : flex-start;
         gap          : 8px;
@@ -725,7 +718,7 @@ body.mkcp-cart-resizing {
         }
     }
 
-    .is-expanded .mk-cart-popup__col-side {
+    .mk-cart-popup__col-side {
         display         : flex;
         flex-direction  : column;
         flex            : 1 1 0%; // 25%
@@ -742,19 +735,22 @@ body.mkcp-cart-resizing {
        gelijk met .is-expanded en verwijdert 'm pas een frame later, zodat de
        browser deze startstand eerst commit en de transition hierboven (met
        oplopende transition-delay per kolom) daadwerkelijk afspeelt i.p.v. de
-       kolommen instant te tonen. */
-    .is-expanded.is-entering .mk-cart-popup__col-items,
-    .is-expanded.is-entering .mk-cart-popup__col-cross,
-    .is-expanded.is-entering .mk-cart-popup__col-side {
+       kolommen instant te tonen. Alleen relevant via de uitklap-knop (die zet
+       ook .is-entering); een handmatige sleepbeweging kent deze stagger niet
+       en heeft dat ook niet nodig — de breedte verandert daar al geleidelijk
+       mee met de sleepbeweging zelf. */
+    .is-entering .mk-cart-popup__col-items,
+    .is-entering .mk-cart-popup__col-cross,
+    .is-entering .mk-cart-popup__col-side {
         opacity  : 0;
         transform: translateY(10px);
     }
 
-    .is-expanded .mk-cart-popup__items-header {
+    .mk-cart-popup__items-header {
         display: none;
     }
 
-    .is-expanded .mk-cart-popup__divider {
+    .mk-cart-popup__divider {
         display    : block;
         width      : 2px;
         flex-shrink: 0;
@@ -771,7 +767,7 @@ body.mkcp-cart-resizing {
     /* ── Cross-sell in de eigen 25%-kolom: blokjes onder elkaar i.p.v. de
        horizontale slider. Puur een CSS-herschikking van dezelfde HTML — de
        slider in de normale (smalle) drawer blijft volledig ongewijzigd. */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell {
         border-top : none;
         margin-top : 0;
         // De 70%-zone kreeg net haar eigen overflow-y (regel hierboven) en dus
@@ -779,18 +775,18 @@ body.mkcp-cart-resizing {
         padding-top: var(--mkcp-space-inner);
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-track {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-track {
         &::before,
         &::after {
             display: none;
         }
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-nav {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-nav {
         display: none;
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-list {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-list {
         flex-direction  : column;
         overflow        : visible;
         scroll-snap-type: none;
@@ -801,7 +797,7 @@ body.mkcp-cart-resizing {
         }
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-title {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-title {
         font-size     : var(--mkcp-font-base);
         letter-spacing: 0;
     }
@@ -810,7 +806,7 @@ body.mkcp-cart-resizing {
        eronder — i.p.v. het compacte rijtje uit de smalle slider-kaart. Nog
        steeds dezelfde elementen, alleen flex-direction + afmetingen wijzigen
        binnen dit scope. */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-item {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-item {
         width         : 100%;
         flex-direction: column;
         align-items   : stretch;
@@ -837,27 +833,27 @@ body.mkcp-cart-resizing {
         }
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-img {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-img {
         width        : 100%;
         height        : 96px;
         border-radius: 9px;
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-info {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-info {
         flex: 0 1 auto;
         gap : 4px;
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-name {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-name {
         font-size  : var(--mkcp-font-base);
         white-space: normal;
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-price {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-price {
         font-size: var(--mkcp-font-base);
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-reason {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-reason {
         display    : block;
         font-size  : var(--mkcp-font-2xs);
         font-weight: 600;
@@ -866,7 +862,7 @@ body.mkcp-cart-resizing {
         margin     : 2px 0;
     }
 
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-view {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-view {
         width      : 100%;
         text-align : center;
         padding    : 9px 12px;
@@ -881,7 +877,7 @@ body.mkcp-cart-resizing {
        blijft; alle andere spinner-eigenschappen (rand, animatie) komen nog
        gewoon van die oorspronkelijke regel, want die worden hier niet
        overschreven. */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__crosssell-atc {
+    .mk-cart-popup__col-cross .mk-cart-popup__crosssell-atc {
         width         : 100%;
         height        : auto;
         border-radius : 8px;
@@ -910,7 +906,7 @@ body.mkcp-cart-resizing {
        de gecentreerde rij-met-wrap uit de footer-versie hieronder (die in deze
        situatie verborgen wordt, zie .mk-cart-popup__footer .mk-cart-popup__usps
        verderop — geen dubbele USP's tegelijk zichtbaar). */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__cross-usps {
+    .mk-cart-popup__col-cross .mk-cart-popup__cross-usps {
         display        : flex;
         flex-direction : column;
         align-items    : stretch;
@@ -922,10 +918,10 @@ body.mkcp-cart-resizing {
         padding        : 14px var(--mkcp-space-outer) 0;
     }
 
-    /* Titel boven de USP's — alleen zichtbaar hier (volledig-scherm modus),
-       want .mk-cart-popup__cross-usps zelf is buiten .is-expanded al
+    /* Titel boven de USP's — alleen zichtbaar hier (brede lay-out), want
+       .mk-cart-popup__cross-usps zelf is buiten deze container-query al
        display:none. De footer-versie van de USP's blijft titelloos. */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__cross-usps-title {
+    .mk-cart-popup__col-cross .mk-cart-popup__cross-usps-title {
         display       : block;
         font-size     : var(--mkcp-font-2xs);
         font-weight   : 700;
@@ -937,7 +933,7 @@ body.mkcp-cart-resizing {
     /* Groter en met eigen achtergrond-chip i.p.v. de kleine, platte tekstregel
        uit de footer-versie — hoort meer te wegen nu het de hele onderste 30%
        van de kolom vult. */
-    .is-expanded .mk-cart-popup__col-cross .mk-cart-popup__cross-usps .mk-cart-popup__usp {
+    .mk-cart-popup__col-cross .mk-cart-popup__cross-usps .mk-cart-popup__usp {
         gap          : 9px;
         padding      : 9px 11px;
         border-radius: 8px;
@@ -954,13 +950,13 @@ body.mkcp-cart-resizing {
     /* Voorkomt dubbele USP's: zodra de cross-sell-kolom bestaat, staan ze
        daarin (hierboven) i.p.v. in de footer van de zijbalk. Zonder cross-sell
        (75%/25%-fallback) blijft de footer-versie gewoon zichtbaar. */
-    .is-expanded .mk-cart-popup__content:has(.mk-cart-popup__col-cross) .mk-cart-popup__footer .mk-cart-popup__usps {
+    .mk-cart-popup__content:has(.mk-cart-popup__col-cross) .mk-cart-popup__footer .mk-cart-popup__usps {
         display: none;
     }
 
     /* Totalen + coupon + CTA blijven altijd in beeld onderin de zijbalk, ook
        als de cross-sell-lijst erboven scrollt. */
-    .is-expanded .mk-cart-popup__footer {
+    .mk-cart-popup__footer {
         // margin-top: auto (van de basisregel) blijft hier bewust intact —
         // verankert dit blok onderin de kolom i.p.v. los te blijven staan
         // vlak onder de bezorgdatum/kortingscode-kaarten, met een kale
@@ -974,7 +970,7 @@ body.mkcp-cart-resizing {
        .mk-cart-popup__ctas-sentinel, zie cart-popup.js) is overbodig zodra de
        hele footer al sticky staat — neutraliseer 'm zodat er geen dubbele
        fixed-position knop binnen de al-vastgeplakte zijbalk ontstaat. */
-    .is-expanded .mk-cart-popup__ctas.is-pinned {
+    .mk-cart-popup__ctas.is-pinned {
         position: static;
         margin  : 8px calc(-1 * var(--mkcp-space-outer)) calc(-1 * var(--mkcp-space-inner));
         z-index : auto;
@@ -984,13 +980,13 @@ body.mkcp-cart-resizing {
        bij de kaart-behandeling die de bezorgdatum en USP's al kregen, zodat
        de hele zijbalk consistent oogt. Puur een CSS-omhulsel om dezelfde
        input/knop; de bestaande apply/feedback-JS blijft ongemoeid. */
-    .is-expanded .mk-cart-popup__coupon {
+    .mk-cart-popup__coupon {
         padding      : 12px;
         border       : 1px solid var(--mkcp-light1);
         border-radius: 10px;
     }
 
-    .is-expanded .mk-cart-popup__coupon-label {
+    .mk-cart-popup__coupon-label {
         display       : block;
         margin-bottom  : 8px;
         font-size      : var(--mkcp-font-2xs);
@@ -2990,7 +2986,7 @@ a.cart-trustbadge:focus-visible {
     &--banner {
         padding      : 8px 12px;
         border-radius: 6px;
-        font-size    : 1.2em;
+        font-size    : var(--mkcp-font-base);
         font-weight  : 500;
         line-height  : 1.4;
         text-align: center;

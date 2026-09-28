@@ -323,6 +323,34 @@
             return { box: box, row: row };
         }
 
+        /* Heeft deze datum nog minstens één tijdslot dat daadwerkelijk te
+           kiezen is? Bij "vandaag" tellen alleen sloten die nog niet voorbij
+           zijn (incl. voorbereidingstijd) mee — zelfde filter als
+           renderSlots() hieronder toepast op de dropdown zelf. Gedeeld met
+           updateMicrocopy(), die anders "je hebt nog X om vandaag te halen"
+           kon tonen terwijl vandaag qua tijdsloten allang niet meer haalbaar
+           is (de bestel-cutoff was dan simpelweg nog niet verstreken). Zonder
+           tijdsloten (SLOTS_ENABLED false) is elke datum in DATES per
+           definitie haalbaar. */
+        function dateHasReachableSlot(ymd) {
+            if (!SLOTS_ENABLED) return true;
+
+            var p = parseYMD(ymd);
+            var js = new Date(p.y, p.m, p.d);
+            var dow = js.getDay();
+            var list = SLOTS_BY_DOW[dow] || SLOTS_BY_DOW[String(dow)] || [];
+
+            var now = new Date();
+            var todayYMD = now.getFullYear() + '-' + padTwo(now.getMonth() + 1) + '-' + padTwo(now.getDate());
+            if (ymd !== todayYMD) return list.length > 0;
+
+            var nowMin = now.getHours() * 60 + now.getMinutes() + PREP_MINUTES;
+            return list.some(function (hhmm) {
+                var parts = hhmm.split(':');
+                return (+parts[0] * 60 + +parts[1]) >= nowMin;
+            });
+        }
+
         function renderSlots() {
             var box = el('slots');
             var row = el('slots-row');
@@ -362,11 +390,12 @@
             var isToday = selectedDate === todayYMD;
             var nowMin = now.getHours() * 60 + now.getMinutes() + PREP_MINUTES;
 
-            var available = list.filter(function (hhmm) {
-                if (!isToday) return true;
-                var parts = hhmm.split(':');
-                return (+parts[0] * 60 + +parts[1]) >= nowMin;
-            });
+            var available = isToday
+                ? list.filter(function (hhmm) {
+                    var parts = hhmm.split(':');
+                    return (+parts[0] * 60 + +parts[1]) >= nowMin;
+                })
+                : list;
 
             box.hidden = false;
 
@@ -480,6 +509,19 @@
             var tomorrowDate = new Date(nowDate);
             tomorrowDate.setDate(tomorrowDate.getDate() + 1);
             var tomorrowYMD = toYMD(tomorrowDate.getFullYear(), tomorrowDate.getMonth(), tomorrowDate.getDate());
+
+            // Bij tijdsloten kan de sloten-lijst van vandaag al helemaal leeg
+            // zijn (verstreken tijden + voorbereidingstijd) terwijl de
+            // bestel-cutoff zelf nog niet is verstreken — dan is "je hebt nog
+            // X om vandaag te halen" misleidend, want vandaag is al niet meer
+            // haalbaar. Val in dat geval terug op dezelfde "eerstvolgende
+            // optie"-melding als ná de cutoff, gericht op de eerstvolgende
+            // datum die wél nog een tijdslot heeft.
+            if (DATES[0] === todayYMD && !dateHasReachableSlot(DATES[0])) {
+                var nextDate = DATES[1];
+                box.textContent = nextDate ? 'Eerstvolgende optie: ' + formatFull(nextDate) : 'Geen datums meer beschikbaar.';
+                return;
+            }
 
             var firstLabel;
             if (DATES[0] === todayYMD) {
