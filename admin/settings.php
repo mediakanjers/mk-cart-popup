@@ -13,6 +13,28 @@ require_once MKCP_PATH . 'admin/changelog.php';
 require_once MKCP_PATH . 'admin/docs.php';
 
 
+/**
+ * Bepaalt of 'trust_badge_manual_updated_at' opnieuw gestempeld moet worden
+ * bij een instellingen-opslag: alleen als het handmatige cijfer, aantal
+ * reviews of de link écht wijzigt, of de bron net naar "handmatig" is
+ * omgezet — niet bij elke opslag van een willekeurige andere instelling op
+ * deze (grote, gedeelde) pagina.
+ */
+function mkcp_trust_badge_manual_should_restamp( bool $is_premium, array $post, array $existing ): bool {
+    if ( ! $is_premium ) return false;
+    if ( ( $post['mkcp_trust_badge_provider'] ?? 'manual' ) !== 'manual' ) return false;
+    if ( ( $existing['trust_badge_provider'] ?? 'manual' ) !== 'manual' ) return true; // net omgezet naar handmatig
+
+    $new_rating = max( 0, min( 5, (float) ( $post['mkcp_trust_badge_rating'] ?? 4.8 ) ) );
+    $new_count  = max( 0, absint( $post['mkcp_trust_badge_review_count'] ?? 0 ) );
+    $new_url    = esc_url_raw( $post['mkcp_trust_badge_url'] ?? '' );
+
+    return (float) ( $existing['trust_badge_rating'] ?? 4.8 ) !== $new_rating
+        || (int) ( $existing['trust_badge_review_count'] ?? 0 ) !== $new_count
+        || (string) ( $existing['trust_badge_url'] ?? '' ) !== $new_url;
+}
+
+
 // ── Register page under WooCommerce ───────────────────────────────────────────
 
 add_action( 'admin_menu', function() {
@@ -374,7 +396,12 @@ add_action( 'admin_init', function() {
         // Alleen bij handmatig: stempel wanneer het cijfer voor het laatst is
         // opgeslagen, zodat de admin een "dit is X dagen oud"-waarschuwing kan
         // tonen i.p.v. een cijfer dat voor altijd "4.8" blijft zonder controle.
-        'trust_badge_manual_updated_at' => ( $is_premium && ( $post['mkcp_trust_badge_provider'] ?? 'manual' ) === 'manual' )
+        // Alleen ververst als er ook echt iets aan het cijfer/aantal/link is
+        // gewijzigd (of net naar handmatig omgezet) — anders zou elke opslag
+        // van een willekeurige, andere instelling op deze pagina de stempel
+        // ook al bijwerken, en zou de "X dagen oud"-waarschuwing nooit gaan
+        // afgaan ook al is het cijfer al maanden niet meer gecontroleerd.
+        'trust_badge_manual_updated_at' => mkcp_trust_badge_manual_should_restamp( $is_premium, $post, $existing )
             ? current_time( 'mysql' )
             : (string) ( $existing['trust_badge_manual_updated_at'] ?? '' ),
     ];

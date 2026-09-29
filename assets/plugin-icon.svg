@@ -1,15 +1,113 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <defs>
-    <linearGradient id="mkcpIconGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2e7d32"/>
-      <stop offset="100%" stop-color="#1b5e20"/>
-    </linearGradient>
-  </defs>
-  <rect width="256" height="256" rx="40" fill="url(#mkcpIconGrad)"/>
-  <g transform="translate(58,70)" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="20" cy="108" r="9" fill="#ffffff" stroke="none"/>
-    <circle cx="98" cy="108" r="9" fill="#ffffff" stroke="none"/>
-    <path d="M4 4h22l14 71a11 11 0 0011 9h52a11 11 0 0011-9l13-49H30"/>
-  </g>
-  <text x="128" y="215" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#ffffff">MK</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="MK Cart Popup" class="mk mk-normal">
+<style>
+.mk-slow{--spd:7s}.mk-normal{--spd:4.8s}.mk-fast{--spd:3.2s}
+.mk .mk-glow{animation:mk-breathe var(--spd) ease-in-out infinite}
+.mk .mk-sheen{animation:mk-sheen var(--spd) ease-in-out infinite}
+.mk .mk-speed path{fill:none;stroke:#fff;stroke-opacity:.55;stroke-width:10;stroke-linecap:round;stroke-dasharray:36 110;animation:mk-dash calc(var(--spd) / 4) linear infinite}
+.mk .mk-speed path:nth-child(2){stroke-opacity:.35;animation-delay:-0.4s}
+.mk .mk-speed path:nth-child(3){stroke-opacity:.45;animation-delay:-0.8s}
+.mk .mk-floor{fill:#03210f;opacity:.35;transform-box:fill-box;transform-origin:center;animation:mk-floor var(--spd) ease-in-out infinite}
+.mk .mk-cart{animation:mk-bump var(--spd) ease-in-out infinite}
+.mk .mk-cart-line{fill:none;stroke:#fff;stroke-width:22;stroke-linecap:round;stroke-linejoin:round}
+.mk .mk-cart-shadow{fill:none;stroke:#03210f;stroke-opacity:.28;stroke-width:22;stroke-linecap:round;stroke-linejoin:round}
+.mk .mk-basket{fill:#fff;opacity:.12}
+.mk .mk-wheel{transform-box:fill-box;transform-origin:center;animation:mk-spin calc(var(--spd) / 4) linear infinite}
+.mk .mk-spoke{fill:none;stroke:#1f7a3a;stroke-width:5;stroke-linecap:round}
+.mk .mk-item{transform-box:fill-box;transform-origin:center}
+.mk .mk-item-a{animation:mk-drop-a var(--spd) infinite}
+.mk .mk-item-b{animation:mk-drop-b var(--spd) infinite}
+.mk .mk-badge{transform-box:fill-box;transform-origin:center;animation:mk-pop var(--spd) ease-in-out infinite}
+.mk .mk-ring{fill:none;stroke:#ffd54f;stroke-width:6;opacity:0;transform-box:fill-box;transform-origin:center;animation:mk-ring var(--spd) ease-out infinite}
+.mk .mk-badge-text{font-family:Sora,Arial,sans-serif;font-weight:800;font-size:46px;letter-spacing:-1px;text-anchor:middle;fill:#0b3a1c}
+.mk .mk-spark{fill:#fffde7;transform-box:fill-box;transform-origin:center;opacity:0;animation:mk-twinkle calc(var(--spd) / 2) ease-in-out infinite}
+.mk .mk-s2{animation-delay:-0.6s}.mk .mk-s3{animation-delay:-1.3s}.mk .mk-s4{animation-delay:-1.9s}.mk .mk-s5{animation-delay:-0.9s}
+.mk-static *{animation:none!important}
+.mk-static .mk-spark{opacity:.9}
+@media (prefers-reduced-motion:reduce){.mk *{animation:none!important}.mk .mk-spark{opacity:.9}}
+@keyframes mk-spin{to{transform:rotate(360deg)}}
+@keyframes mk-breathe{0%,100%{opacity:.7}50%{opacity:1}}
+@keyframes mk-sheen{0%,55%{transform:translateX(0)}80%,100%{transform:translateX(900px)}}
+@keyframes mk-dash{from{stroke-dashoffset:0}to{stroke-dashoffset:146}}
+@keyframes mk-bump{0%,29%,41%,57%,69%,100%{transform:translateY(0)}31%,59%{transform:translateY(9px)}35%,63%{transform:translateY(-5px)}}
+@keyframes mk-floor{0%,29%,41%,57%,69%,100%{transform:scaleX(1)}31%,59%{transform:scaleX(1.08)}35%,63%{transform:scaleX(.94)}}
+@keyframes mk-drop-a{0%,12%{opacity:0;transform:translateY(-320px) rotate(-22deg);animation-timing-function:cubic-bezier(.5,0,.9,.5)}15%{opacity:1}30%{opacity:1;transform:translateY(0) rotate(0);animation-timing-function:ease-out}34%{transform:translateY(-16px) rotate(-3deg);animation-timing-function:ease-in}38%,88%{opacity:1;transform:translateY(0) rotate(0)}95%,100%{opacity:0;transform:translateY(0) rotate(0)}}
+@keyframes mk-drop-b{0%,40%{opacity:0;transform:translateY(-340px) rotate(20deg);animation-timing-function:cubic-bezier(.5,0,.9,.5)}43%{opacity:1}58%{opacity:1;transform:translateY(0) rotate(0);animation-timing-function:ease-out}62%{transform:translateY(-14px) rotate(3deg);animation-timing-function:ease-in}66%,88%{opacity:1;transform:translateY(0) rotate(0)}95%,100%{opacity:0;transform:translateY(0) rotate(0)}}
+@keyframes mk-pop{0%,30%,42%,58%,70%,100%{transform:scale(1)}33%,61%{transform:scale(1.2)}37%,65%{transform:scale(.93)}}
+@keyframes mk-ring{0%,31%{transform:scale(1);opacity:0}32%{opacity:.9}45%{transform:scale(1.55);opacity:0}46%,59%{transform:scale(1);opacity:0}60%{opacity:.9}73%,100%{transform:scale(1.55);opacity:0}}
+@keyframes mk-twinkle{0%,100%{transform:scale(0) rotate(0);opacity:0}50%{transform:scale(1) rotate(45deg);opacity:1}}
+</style>
+<defs>
+<linearGradient id="mkBg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#4caf50"/>
+<stop offset="0.55" stop-color="#1f7a3a"/>
+<stop offset="1" stop-color="#0b3a1c"/>
+</linearGradient>
+<radialGradient id="mkGlow" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#b9f6ca" stop-opacity="0.5"/>
+<stop offset="1" stop-color="#b9f6ca" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="mkTop" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+<stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="mkSheen" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+<stop offset="0.5" stop-color="#ffffff" stop-opacity="0.32"/>
+<stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+</linearGradient>
+<clipPath id="mkClip"><rect width="512" height="512" rx="116"/></clipPath>
+</defs>
+<g style="clip-path:url(#mkClip)">
+<rect width="512" height="512" fill="url(#mkBg)"/>
+<circle class="mk-glow" cx="266" cy="268" r="220" fill="url(#mkGlow)"/>
+<rect width="512" height="512" fill="url(#mkTop)"/>
+<g transform="rotate(20 256 256)"><rect class="mk-sheen" x="-170" y="-220" width="150" height="952" fill="url(#mkSheen)"/></g>
+<g class="mk-speed">
+<path d="M78 236H146"/>
+<path d="M50 272H150"/>
+<path d="M92 308H152"/>
+</g>
+<ellipse class="mk-floor" cx="270" cy="404" rx="140" ry="12"/>
+<g class="mk-cart">
+<path class="mk-cart-shadow" transform="translate(0 9)" d="M112 148H158L190 304Q193 322 212 322H330Q348 322 352 305L378 202H169"/>
+<path class="mk-basket" d="M169 202L190 304Q193 322 212 322H330Q348 322 352 305L378 202Z"/>
+<g class="mk-item mk-item-a">
+<g transform="rotate(-8 230 258)">
+<path d="M214 214V204A16 16 0 0 1 246 204V214" fill="none" stroke="#ffab91" stroke-width="7" stroke-linecap="round"/>
+<rect x="196" y="212" width="68" height="92" rx="12" fill="#ff7a59"/>
+<rect x="196" y="212" width="68" height="18" rx="9" fill="#ff9e80"/>
+<circle cx="230" cy="262" r="12" fill="#ffffff" opacity="0.9"/>
+</g>
+</g>
+<g class="mk-item mk-item-b">
+<g transform="rotate(6 310 250)">
+<rect x="272" y="196" width="76" height="108" rx="10" fill="#ffca3a"/>
+<rect x="302" y="196" width="16" height="108" fill="#f29e00" opacity="0.55"/>
+<path d="M272 226H348" fill="none" stroke="#e08e00" stroke-width="4"/>
+</g>
+</g>
+<path class="mk-cart-line" d="M112 148H158L190 304Q193 322 212 322H330Q348 322 352 305L378 202H169"/>
+<g class="mk-wheel">
+<circle cx="218" cy="372" r="24" fill="#ffffff"/>
+<path class="mk-spoke" d="M218 358V386M204 372H232"/>
+<circle cx="218" cy="372" r="6" fill="#1f7a3a"/>
+</g>
+<g class="mk-wheel">
+<circle cx="322" cy="372" r="24" fill="#ffffff"/>
+<path class="mk-spoke" d="M322 358V386M308 372H336"/>
+<circle cx="322" cy="372" r="6" fill="#1f7a3a"/>
+</g>
+</g>
+<g transform="translate(118 96) scale(18)"><path class="mk-spark" d="M0 -1C0.14 -0.14 0.14 -0.14 1 0C0.14 0.14 0.14 0.14 0 1C-0.14 0.14 -0.14 0.14 -1 0C-0.14 -0.14 -0.14 -0.14 0 -1Z"/></g>
+<g transform="translate(286 118) scale(11)"><path class="mk-spark mk-s2" d="M0 -1C0.14 -0.14 0.14 -0.14 1 0C0.14 0.14 0.14 0.14 0 1C-0.14 0.14 -0.14 0.14 -1 0C-0.14 -0.14 -0.14 -0.14 0 -1Z"/></g>
+<g transform="translate(446 262) scale(14)"><path class="mk-spark mk-s3" d="M0 -1C0.14 -0.14 0.14 -0.14 1 0C0.14 0.14 0.14 0.14 0 1C-0.14 0.14 -0.14 0.14 -1 0C-0.14 -0.14 -0.14 -0.14 0 -1Z"/></g>
+<g transform="translate(80 408) scale(12)"><path class="mk-spark mk-s4" d="M0 -1C0.14 -0.14 0.14 -0.14 1 0C0.14 0.14 0.14 0.14 0 1C-0.14 0.14 -0.14 0.14 -1 0C-0.14 -0.14 -0.14 -0.14 0 -1Z"/></g>
+<g transform="translate(430 428) scale(9)"><path class="mk-spark mk-s5" d="M0 -1C0.14 -0.14 0.14 -0.14 1 0C0.14 0.14 0.14 0.14 0 1C-0.14 0.14 -0.14 0.14 -1 0C-0.14 -0.14 -0.14 -0.14 0 -1Z"/></g>
+<circle class="mk-ring" cx="404" cy="116" r="62"/>
+<g class="mk-badge">
+<circle cx="404" cy="116" r="62" fill="#ffca3a" stroke="#ffffff" stroke-width="8"/>
+<text class="mk-badge-text" x="404" y="132">MK</text>
+</g>
+<rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"/>
+</g>
 </svg>

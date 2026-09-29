@@ -541,6 +541,28 @@
     align-items: center;
 }
 
+.mkcp-editor-color-toggle {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    color: var(--mkcp-ui-text2) !important;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+
+.mkcp-editor-color-toggle input[type="checkbox"] {
+    margin: 0;
+}
+
+.mkcp-editor-field input[type="color"]:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
 .mkcp-editor-field .mkcp-media-row input {
     flex: 1;
 }

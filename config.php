@@ -707,11 +707,7 @@ function mkcp_render_block( array $block ) {
         case 'text':
             $style = [];
             if ( ! empty( $block['align'] ) ) $style[] = 'text-align:' . esc_attr( $block['align'] );
-            // #000000 is de standaardwaarde van de kleurkiezer in de builder, geen
-            // bewuste keuze: negeren, anders forceert elk tekstblok zwart (ook
-            // in donkere modus). Blokken die al zo zijn opgeslagen worden zo
-            // ook meteen goed getoond.
-            if ( ! empty( $block['color'] ) && strtolower( $block['color'] ) !== '#000000' ) $style[] = 'color:' . esc_attr( $block['color'] );
+            if ( ! empty( $block['color'] ) ) $style[] = 'color:' . esc_attr( $block['color'] );
             $style_attr = $style ? ' style="' . implode( ';', $style ) . '"' : '';
             echo '<div class="mkcp-block mkcp-block--text"' . $style_attr . '>' . wp_kses_post( $block['content'] ?? '' ) . '</div>';
             break;
@@ -805,7 +801,6 @@ function mkcp_sanitize_blocks( $json, $valid_zones = null ) {
                 $item['content'] = wp_kses_post( $block['content'] ?? '' );
                 $item['align']   = in_array( $block['align'] ?? '', [ '', 'left', 'center', 'right' ], true ) ? $block['align'] : '';
                 $item['color']   = sanitize_hex_color( $block['color'] ?? '' ) ?: '';
-                if ( strtolower( $item['color'] ) === '#000000' ) $item['color'] = ''; // standaardwaarde van de kleurkiezer, geen keuze
                 break;
             case 'divider':
                 $item['style'] = in_array( $block['style'] ?? 'solid', $valid_styles, true ) ? $block['style'] : 'solid';

@@ -22,6 +22,57 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.15.0',
+            'date'    => '2026-09-29',
+            'items'   => [
+                // ── Nieuw: Account ──
+                'Nieuw (premium): "Account" — een volledige, eigen vervanging van WooCommerce\'s "Mijn Account" met dashboard, bestellingenoverzicht + detail met opnieuw-bestellen, wishlist (meerdere lijsten, delen, prijs-/voorraadmeldingen), adresboek, retour-aanvragen met voortgangsbalk en bulk-retour, productreviews als losse pop-ups, een meldingencentrum en volledige GDPR-export/verwijdering.',
+                'Nieuw: volledig eigen gestileerd inlogscherm voor Account, met bescherming tegen te veel mislukte inlogpogingen.',
+                'Nieuw (admin): retouraanvragen groeperen per bestelling, in bulk goedkeuren/afwijzen, en direct afhandelen vanaf de bestelpagina zelf.',
+
+                // ── Nieuw: Checkout ──
+                'Nieuw: eigen inlog-/"account aanmaken"-pop-up op checkout met adreskiezer die het adresboek uit Account hergebruikt.',
+                'Nieuw: telefoonnummer wordt tijdens het typen live opgemaakt volgens de Nederlandse, Belgische of Duitse netnummer-indeling, met een klikbaar vlagicoontje om het telefoonnummer-land los van het factuur-/afleveradres in te stellen.',
+                'Nieuw: e-mailadres op checkout krijgt een typfout-suggestie ("Bedoelde je gmail.com?").',
+                'Nieuw: cross-sell-productsuggesties onder het orderoverzicht op checkout, met een klikbare "toevoegen"-knop die tijdens het toevoegen een laad-ringetje toont en na succes kort een vinkje laat zien.',
+                'Nieuw: meerdere verzendpakketten — bezorgdatum en afhaal-tijdvak per rol (bezorgen/afhalen) apart in te stellen bij een gemengd winkelmandje.',
+                'Nieuw: instelling "Adresvelden bij afhalen" (Verplicht / Niet verplicht / Weghalen) — past zich direct aan zodra de klant wisselt tussen bezorgen en afhalen.',
+                'Nieuw: vertrouwensbadge (sterrenscore) op zowel de winkelwagen-pop-up als checkout, met keuze uit handmatig invullen, live Google Reviews (automatisch ververst) of de widget-code van Trusted Shops/WebwinkelKeur/Kiyoh.',
+                'Nieuw: "Overzicht van je bestelling" op mobiel als losse pop-up (met sleepgreep, van onderaf te openen/sluiten) i.p.v. inline tussen de velden.',
+                'Nieuw: bij een mislukte validatie scrollt en focust checkout automatisch naar het eerste foute veld, met een korte trilling ter attentie.',
+                'Nieuw: instelbaar blok "PDF-documenten" — kies per onderdeel wat er op de factuur en pakbon komt (bezorg-/afhaalkop, BTW-nummer + BTW-verlegging, telefoon/e-mail bij afhalen).',
+                'Nieuw: scheidingslijntje tussen de betaalicoontjes en de vertrouwensbadge op checkout, alleen als beide ook echt getoond worden.',
+
+                // ── Nieuw: bedankt-pagina ──
+                'Nieuw (premium): volledig herziene bedankt-pagina — persoonlijke heading, bezorg-/afhaalbanner met afhaallocatie-kaartje en routeknop, factuur-downloadknop, "wat gebeurt er nu"-stappenstrip, cross-sell op basis van de bestelling, en een vertrouwenselementen-footer.',
+
+                // ── Nieuw: winkelwagen-pop-up ──
+                'Nieuw: winkelwagen-pop-up is handmatig breder/smaller te slepen, met een magnetische drempel naar volledig scherm — de brede 2-koloms-lay-out werkt nu ook als alleen de sleepgreep aanstaat (reageert op de daadwerkelijke breedte, niet meer alleen op de "volledig scherm"-knop).',
+                'Nieuw: accountlink met persoonlijke begroeting bovenaan de pop-up voor ingelogde klanten.',
+                'Nieuw: kleur van de aantal-in-winkelwagen-badge is instelbaar, met snelkeuze-swatches uit de kleuren die de plugin in je thema heeft gevonden.',
+                'Nieuw: losse aan/uit voor de betaalicoontjes en de USP-truststrip, zowel bij Instellingen als rechtstreeks vanuit de Content Builder.',
+                'Nieuw: eigen geanimeerd plugin-icoon in de WordPress-updatemelding i.p.v. een lege placeholder.',
+
+                // ── Verbeteringen & fixes ──
+                'Verbetering: aanzienlijk snellere checkout — een overbodige, premature verzendkosten-berekening bij elk "totalen bijwerken"-verzoek is verwijderd, samen met andere performance-fixes; het Account-dashboard laadt ook merkbaar sneller.',
+                'Verbetering: BTW-weergave en "verzenden naar een ander adres" zijn nu schuifknoppen, met een duidelijke statusbalk bij een geldig BTW-nummer (incl. het bedrag waar het om gaat) en automatische BTW-verlegging + vergrendeling.',
+                'Verbetering: flink compactere mobiele opmaak op checkout (stappen-indicator, header, adresformulier-volgorde, datumkiezer, tabs) en in Account.',
+                'Fix: snel herhaald tikken op mobiel (bv. op de aantal-knoppen) kon door de browser als dubbeltik-zoom-gebaar worden opgevat.',
+                'Fix: de checkout-pagina kon op mobiel soms onbedoeld zijwaarts scrollen/bewegen.',
+                'Fix: WooCommerce\'s eigen interne verzendzone-debugmelding ("Klant komt overeen met zone ...") kon na een adres-/verzendwijziging blijven terugkomen — deze melding is nooit voor de klant bedoeld.',
+                'Fix: de sleepgreep zonder "volledig scherm"-knop toonde nog de oude, dunne grijze lijn-stijl; beide varianten zien er nu hetzelfde uit.',
+                'Fix: regels die een site via de WooCommerce-validatie voor "toevoegen aan winkelwagen" afdwingt werden omzeild door eigen toevoeg-paden (opnieuw toevoegen, opgeslagen winkelwagen herstellen, "opnieuw bestellen", wishlist) — draaien nu dezelfde validatie.',
+                'Fix: bezorgdatum en tijdvak werden gevalideerd tegen de verzendmethode die het formulier meestuurde, terwijl WooCommerce bij een niet-passende methode stilletjes een andere koos — wordt nu direct geweigerd met een duidelijke melding.',
+                'Fix: bezorg-/afhaalgegevens ontbraken op facturen met een eigen (thema-)sjabloon zonder de standaardhook voor ordergegevens.',
+                'Fix: TAB-volgorde in het adresformulier volgde niet de zichtbare volgorde van de velden.',
+                'Fix: de vertrouwensbadge-"laatst bijgewerkt"-stempel werd bij élke instellingen-opslag ververst, ook zonder dat het cijfer zelf wijzigde, waardoor de "dit cijfer is verouderd"-waarschuwing nooit afging.',
+                'Fix: het bezorgadres-voorbeeld op checkout kon straat/huisnummer uit het factuuradres combineren met postcode/plaats van een verouderd verzendadres, vlak nadat een klant "ander verzendadres" uitvinkte.',
+                'Fix: zwart gekozen tekstkleur in een Content Builder-tekstblok werd altijd genegeerd (behandeld als "niet gekozen") — de kleurkiezer heeft nu een expliciet "eigen kleur"-vinkje.',
+                'Verbetering: de plugin-updatecontrole accepteert alleen nog updatepakketten van vertrouwde, beveiligde (https) bronnen; een foutieve licentiecontrole weigert voortaan toegang tot premium-functies i.p.v. daar stilzwijgend op terug te vallen.',
+                'Nieuw: installatie-check op elk hoofdonderdeel (Winkelwagen, Checkout, Account) die direct waarschuwt als een WordPress/WooCommerce-instelling nog moet gebeuren, met 1-klik-oplossing waar mogelijk.',
+            ],
+        ],
+        [
             'version' => '1.14.31-beta.72',
             'date'    => '2026-09-28',
             'items'   => [

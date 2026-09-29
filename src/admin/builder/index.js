@@ -777,6 +777,13 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         $( '#mkcp-editor-save' ).on( 'click', saveEditor );
         $( document ).on( 'keydown.mkcp-editor', function ( e ) { if ( e.key === 'Escape' ) closeEditor(); } );
 
+        // Tekstblok-kleur: de kleurkiezer staat uit tot de admin 'm bewust
+        // aanzet — anders is niet te onderscheiden of #000000 een echte
+        // keuze is of gewoon de ongebruikte standaardwaarde van het veld.
+        $( '#mkcp-editor-body' ).on( 'change', '#mkcp-editor-text-color-enabled', function () {
+            $( '#mkcp-editor-text-color' ).prop( 'disabled', ! this.checked );
+        } );
+
         // Live form sync: any field change → update preview
         $( '#mkcp-form' ).on( 'input change', 'input, select, textarea', function () {
             if ( $( this ).attr( 'id' ) === 'mkcp-blocks-json' ) return;
@@ -831,7 +838,8 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
                 '<option value="right"'  + sel( block.align, 'right' )  + '>Rechts</option>' +
                 '</select></div>' +
                 '<div><label>Kleur</label>' +
-                '<input type="color" id="mkcp-editor-text-color" value="' + esc( block.color || '#000000' ) + '"></div>' +
+                '<label class="mkcp-editor-color-toggle"><input type="checkbox" id="mkcp-editor-text-color-enabled"' + ( block.color ? ' checked' : '' ) + '> Eigen kleur</label>' +
+                '<input type="color" id="mkcp-editor-text-color" value="' + esc( block.color || '#000000' ) + '"' + ( block.color ? '' : ' disabled' ) + '></div>' +
                 '</div>';
         }
         if ( type === 'divider' ) {
@@ -920,7 +928,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         var zone = $( '#mkcp-editor-zone' ).val() || ZONE_ORDER[ 0 ];
         var block;
 
-        if ( type === 'text' )         block = { type: 'text',    zone: zone, content: $( '#mkcp-editor-text' ).val(), align: $( '#mkcp-editor-text-align' ).val(), color: $( '#mkcp-editor-text-color' ).val() };
+        if ( type === 'text' )         block = { type: 'text',    zone: zone, content: $( '#mkcp-editor-text' ).val(), align: $( '#mkcp-editor-text-align' ).val(), color: $( '#mkcp-editor-text-color-enabled' ).is( ':checked' ) ? $( '#mkcp-editor-text-color' ).val() : '' };
         else if ( type === 'divider' ) block = { type: 'divider', zone: zone, style: $( '#mkcp-editor-divider-style' ).val() };
         else if ( type === 'usp' )     block = { type: 'usp',     zone: zone, icon: $( '#mkcp-editor-usp-icon' ).val(), text: $( '#mkcp-editor-usp-text' ).val() };
         else if ( type === 'image' )   block = { type: 'image',   zone: zone, url: $( '#mkcp-editor-image-url' ).val(), link: $( '#mkcp-editor-image-link' ).val(), alt: $( '#mkcp-editor-image-alt' ).val() };
@@ -1363,7 +1371,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
         if ( block.type === 'text' ) {
             var style = [];
             if ( block.align ) style.push( 'text-align:' + block.align );
-            if ( block.color && block.color !== '#000000' ) style.push( 'color:' + block.color );
+            if ( block.color ) style.push( 'color:' + block.color );
             return '<div class="mkcp-block mkcp-block--text"' + ( style.length ? ' style="' + style.join( ';' ) + '"' : '' ) + '>' + ( block.content || '' ) + '</div>';
         }
         if ( block.type === 'divider' ) {

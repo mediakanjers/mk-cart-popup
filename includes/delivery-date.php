@@ -526,22 +526,37 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
         $mkcp_dd_customer = WC()->customer;
         $mkcp_dd_addr_lines = [];
         if ( $mkcp_dd_customer ) {
-            $mkcp_dd_addr1 = trim( $mkcp_dd_customer->get_shipping_address() );
-            $mkcp_dd_addr2 = trim( $mkcp_dd_customer->get_shipping_address_2() );
-            $mkcp_dd_city  = trim( $mkcp_dd_customer->get_shipping_city() );
-            $mkcp_dd_pc    = trim( $mkcp_dd_customer->get_shipping_postcode() );
-            $mkcp_dd_group = 'shipping';
-
-            // Fallback naar het factuuradres als er geen apart verzendadres
-            // is ingevuld (gebruikelijk geval): WooCommerce laat shipping_*
-            // in de sessie leeg totdat de bestelling echt wordt aangemaakt.
-            if ( $mkcp_dd_addr1 === '' && $mkcp_dd_city === '' && $mkcp_dd_pc === '' ) {
-                $mkcp_dd_group = 'billing';
-                $mkcp_dd_addr1 = trim( $mkcp_dd_customer->get_billing_address() );
-                $mkcp_dd_addr2 = trim( $mkcp_dd_customer->get_billing_address_2() );
-                $mkcp_dd_city  = trim( $mkcp_dd_customer->get_billing_city() );
-                $mkcp_dd_pc    = trim( $mkcp_dd_customer->get_billing_postcode() );
+            // Adresgroep (shipping/billing) éénmalig bepalen, vóórdat straat,
+            // huisnummer, postcode én plaats eruit gelezen worden — anders
+            // kan de straat (via post_data, zie hieronder) uit een andere
+            // groep komen dan postcode/plaats (uit WC()->customer), met een
+            // adres van "straat A, postcode/plaats B" tot gevolg. Dit gebeurde
+            // eerder specifiek als een klant een apart verzendadres had
+            // ingevuld en dat bij een volgende AJAX-verversing uitvinkte.
+            $mkcp_dd_posted = [];
+            if ( ! empty( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                parse_str( wp_unslash( $_POST['post_data'] ), $mkcp_dd_posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
             }
+            if ( ! empty( $mkcp_dd_posted ) ) {
+                // AJAX-verversing: post_data is leidend over wat de klant nét
+                // heeft aangepast (bv. het uitvinken van "ander verzendadres").
+                $mkcp_dd_group = empty( $mkcp_dd_posted['ship_to_different_address'] ) ? 'billing' : 'shipping';
+            } else {
+                // Eerste paginalaad: geen post_data, dus op basis van wat er
+                // al in de sessie staat. Fallback naar het factuuradres als er
+                // geen apart verzendadres is ingevuld (gebruikelijk geval):
+                // WooCommerce laat shipping_* in de sessie leeg totdat de
+                // bestelling echt wordt aangemaakt.
+                $mkcp_dd_group = ( trim( $mkcp_dd_customer->get_shipping_address() ) !== ''
+                    || trim( $mkcp_dd_customer->get_shipping_city() ) !== ''
+                    || trim( $mkcp_dd_customer->get_shipping_postcode() ) !== '' )
+                    ? 'shipping' : 'billing';
+            }
+
+            $mkcp_dd_addr1 = trim( (string) call_user_func( [ $mkcp_dd_customer, 'get_' . $mkcp_dd_group . '_address' ] ) );
+            $mkcp_dd_addr2 = trim( (string) call_user_func( [ $mkcp_dd_customer, 'get_' . $mkcp_dd_group . '_address_2' ] ) );
+            $mkcp_dd_city  = trim( (string) call_user_func( [ $mkcp_dd_customer, 'get_' . $mkcp_dd_group . '_city' ] ) );
+            $mkcp_dd_pc    = trim( (string) call_user_func( [ $mkcp_dd_customer, 'get_' . $mkcp_dd_group . '_postcode' ] ) );
 
             // WP Overnight NL Postcode Checker slaat straat+huisnummer niet in
             // address_1 op maar in eigen velden — die overschrijven hier
@@ -552,20 +567,12 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
             // kijkt dan naar het opgeslagen account/de sessie en toonde dus
             // het OUDE adres. Daarom eerst post_data lezen.
             if ( function_exists( 'mkcp_postcode_checker_active' ) && mkcp_postcode_checker_active() && WC()->checkout() ) {
-                $mkcp_dd_posted = [];
-                if ( ! empty( $_POST['post_data'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-                    parse_str( wp_unslash( $_POST['post_data'] ), $mkcp_dd_posted ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-                }
                 $mkcp_dd_field = static function ( $key ) use ( $mkcp_dd_posted ) {
                     if ( isset( $mkcp_dd_posted[ $key ] ) && is_scalar( $mkcp_dd_posted[ $key ] ) ) {
                         return trim( (string) wc_clean( $mkcp_dd_posted[ $key ] ) );
                     }
                     return trim( (string) WC()->checkout()->get_value( $key ) );
                 };
-                // Apart verzendadres uitgevinkt → post_data bevat dan alleen factuurvelden.
-                if ( $mkcp_dd_group === 'shipping' && empty( $mkcp_dd_posted['ship_to_different_address'] ) && ! empty( $mkcp_dd_posted ) ) {
-                    $mkcp_dd_group = 'billing';
-                }
                 $mkcp_dd_street = $mkcp_dd_field( $mkcp_dd_group . '_street_name' );
                 if ( $mkcp_dd_street !== '' ) {
                     $mkcp_dd_nr     = $mkcp_dd_field( $mkcp_dd_group . '_house_number' );
