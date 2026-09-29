@@ -22,6 +22,13 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.15.1',
+            'date'    => '2026-09-29',
+            'items'   => [
+                'Fix: een verwijderd product uit de winkelwagen-pop-up kon na het navigeren naar een andere (bv. gecachete) pagina weer "terug" lijken. WooCommerce\'s eigen automatische ververs-mechanisme (bedoeld om dit soort cache-situaties op te vangen) haalde al wel de juiste, actuele winkelwagen op, maar paste die nooit toe op de pop-up zelf. De pop-up wordt nu ook bij die automatische ververing correct bijgewerkt.',
+            ],
+        ],
+        [
             'version' => '1.15.0',
             'date'    => '2026-09-29',
             'items'   => [

@@ -428,14 +428,17 @@
 
     // Blijft ook meedraaien wanneer WooCommerce's eigen wc-cart-fragments.js
     // (los van onze eigen applyFragments()-aanroepen, bv. na het detecteren
-    // van een gewijzigde cart-hash-cookie) zelfstandig een fragment-refresh
-    // doet: #mk-cart-popup zit altijd in onze eigen woocommerce_add_to_cart_
-    // fragments-filter (mk-cart-popup.php), dus WC's eigen replaceWith()
-    // vervangt de drawer óók — maar dan zonder onze eigen "was 'ie open"-
-    // herstellogica. Beide paden triggeren wel hetzelfde 'wc_fragments_
-    // refreshed'-event (WC's eigen event, dat onze code hieronder bewust
-    // hergebruikt), dus daar de open/expanded-status herstellen werkt voor
-    // ELKE ververs-bron, niet alleen onze eigen add-to-cart-flow.
+    // van een gewijzigde cart-hash-cookie, wat bij een full-page-gecachete
+    // pagina op elke load kan gebeuren) zelfstandig een fragment-refresh doet.
+    // Let op: WC's eigen generieke replaceWith()-lus vervangt de drawer NIET
+    // vanzelf — de verse HTML zit in die ronde onder de neutrale sleutel
+    // '#mkcp-popup-refresh' (zie applyFragments() hieronder), juist om te
+    // voorkomen dat WC's eigen add-to-cart.js 'm blind aanraakt. De sync-stap
+    // in de listener hieronder haalt die verse HTML alsnog zelf uit
+    // sessionStorage en past 'm toe. Beide paden triggeren wel hetzelfde
+    // 'wc_fragments_refreshed'-event (WC's eigen event, dat onze code
+    // hieronder bewust hergebruikt), dus de open/expanded-status herstellen
+    // werkt voor ELKE ververs-bron, niet alleen onze eigen add-to-cart-flow.
     var wasExpandedBeforeRefresh = false;
 
     // K1: idem voor een door de klant gesleepte breedte — die leeft als inline
@@ -446,7 +449,34 @@
     // is er ook niets te herstellen.
     var widthBeforeRefresh = '';
 
+    // True terwijl applyFragments() hieronder zélf 'wc_fragments_refreshed'
+    // triggert (zie het einde van die functie) — voorkomt dat de sync-stap
+    // hieronder de zojuist toegepaste, verse fragments meteen weer overschrijft
+    // met een (mogelijk oudere) sessionStorage-snapshot.
+    var mkcpSuppressNativeSync = false;
+
     $( document.body ).on( 'wc_fragments_refreshed', function () {
+        // WooCommerce's eigen wc-cart-fragments.js haalt bij page-load (of een
+        // cart-hash-mismatch, bv. door een full-page-gecachete pagina) zelf al
+        // verse fragments op en schrijft die naar sessionStorage — maar de
+        // popup-HTML zit daarin onder de neutrale '#mkcp-popup-refresh'-sleutel
+        // (zie applyFragments() hieronder), die WC's eigen generieke replaceWith-
+        // lus straal negeert (geen element met die selector bestaat). Zonder
+        // deze stap bleef de drawer na zo'n automatische, native ververs-ronde
+        // op de verouderde/gecachete server-snapshot van de eerste page-load
+        // hangen — precies het symptoom van een verwijderd product dat na een
+        // paginawissel weer "terug" leek te zijn.
+        if ( ! mkcpSuppressNativeSync && typeof wc_cart_fragments_params !== 'undefined' && window.sessionStorage ) {
+            try {
+                var stored = window.sessionStorage.getItem( wc_cart_fragments_params.fragment_name );
+                var nativeFragments = stored ? JSON.parse( stored ) : null;
+                if ( nativeFragments && nativeFragments[ '#mkcp-popup-refresh' ] ) {
+                    applyFragments( nativeFragments );
+                    return; // applyFragments() triggert dit event opnieuw — de rest hieronder draait dan alsnog, in die herhaalronde.
+                }
+            } catch ( e ) { /* corrupte/ontbrekende sessionStorage-waarde: gewoon niets syncen */ }
+        }
+
         if ( $( 'body' ).hasClass( BODY_CLS ) ) {
             // #mk-cart-popup is zojuist (door wie dan ook) vervangen, en de
             // verse server-HTML bevat standaard `inert` (de "dicht"-staat uit
@@ -521,7 +551,9 @@
         updateCartCountBadge();
         updatePeekTab();
         initStickyCta();
+        mkcpSuppressNativeSync = true;
         $( document.body ).trigger( 'wc_fragments_refreshed' );
+        mkcpSuppressNativeSync = false;
 
         syncBtw();
         csInitAll();
