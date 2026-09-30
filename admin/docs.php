@@ -51,12 +51,13 @@ function mkcp_render_docs_page() {
         'functies'      => 'Beschikbare PHP-functies',
         'problemen'     => 'Problemen oplossen',
         'licenties'     => 'Licentie activeren',
+        'beveiliging'   => 'Beveiliging',
     ];
 
     $nav_groups = [
         'Gebruik'   => [ 'hoe-werkt-het', 'instellingen', 'checkout-doc' ],
         'Aanpassen' => [ 'css', 'php', 'template', 'actions', 'functies' ],
-        'Algemeen'  => [ 'problemen', 'scaffold', 'licenties', 'account-doc' ],
+        'Algemeen'  => [ 'problemen', 'scaffold', 'licenties', 'account-doc', 'beveiliging' ],
     ];
 
     $icons_svg = [
@@ -252,6 +253,9 @@ function mkcp_render_docs_page() {
                                 <tr><td><code>Herstel-link genereren</code></td><td style="color:var(--mkcp-ui-text2)">Voegt een "Bewaar je winkelmand"-sectie toe in de popup met een knop die een unieke herstel-URL genereert. Link wordt opgeslagen als WordPress-transient.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
                                 <tr><td><code>Mail naar mijzelf</code></td><td style="color:var(--mkcp-ui-text2)">Klanten kunnen de herstel-link naar een e-mailadres sturen. Onderwerp en inhoud zijn aanpasbaar. Verstuurd via <code>wp_mail()</code>.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
                                 <tr><td><code>Geldigheid link</code></td><td style="color:var(--mkcp-ui-text2)">Aantal dagen dat de herstel-link actief blijft (max. 30 dagen). Na verloop wordt de transient automatisch opgeschoond door WordPress.</td><td style="color:var(--mkcp-ui-text3)">7 dagen</td></tr>
+
+                                <tr style="background:var(--mkcp-ui-surface2)"><td colspan="3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mkcp-ui-text3);padding:7px 12px">Beveiliging</td></tr>
+                                <tr><td><code>Rate limiting ingeschakeld</code></td><td style="color:var(--mkcp-ui-text2)">Remt een bezoeker/script per IP-adres af bij té veel pogingen achter elkaar op add-to-cart, kortingscodes, en verzoeken die e-mail versturen naar een zelf opgegeven adres (winkelmand mailen, verlaten-winkelwagen-herinnering, account-verwijderverzoek). Ingelogde shopmanagers/admins worden nooit geblokkeerd. Zie <a href="#beveiliging" style="color:var(--mkcp-ui-accent)">sectie 8</a> voor de precieze limieten.</td><td style="color:var(--mkcp-ui-text3)">Aan</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1027,6 +1031,39 @@ cp <?php echo esc_html( MKCP_PATH ); ?>templates/cart-popup.php \
 
                         <div class="mkcp-docs-callout mkcp-docs-callout--info">
                             Retouren worden bewust <strong>niet</strong> als nieuwe WooCommerce-orderstatus bijgehouden — dat zou exports/rapportages die op status filteren kunnen verstoren. In plaats daarvan: een ordernotitie + e-mail naar de winkelier bij een aanvraag, een "Retour?"-kolom en een klein verwerkingspaneel direct op het WooCommerce-orderscherm zelf, en automatische synchronisatie zodra de winkelier de order via WooCommerce's eigen terugbetaal-functie verwerkt.
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <!-- ── 13. Beveiliging ──────────────────────────────────── -->
+
+                <div class="mkcp-glass" id="beveiliging" style="scroll-margin-top:24px">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons_svg['shield']; ?></div>
+                        <h3><span class="mkcp-docs-section-num">13</span> &nbsp;Beveiliging</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 14px">
+                            Rate limiting (aan/uit via <a href="<?php echo esc_url( $settings_url ); ?>" style="color:var(--mkcp-ui-accent)">Cart Gedrag → Beveiliging</a>, standaard aan) remt scripts/bots af die dezelfde actie in korte tijd heel vaak herhalen — bijvoorbeeld een winkelwagen leegtrekken met duizenden add-to-cart-verzoeken, kortingscodes proberen te raden, of het e-mail-endpoint gebruiken om willekeurige derden te bestoken. De teller loopt per bezoeker (IP-adres, via WooCommerce's eigen <code>WC_Geolocation::get_ip_address()</code>) en telt per actie apart; wie de limiet raakt krijgt een nette foutmelding i.p.v. een harde blokkade van de hele site. Ingelogde shopmanagers/admins (<code>manage_woocommerce</code>) worden nooit geraakt.
+                        </p>
+
+                        <table class="mkcp-docs-table" style="margin-bottom:14px">
+                            <thead><tr><th>Actie</th><th>Limiet</th><th>Waarom</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>Toevoegen aan winkelwagen</code></td><td style="color:var(--mkcp-ui-text3)">30 / minuut</td><td style="color:var(--mkcp-ui-text2)">Geldt voor elke manier waarop een product wordt toegevoegd (popup, productpagina, blocks, "opnieuw bestellen", wishlist → winkelwagen) — één centrale WooCommerce-filter dekt ze allemaal.</td></tr>
+                                <tr><td><code>Kortingscode toepassen</code></td><td style="color:var(--mkcp-ui-text3)">10 / minuut</td><td style="color:var(--mkcp-ui-text2)">Voorkomt dat een script snel veel verschillende codes achter elkaar raadt.</td></tr>
+                                <tr><td><code>Winkelmand mailen</code></td><td style="color:var(--mkcp-ui-text3)">3 / uur</td><td style="color:var(--mkcp-ui-text2)">Dit endpoint stuurt een echte e-mail naar een door de aanvrager zelf opgegeven adres — zonder drempel een mail-relay/spam-risico richting derden.</td></tr>
+                                <tr><td><code>Gast-e-mail vastleggen (verlaten winkelwagen)</code></td><td style="color:var(--mkcp-ui-text3)">5 / uur</td><td style="color:var(--mkcp-ui-text2)">Zelfde risico als hierboven, maar vertraagd: het adres wordt gekoppeld aan een latere automatische herinneringsmail.</td></tr>
+                                <tr><td><code>Account-verwijderverzoek</code></td><td style="color:var(--mkcp-ui-text3)">3 / uur</td><td style="color:var(--mkcp-ui-text2)">Alleen ingelogd bereikbaar, dus begrensd per gebruiker i.p.v. per IP-adres.</td></tr>
+                                <tr><td><code>Bewaarde winkelmand / gedeelde wishlist openen</code></td><td style="color:var(--mkcp-ui-text3)">30 / minuut</td><td style="color:var(--mkcp-ui-text2)">De links zelf zijn met hun lange, willekeurige token praktisch niet te raden — dit is puur een rem tegen geautomatiseerd aframmelen van het publieke lookup-endpoint.</td></tr>
+                            </tbody>
+                        </table>
+
+                        <div class="mkcp-docs-callout mkcp-docs-callout--info">
+                            Dit is een basisdrempel tegen scripts/bots op applicatieniveau, geen vervanging voor bescherming op hosting-/CDN-niveau (bv. Cloudflare) bij een gerichte of zware aanval — en ook geen garantie tegen een botnet met veel verschillende IP-adressen, wat inherent is aan elke per-IP-oplossing.
                         </div>
 
                     </div>

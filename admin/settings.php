@@ -343,6 +343,7 @@ add_action( 'admin_init', function() {
         'cart_count_badge_selector' => sanitize_text_field( wp_unslash( $post['mkcp_cart_count_badge_selector'] ?? '' ) ),
         'cart_count_badge_position' => in_array( $post['mkcp_cart_count_badge_position'] ?? '', [ 'top-right', 'top-left', 'bottom-right', 'bottom-left' ], true ) ? $post['mkcp_cart_count_badge_position'] : 'top-right',
         'cart_count_badge_color'    => sanitize_hex_color( $post['mkcp_cart_count_badge_color'] ?? '' ) ?: '#2e7d32',
+        'security_ratelimit_enabled' => ! empty( $post['mkcp_security_ratelimit_enabled'] ),
 
         // Premium velden — alleen bijgewerkt bij premium tier, anders bestaande waarde behouden.
         'btw_split'               => $is_premium ? ! empty( $post['mkcp_btw_split'] )                                                          : (bool) ( $existing['btw_split'] ?? false ),

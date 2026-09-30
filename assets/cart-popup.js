@@ -85,6 +85,64 @@
         }
     }
 
+    // ── Altijd verse winkelwagen-data ophalen bij page-load ──────────────────
+    //
+    // #mk-cart-popup (incl. het aantal op de badge, via data-cart-count) staat
+    // server-side ingebakken in de pagina-HTML — prima op een normale site,
+    // maar zodra een full-page-cache (WP Rocket, een CDN, een reverse proxy)
+    // niet correct varieert per winkelwagen-inhoud, krijgt IEDERE bezoeker
+    // exact dezelfde, op enig willekeurig moment "bevroren" HTML te zien, los
+    // van wat er echt in zijn/haar eigen winkelwagen zit. WooCommerce's eigen
+    // hash-vergelijkingsmechanisme (cart-fragments.js) had dit moeten opvangen,
+    // maar hangt af van correcte cookie-uitsluitingen in de cache-configuratie
+    // — instellingen die deze plugin niet in de hand heeft en die in de
+    // praktijk lang niet altijd goed staan. Om niet afhankelijk te zijn van
+    // een juist ingestelde cache aan de hostingkant, wordt de winkelwagen-
+    // popup daarom bij ELKE page-load rechtstreeks, ongeacht cart-hash of
+    // sessionStorage-status, verplicht ververst via WooCommerce's eigen
+    // fragment-endpoint — dezelfde bron die de "Toevoegen aan winkelwagen"-
+    // knoppen al gebruiken, dus geen aparte server-kant nodig.
+    // mkcpFragmentsSeq: elke uitstaande "geef me de actuele winkelwagen"-
+    // aanroep (deze functie, maar ook cartAjax() hieronder bij een echte
+    // wijziging) telt hoger op vóór het versturen. Komt een antwoord terug
+    // terwijl er intussen al een NIEUWERE aanroep is gestart, dan wordt het
+    // genegeerd — anders zou een trage, verouderde ververs-ronde een net
+    // door de klant zelf uitgevoerde wijziging (bv. een verwijderd product)
+    // weer ongedaan kunnen maken als de responses in de verkeerde volgorde
+    // binnenkomen (bv. op een wisselvallige mobiele verbinding).
+    var mkcpFragmentsSeq = 0;
+
+    function mkcpForceFreshCart() {
+        if ( ! ( document.querySelector( POPUP ) && typeof wc_cart_fragments_params !== 'undefined' && wc_cart_fragments_params.wc_ajax_url ) ) return false;
+        var seq = ++mkcpFragmentsSeq;
+        $.ajax( {
+            url:  wc_cart_fragments_params.wc_ajax_url.toString().replace( '%%endpoint%%', 'get_refreshed_fragments' ),
+            type: 'POST',
+            data: { time: new Date().getTime() }
+        } ).done( function ( res ) {
+            if ( seq !== mkcpFragmentsSeq ) return; // ondertussen alweer een nieuwere aanroep gestart
+            if ( res && res.fragments ) applyFragments( res.fragments );
+        } );
+        return true;
+    }
+
+    // Onthoudt of de eerste, initiële ververs-aanroep hierboven daadwerkelijk
+    // is verstuurd — gebruikt verderop (bij de allereerste badge-render) om
+    // een kort "1, springt naar 2"-flikkereffect te voorkomen: zolang die
+    // aanroep nog loopt, wordt de badge nog niet op basis van de (mogelijk
+    // verouderde) server-HTML getoond, maar pas zodra het antwoord binnen is.
+    var mkcpInitialFetchPending = mkcpForceFreshCart();
+
+    // Terugnavigeren met de browser-knop kan de pagina uit het bfcache
+    // (back-forward cache) herstellen i.p.v. 'm opnieuw te laden — dan vuurt
+    // DOMContentLoaded niet opnieuw, dus zonder dit zou de hierboven al
+    // eenmalig geladen (en inmiddels mogelijk verouderde) staat blijven
+    // hangen. WooCommerce's eigen cart-fragments.js luistert om exact
+    // dezelfde reden al naar 'pageshow' met persisted=true.
+    $( window ).on( 'pageshow', function ( e ) {
+        if ( e.originalEvent && e.originalEvent.persisted ) mkcpForceFreshCart();
+    } );
+
     // ── Debug overlay (alleen voor beheerders als debug modus aan) ────────────
 
     if ( debugMode ) {
@@ -630,6 +688,13 @@
 
         $( '.mk-cart-popup__drawer' ).addClass( 'mk-loading' );
 
+        // Zelfde volgorde-bewaking als mkcpForceFreshCart() hierboven: telt
+        // ook mee voor déze aanroep, zodat een trage achtergrond-ververing
+        // (bv. de proactieve page-load-fetch) een intussen door de klant
+        // zelf uitgevoerde, latere wijziging nooit meer kan overschrijven,
+        // en andersom.
+        var seq = ++mkcpFragmentsSeq;
+
         $.ajax( {
             url:  ajaxUrl,
             type: 'POST',
@@ -637,7 +702,7 @@
 
             success: function ( res ) {
                 if ( res && res.success ) {
-                    applyFragments( res.data && res.data.fragments );
+                    if ( seq === mkcpFragmentsSeq ) applyFragments( res.data && res.data.fragments );
                     if ( typeof onSuccess === 'function' ) {
                         onSuccess( res.data );
                     }
@@ -1902,7 +1967,12 @@
 
     // Initial render
     renderSavedItems();
-    updateCartCountBadge();
+    // Bij een lopende initiële ververs-aanroep (zie mkcpInitialFetchPending
+    // hierboven) even wachten met de allereerste badge i.p.v. 'm nu al op
+    // basis van de (mogelijk verouderde/gecachete) server-HTML te tonen —
+    // applyFragments() roept updateCartCountBadge() vanzelf opnieuw aan
+    // zodra het antwoord binnen is, met dan het gegarandeerd juiste aantal.
+    if ( ! mkcpInitialFetchPending ) updateCartCountBadge();
 
 
     // ── Checkout button: analytics + block when disabled ──────────────────────

@@ -224,6 +224,13 @@ function mkcp_ac_capture_guest_email() {
         wp_send_json_error();
     }
 
+    // Anoniem bereikbaar en koppelt een door de aanvrager opgegeven e-mailadres
+    // aan een latere automatische herinneringsmail — zonder drempel dezelfde
+    // mail-relay-misbruikvector als het "winkelmand mailen"-endpoint.
+    if ( ! mkcp_rate_limit_guard( 'ac_guest_email', 5, HOUR_IN_SECONDS ) ) {
+        wp_send_json_error();
+    }
+
     $cart = WC()->cart;
     if ( ! $cart || $cart->is_empty() ) {
         wp_send_json_error();

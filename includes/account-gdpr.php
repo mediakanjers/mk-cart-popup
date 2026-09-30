@@ -48,6 +48,13 @@ add_action( 'wp_ajax_mkcp_account_delete_request', function() {
 
     $user = wp_get_current_user();
 
+    // Ingelogde actie, dus op user_id i.p.v. IP-adres begrenzen — voorkomt
+    // dat deze knop herhaald aangeklikt de gebruiker (of iemand met een
+    // gekaapte sessie) met bevestigingsmails bestookt.
+    if ( ! mkcp_rate_limit_guard( 'account_delete_request', 3, HOUR_IN_SECONDS, 'user_' . $user->ID ) ) {
+        wp_send_json_error( [ 'code' => 'rate_limited', 'message' => __( 'Te veel verzoeken. Probeer het over een uur opnieuw.', 'mk-cart-popup' ) ], 429 );
+    }
+
     $confirm_url = mkcp_account_delete_confirm_url( $user->ID );
     $site_name   = get_bloginfo( 'name' );
 

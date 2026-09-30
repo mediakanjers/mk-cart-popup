@@ -22,6 +22,18 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.15.2',
+            'date'    => '2026-09-30',
+            'items'   => [
+                'Verbetering: de winkelwagen-pop-up (én de teller-badge op het winkelwagen-icoon) haalt bij elke paginalaad nu altijd rechtstreeks de actuele inhoud op, in plaats van te vertrouwen op de door de server meegestuurde HTML. Dit maakt de plugin onafhankelijk van een correcte cache-configuratie aan de hostingkant (bv. WP Rocket, een CDN of reverse proxy) — eerder kon een pagina die niet per bezoeker varieerde een verouderd aantal/inhoud laten zien.',
+                'Verbetering: dezelfde ververing gebeurt nu ook als een pagina via de terug-knop van de browser uit het geheugen (bfcache) wordt hersteld i.p.v. opnieuw geladen.',
+                'Fix: een trage achtergrond-ververing kon in zeldzame gevallen een net door de klant zelf uitgevoerde wijziging (bv. een verwijderd product) weer overschrijven als de reacties in de verkeerde volgorde binnenkwamen. Alleen de nieuwste aanroep telt nu nog mee.',
+                'Verbetering: geen cache meer op alle eigen AJAX-verzoeken van de plugin (verwijderen, aantal aanpassen, kortingscode, account-acties, enz.), zodat een hosting-cache die AJAX-verzoeken ten onrechte zou cachen nooit per ongeluk hetzelfde antwoord aan een andere bezoeker kan teruggeven.',
+                'Verbetering: de teller-badge verschijnt nu pas zodra het écht geverifieerde aantal bekend is (met een rustige, vloeiende puls-animatie) i.p.v. eerst een mogelijk verouderd aantal te tonen dat daarna zichtbaar naar het juiste aantal "springt".',
+                'Nieuw: rate limiting tegen misbruik door bots/scripts (instelbaar onder Cart Gedrag → Beveiliging, standaard aan) — beperkt per bezoeker het aantal add-to-cart-pogingen, kortingscode-pogingen, en verzoeken die een e-mail versturen naar een zelf opgegeven adres (winkelmand mailen, verlaten-winkelwagen-herinnering, account-verwijderverzoek), plus een lichte drempel op de publieke links voor bewaarde winkelmanden en gedeelde verlanglijstjes. Ingelogde shopmanagers/admins worden nooit geblokkeerd.',
+            ],
+        ],
+        [
             'version' => '1.15.1',
             'date'    => '2026-09-29',
             'items'   => [

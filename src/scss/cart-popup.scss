@@ -3395,8 +3395,6 @@ a.mkcp-block-img-link {
     color        : #fff;
     font-size    : 0.75em;
     font-weight  : 700;
-    line-height  : 625em;
-    font-weight  : 700;
     line-height  : 1;
     white-space  : nowrap;
     pointer-events: none;
@@ -3406,6 +3404,20 @@ a.mkcp-block-img-link {
     &--top-left     { top: -13px; left: -13px; }
     &--bottom-right { bottom: -13px; right: -13px; }
     &--bottom-left  { bottom: -13px; left: -13px; }
+
+    // Rustige puls bij het verschijnen (zowel de allereerste render als elke
+    // latere update — updateCartCountBadge() bouwt het element steeds opnieuw
+    // op, dus deze speelt vanzelf elke keer opnieuw af). Vloeiende ease-out-
+    // curve i.p.v. lineair ease-in-out, met een klein beetje beweging vanuit
+    // het icoon zelf (lichte translate + scale) voor wat meer diepte, maar
+    // zonder bounce/overshoot-gevoel.
+    animation: mkcp-badge-pulse-in .45s cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes mkcp-badge-pulse-in {
+    0%   { opacity: 0; transform: scale(.6) translateY(3px); }
+    60%  { opacity: 1; transform: scale(1.08) translateY(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 

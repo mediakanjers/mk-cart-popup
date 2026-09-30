@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
- * Version:      1.15.1
+ * Version:      1.15.2
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.15.1' );
+define( 'MKCP_VER',  '1.15.2' );
 
 // Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
 // (admin/settings.php + de clamp in config.php), de sleepgreep-template
@@ -36,6 +36,27 @@ define( 'MKCP_UPDATER_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-c
 // gereserveerd voor échte (stabiele) releases, bèta's gaan via pre-release.
 define( 'MKCP_UPDATER_BETA_URL', 'https://raw.githubusercontent.com/mediakanjers/mk-cart-popup/pre-release/mk-cart-popup-update-beta.json' );
 
+
+// ── Geen cache op eigen AJAX-endpoints ──────────────────────────────────────
+//
+// WooCommerce's eigen wc-ajax-endpoints sturen hun antwoord altijd met
+// wc_nocache_headers() (class-wc-ajax.php); onze eigen admin-ajax.php-acties
+// (mkcp_remove_item, mkcp_update_qty, mkcp_apply_coupon, alle account-acties,
+// enz. — ~40 in totaal, verspreid over meerdere bestanden) deden dat nooit.
+// WordPress' eigen admin-ajax.php stuurt daar zelf ook geen cache-headers bij,
+// dus zonder dit kan een hosting-cache/CDN die (per ongeluk of expres) ook
+// AJAX-verzoeken cachet, hetzelfde antwoord (bv. "product verwijderd") aan
+// een andere bezoeker teruggeven. Eén centrale hook i.p.v. elke los
+// geregistreerde actie apart aanpassen — dekt ook toekomstige mkcp_-acties
+// automatisch mee.
+add_action( 'init', function() {
+    if ( ! wp_doing_ajax() ) return;
+    $action = sanitize_key( wp_unslash( $_REQUEST['action'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+    if ( strpos( $action, 'mkcp_' ) === 0 && function_exists( 'wc_nocache_headers' ) ) {
+        wc_nocache_headers();
+    }
+}, 1 );
+
 // ── HPOS-compatibiliteit declareren ─────────────────────────────────────────
 //
 // De plugin was al functioneel HPOS-correct (overal $order->update_meta_data()
@@ -50,6 +71,7 @@ add_action( 'before_woocommerce_init', function() {
     }
 } );
 
+require_once MKCP_PATH . 'includes/rate-limit.php';
 require_once MKCP_PATH . 'license.php';
 require_once MKCP_PATH . 'config.php';
 require_once MKCP_PATH . 'updater/updater.php';
@@ -437,6 +459,23 @@ add_action( 'template_redirect', function() {
 } );
 
 
+// ── Beveiliging: rate limit op add-to-cart tegen flood-aanvallen ───────────────
+//
+// woocommerce_add_to_cart_validation vuurt bij ELKE manier waarop een product
+// wordt toegevoegd (popup, productpagina, blocks/Store API, en ook de eigen
+// mkcp_add_to_cart_validated()-helper hieronder die zelf weer wordt gebruikt
+// door "opnieuw bestellen" en wishlist → winkelwagen) — dus één hook dekt
+// alle kanalen tegelijk.
+add_filter( 'woocommerce_add_to_cart_validation', function( $passed ) {
+    if ( ! $passed ) return $passed; // al afgekeurd door een eerdere check
+    if ( ! mkcp_rate_limit_guard( 'add_to_cart', 30, 60 ) ) {
+        wc_add_notice( __( 'Je doet dit te snel achter elkaar. Probeer het over een minuutje opnieuw.', 'mk-cart-popup' ), 'error' );
+        return false;
+    }
+    return $passed;
+}, 20 );
+
+
 // ── Fix: variabele producten met een "Elke"-attribuut via wc-ajax=add_to_cart ──
 //
 // Root cause (uitgezocht 2026-08-06, na een screenshot van "Gelegenheid,
@@ -630,6 +669,13 @@ add_action( 'wp_ajax_nopriv_mkcp_apply_coupon', 'mkcp_ajax_apply_coupon' );
 
 function mkcp_ajax_apply_coupon() {
     check_ajax_referer( 'mkcp_nonce', 'nonce' );
+
+    // Tegen scripts die kortingscodes proberen te raden door snel veel
+    // verschillende codes achter elkaar te posten.
+    if ( ! mkcp_rate_limit_guard( 'coupon', 10, 60 ) ) {
+        wp_send_json_error( [ 'message' => __( 'Te veel pogingen. Probeer het over een minuutje opnieuw.', 'mk-cart-popup' ) ] );
+        return;
+    }
 
     $code = sanitize_text_field( wp_unslash( $_POST['coupon_code'] ?? '' ) );
 
@@ -904,6 +950,11 @@ add_action( 'wp', function() {
     if ( empty( $_GET['mkcp_restore'] ) ) return;
     if ( ! function_exists( 'WC' ) || ! WC()->cart ) return;
 
+    // De hash zelf is te groot om te raden, maar zonder drempel blijft dit een
+    // publiek endpoint dat bij elke poging een lookup + cart-mutatie doet —
+    // een lichte rem tegen geautomatiseerd aframmelen.
+    if ( ! mkcp_rate_limit_guard( 'cart_restore', 30, 60 ) ) return;
+
     $hash  = sanitize_text_field( wp_unslash( $_GET['mkcp_restore'] ) );
     $items = get_transient( 'mkcp_saved_cart_' . $hash );
 
@@ -1023,6 +1074,15 @@ function mkcp_ajax_send_cart_email() {
     $email = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
     if ( ! is_email( $email ) ) {
         wp_send_json_error( [ 'message' => __( 'Ongeldig e-mailadres.', 'mk-cart-popup' ) ] );
+        return;
+    }
+
+    // Dit endpoint is anoniem bereikbaar en stuurt een echte e-mail naar een
+    // door de aanvrager zelf opgegeven adres — zonder drempel is dit een
+    // mail-relay/spam-misbruikvector (herhaald misbruikt worden om willekeurige
+    // derden te bestoken), dus een strengere limiet dan de andere acties.
+    if ( ! mkcp_rate_limit_guard( 'send_cart_email', 3, HOUR_IN_SECONDS ) ) {
+        wp_send_json_error( [ 'message' => __( 'Te veel verzoeken. Probeer het over een uur opnieuw.', 'mk-cart-popup' ) ] );
         return;
     }
 

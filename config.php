@@ -100,6 +100,11 @@ function mkcp_defaults() {
         'trust_badge_google_key'      => '',
         'trust_badge_google_place_id' => '',
         'trust_badge_manual_updated_at' => '',
+
+        // Rate limiting op misbruikgevoelige acties (add-to-cart-flood,
+        // kortingscode-brute-force, e-mail-relay-misbruik) — zie
+        // includes/rate-limit.php voor de drempels per actie.
+        'security_ratelimit_enabled' => true,
     ];
 }
 
@@ -353,7 +358,7 @@ function mkcp_config() {
     $config = array_merge( $defaults, $saved );
 
     // Cast booleans (stored as '1'/'0' strings by HTML forms).
-    foreach ( [ 'enabled', 'free_shipping_bar', 'redirect_cart', 'btw_split', 'analytics_enabled', 'analytics_wc_stats', 'analytics_debug', 'show_coupon', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email', 'crosssell_enabled', 'cart_count_badge_enabled', 'delivery_preview_enabled', 'style_expand_enabled', 'style_dark_mode_enabled', 'mobile_app_experience', 'account_link_enabled', 'trust_badge_enabled', 'style_resize_enabled' ] as $key ) {
+    foreach ( [ 'enabled', 'free_shipping_bar', 'redirect_cart', 'btw_split', 'analytics_enabled', 'analytics_wc_stats', 'analytics_debug', 'show_coupon', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email', 'crosssell_enabled', 'cart_count_badge_enabled', 'delivery_preview_enabled', 'style_expand_enabled', 'style_dark_mode_enabled', 'mobile_app_experience', 'account_link_enabled', 'trust_badge_enabled', 'style_resize_enabled', 'security_ratelimit_enabled' ] as $key ) {
         $config[ $key ] = ! empty( $config[ $key ] );
     }
     $config['crosssell_limit'] = max( 1, min( 6, (int) ( $config['crosssell_limit'] ?? 3 ) ) );

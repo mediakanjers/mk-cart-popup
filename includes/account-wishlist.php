@@ -920,6 +920,13 @@ add_action( 'wp_ajax_mkcp_account_wishlist_bulk_to_cart', function() {
 add_action( 'template_redirect', function() {
     if ( ! isset( $_GET['mkcp_wishlist'] ) ) return;
 
+    // Token zelf is te groot om te raden, maar een lichte rem tegen
+    // geautomatiseerd aframmelen van dit publieke lookup-endpoint kan geen kwaad.
+    if ( ! mkcp_rate_limit_guard( 'wishlist_share_lookup', 30, 60 ) ) {
+        status_header( 429 );
+        exit;
+    }
+
     $token = sanitize_text_field( wp_unslash( $_GET['mkcp_wishlist'] ) );
     global $wpdb;
     $wishlist = $wpdb->get_row( $wpdb->prepare(

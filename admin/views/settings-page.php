@@ -1504,6 +1504,35 @@ $icons = [
                     </div>
                 </div>
 
+                <div class="mkcp-glass">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['shield']; ?></div>
+                        <h3>Beveiliging tegen misbruik</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Rate limiting inschakelen</strong>
+                                <small>Remt een bezoeker/script tijdelijk af bij té veel pogingen achter elkaar</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_security_ratelimit_enabled" value="1" <?php checked( $c['security_ratelimit_enabled'] ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Ingeschakeld</span>
+                                </div>
+                                <p class="mkcp-input-hint">
+                                    Beperkt per bezoeker (IP-adres) het aantal add-to-cart-pogingen, kortingscode-pogingen en e-mail-verzoeken (winkelmand mailen, verlaten-winkelwagen-herinnering) binnen een kort tijdvenster — met vaste, veilige standaardwaarden. Ingelogde shopmanagers/admins worden nooit geblokkeerd. Dit is een basisdrempel tegen scripts/bots; voor een gerichte aanval blijft bescherming op hosting-/CDN-niveau (bv. Cloudflare) nodig.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
                 <div class="mkcp-save-bar">
                     <button type="submit" class="mkcp-btn mkcp-btn--primary">
                         <?php echo $icons['check']; ?> Opslaan
