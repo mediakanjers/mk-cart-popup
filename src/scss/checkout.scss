@@ -5592,3 +5592,63 @@ body.mkcp-distraction-free-checkout {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+// ─── Prijzen verbergen (premium) ────────────────────────────────────────────
+// body-klassen (mkcp-co-hide-*) komen van includes/price-visibility.php. De
+// filters daar legen alleen de bedrag-waarden; de rij/kolom zelf (incl. het
+// "Subtotaal"-kopje) verdwijnt pas hier via CSS — anders blijft een lege,
+// verweesde rij/kolom staan. Een body-class i.p.v. een filter-gebonden
+// aanpak, omdat WooCommerce's AJAX-ververing van het besteloverzicht alleen
+// de tabel zelf vervangt, nooit de <body> — de klasse (gezet bij de eerste
+// paginalaad) blijft dus altijd kloppen, ook ná zo'n ververing.
+body.mkcp-co-hide-item .woocommerce-checkout-review-order-table {
+    col.product-total,
+    th.product-total,
+    td.product-total { display : none; }
+}
+
+// !important hieronder: body.mkcp-distraction-free-checkout ... tfoot tr
+// (elders in dit bestand) geeft elke voettabelrij expliciet display:table
+// mee, met 3 element-selectors (body/tfoot/tr) i.p.v. de 1 hier — dus
+// specifieker dan deze regels, ongeacht volgorde in het bestand. Live
+// geverifieerd via devtools (doorgestreepte display:none zonder !important).
+body.mkcp-co-hide-subtotal .woocommerce-checkout-review-order-table {
+    .cart-subtotal,
+    .cart-discount { display : none !important; }
+}
+
+body.mkcp-co-hide-shipping .woocommerce-checkout-review-order-table {
+    // WC's eigen standaardrij (.woocommerce-shipping-totals.shipping) én de
+    // rij van de premium Ophalen/Bezorgen-keuzekaarten (shipping-choice.php),
+    // die een eigen klasse gebruikt (.shipping-costs) i.p.v. de standaard-WC-
+    // klasse.
+    .woocommerce-shipping-totals.shipping,
+    .shipping-costs { display : none !important; }
+}
+
+body.mkcp-co-hide-tax .woocommerce-checkout-review-order-table {
+    .tax-rate,
+    .tax-total { display : none !important; }
+}
+
+body.mkcp-co-hide-total .woocommerce-checkout-review-order-table {
+    .order-total { display : none !important; }
+}
+
+// ── Bedankt-pagina: besteldetails-tabel (includes/price-visibility.php) ────
+// Alleen de productkolom heeft hier CSS nodig: subtotaal/verzendkosten/BTW/
+// totaal-rijen worden server-side via woocommerce_get_order_item_totals al
+// helemaal weggelaten (geen vaste rij-klassen om op te mikken zoals bij de
+// checkout-tabel hierboven, maar wel een los array-item per rij).
+body.mkcp-ty-hide-item .woocommerce-table--order-details {
+    col.product-total,
+    th.product-total,
+    td.product-total { display : none; }
+}
+
+// Bovenste "Bestelnummer/Datum/E-mail/Totaal/Betaalmethode"-samenvattingslijst
+// (checkout/thankyou.php, WooCommerce-kern) — staat los van de besteldetails-
+// tabel hierboven en heeft z'n eigen vaste rij-klasse per regel.
+body.mkcp-ty-hide-total .woocommerce-order-overview__total {
+    display : none !important;
+}

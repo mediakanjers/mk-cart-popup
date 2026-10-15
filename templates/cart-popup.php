@@ -11,8 +11,9 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-$config = mkcp_config();
-$cart   = WC()->cart;
+$config      = mkcp_config();
+$price_flags = mkcp_price_flags_popup();
+$cart        = WC()->cart;
 
 if ( ! $config['enabled'] ) return;
 
@@ -239,7 +240,9 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
             <!-- Column headers -->
             <div class="mk-cart-popup__items-header">
                 <span><?php echo esc_html( $config['col_product'] ); ?></span>
+                <?php if ( $price_flags['item'] ) : ?>
                 <span><?php echo esc_html( $config['col_total'] ); ?></span>
+                <?php endif; ?>
             </div>
 
             <?php do_action( 'mkcp_before_items', $config, $cart ); ?>
@@ -303,7 +306,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                     ] );
                 ?>
 
-                <div class="mk-cart-popup__item"
+                <div class="mk-cart-popup__item<?php echo $price_flags['item'] ? '' : ' mk-cart-popup__item--no-price'; ?>"
                      data-key="<?php echo esc_attr( $cart_item_key ); ?>"
                      data-product="<?php echo esc_attr( $analytics_data ); ?>"
                      data-undo="<?php echo esc_attr( $undo_data ); ?>">
@@ -340,6 +343,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                         </div>
                         <?php endif; ?>
 
+                        <?php if ( $price_flags['item'] ) : ?>
                         <div class="mk-cart-popup__item-price">
                             <?php if ( $btw_split ) : ?>
                                 <span class="price-excl-tax"><?php echo wc_price( $unit_excl ); ?> <span class="tax"><?php echo esc_html( $config['label_excl_tax'] ); ?></span></span>
@@ -348,6 +352,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                                 <?php echo wc_price( $unit_price ); ?>
                             <?php endif; ?>
                         </div>
+                        <?php endif; ?>
 
                         <div class="mk-cart-popup__item-actions">
 
@@ -401,6 +406,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
 
                     <?php do_action( 'mkcp_cart_item_after_info', $cart_item, $product, $cart_item_key, $config ); ?>
 
+                    <?php if ( $price_flags['item'] ) : ?>
                     <div class="mk-cart-popup__item-col-price">
                         <?php if ( $btw_split ) : ?>
                             <span class="price-excl-tax"><?php echo wc_price( $total_excl ); ?></span>
@@ -409,6 +415,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                             <?php echo wc_price( $total_price ); ?>
                         <?php endif; ?>
                     </div>
+                    <?php endif; ?>
 
                 </div>
 
@@ -528,7 +535,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
             if ( $trust_badge_active ) echo mkcp_trust_badge_html();
             ?>
 
-            <?php if ( $config['free_shipping_bar'] && $threshold > 0 ) : ?>
+            <?php if ( $price_flags['shipping'] && $config['free_shipping_bar'] && $threshold > 0 ) : ?>
             <div class="mk-cart-popup__progress">
                 <div class="mk-cart-popup__progress-text<?php echo $free_shipping_met ? ' mk-cart-popup__progress-text--success' : ''; ?>">
                     <?php if ( $free_shipping_met ) :
@@ -577,7 +584,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                     ?>
                     <div class="mk-cart-popup__coupon-tag">
                         <span class="mk-cart-popup__coupon-tag-code"><?php echo esc_html( strtoupper( $coupon_code ) ); ?></span>
-                        <?php if ( $discount > 0 ) : ?>
+                        <?php if ( $price_flags['subtotal'] && $discount > 0 ) : ?>
                         <span class="mk-cart-popup__coupon-tag-amount">−<?php echo wc_price( $discount ); ?></span>
                         <?php endif; ?>
                         <button type="button" class="mk-cart-popup__coupon-tag-remove js-mkcp-remove-coupon"
@@ -615,6 +622,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                         ? (int) round( ( $btw_amount / $subtotal_excl ) * 100 )
                         : 0;
                 ?>
+                <?php if ( $price_flags['subtotal'] ) : ?>
                 <div class="mk-cart-popup__totals">
                     <span class="mk-cart-popup__totals-label"><?php esc_html_e( 'Subtotal', 'woocommerce' ); ?></span>
                     <span class="mk-cart-popup__totals-value">
@@ -626,8 +634,9 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                         <?php endif; ?>
                     </span>
                 </div>
+                <?php endif; ?>
 
-                <?php if ( $btw_split && $btw_amount > 0.001 ) :
+                <?php if ( $price_flags['tax'] && $btw_split && $btw_amount > 0.001 ) :
                     $rate_suffix   = $btw_rate_pct > 0 ? ' (' . $btw_rate_pct . '%)' : '';
                     $label_incl    = __( 'Waarvan BTW', 'mk-cart-popup' ) . $rate_suffix;
                     $label_excl    = __( 'Nog bij te tellen BTW', 'mk-cart-popup' ) . $rate_suffix;
@@ -644,7 +653,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                 <?php mkcp_render_zone( 'below-totals', $config['blocks'] ); ?>
 
                 <!-- Minimum order warning -->
-                <?php if ( $min_order > 0 && ! $min_order_met ) : ?>
+                <?php if ( $price_flags['subtotal'] && $min_order > 0 && ! $min_order_met ) : ?>
                 <div class="mk-cart-popup__min-order-warning" role="alert">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>

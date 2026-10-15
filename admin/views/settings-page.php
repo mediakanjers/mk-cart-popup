@@ -1504,6 +1504,83 @@ $icons = [
                     </div>
                 </div>
 
+                <div class="mkcp-glass" data-mkcp-tier="premium">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['zap']; ?></div>
+                        <h3>Prijzen tonen <span class="mkcp-premium-badge">Premium</span></h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Helemaal geen prijzen tonen</strong>
+                                <small>Hoofdschakelaar — overschrijft alle onderdelen hieronder</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_price_hide_all" value="1" <?php checked( $c['price_hide_all'] ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Geen enkele prijs in de popup</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Losse onderdelen</strong>
+                                <small>Alleen relevant zolang de hoofdschakelaar uit staat</small>
+                            </div>
+                            <div class="mkcp-setting-control" style="display:flex;flex-direction:column">
+                                <?php
+                                $mkcp_price_parts = [
+                                    'mkcp_price_show_item'     => [ 'price_show_item',     'Productprijzen (per regel)' ],
+                                    'mkcp_price_show_subtotal' => [ 'price_show_subtotal', 'Subtotaal' ],
+                                    'mkcp_price_show_shipping' => [ 'price_show_shipping', 'Verzendkosten (gratis-verzendbalk)' ],
+                                    'mkcp_price_show_tax'      => [ 'price_show_tax',      'BTW-bedrag' ],
+                                ];
+                                foreach ( $mkcp_price_parts as $mkcp_field => [ $mkcp_key, $mkcp_label ] ) : ?>
+                                <div class="mkcp-mini-toggle">
+                                    <span class="mkcp-mini-toggle__label"><?php echo esc_html( $mkcp_label ); ?></span>
+                                    <label class="mkcp-toggle mkcp-toggle--sm">
+                                        <input type="checkbox" name="<?php echo esc_attr( $mkcp_field ); ?>" value="1" <?php checked( $c[ $mkcp_key ] ); ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row mkcp-setting-row--stack">
+                            <div class="mkcp-setting-label">
+                                <strong>Wie ziet prijzen</strong>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <select class="mkcp-input" name="mkcp_price_visibility" id="mkcp-price-visibility">
+                                    <option value="everyone" <?php selected( $c['price_visibility'], 'everyone' ); ?>>Iedereen</option>
+                                    <option value="guests"   <?php selected( $c['price_visibility'], 'guests' ); ?>>Alleen niet-ingelogde bezoekers</option>
+                                    <option value="roles"    <?php selected( $c['price_visibility'], 'roles' ); ?>>Specifieke rollen</option>
+                                </select>
+                                <p class="mkcp-input-hint">Bepaalt voor wíe de instellingen hierboven gelden — overige bezoekers zien helemaal geen prijzen, ongeacht de losse onderdelen.</p>
+                                <div class="mkcp-chips" id="mkcp-price-roles-row" style="<?php echo $c['price_visibility'] === 'roles' ? '' : 'display:none'; ?>;margin-top:8px">
+                                    <?php foreach ( wp_roles()->get_names() as $mkcp_role_slug => $mkcp_role_label ) : ?>
+                                    <label class="mkcp-chip">
+                                        <input type="checkbox" name="mkcp_price_visible_roles[]" value="<?php echo esc_attr( $mkcp_role_slug ); ?>"
+                                            <?php checked( in_array( $mkcp_role_slug, $c['price_visible_roles'], true ) ); ?>>
+                                        <?php echo esc_html( translate_user_role( $mkcp_role_label ) ); ?>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <script>document.getElementById('mkcp-price-visibility').addEventListener('change', function(){
+                                    document.getElementById('mkcp-price-roles-row').style.display = this.value === 'roles' ? 'flex' : 'none';
+                                });</script>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
                 <div class="mkcp-glass">
                     <div class="mkcp-glass-header">
                         <div class="mkcp-header-icon"><?php echo $icons['shield']; ?></div>
@@ -2889,13 +2966,19 @@ $icons = [
                             </div>
                         </div>
 
-                        <?php $mkcp_cl_entries = mkcp_changelog_entries(); ?>
+                        <?php
+                        $mkcp_cl_entries    = mkcp_changelog_entries();
+                        $mkcp_cl_per_page   = 10;
+                        $mkcp_cl_pages      = array_chunk( $mkcp_cl_entries, $mkcp_cl_per_page, true );
+                        $mkcp_cl_page_count = count( $mkcp_cl_pages );
+                        ?>
                         <?php if ( ! empty( $mkcp_cl_entries ) ) : ?>
                         <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--mkcp-ui-border)">
                             <h4 style="font-size:11px;font-weight:600;color:var(--mkcp-ui-text3);text-transform:uppercase;letter-spacing:.6px;margin:0 0 12px">Changelog</h4>
 
-                            <div class="mkcp-changelog-list">
-                                <?php foreach ( $mkcp_cl_entries as $mkcp_cl_i => $mkcp_cl_entry ) :
+                            <?php foreach ( $mkcp_cl_pages as $mkcp_cl_page_i => $mkcp_cl_page_entries ) : ?>
+                            <div class="mkcp-changelog-list mkcp-changelog-page" data-changelog-page="<?php echo (int) $mkcp_cl_page_i; ?>" <?php echo 0 === $mkcp_cl_page_i ? '' : 'hidden'; ?>>
+                                <?php foreach ( $mkcp_cl_page_entries as $mkcp_cl_i => $mkcp_cl_entry ) :
                                     $mkcp_cl_count = count( $mkcp_cl_entry['items'] );
                                 ?>
                                 <button type="button" class="mkcp-changelog-row" data-changelog-index="<?php echo (int) $mkcp_cl_i; ?>">
@@ -2907,6 +2990,17 @@ $icons = [
                                 </button>
                                 <?php endforeach; ?>
                             </div>
+                            <?php endforeach; ?>
+
+                            <?php if ( $mkcp_cl_page_count > 1 ) : ?>
+                            <div class="mkcp-changelog-pagination" id="mkcp-changelog-pagination">
+                                <button type="button" class="mkcp-changelog-pagination__btn" data-changelog-nav="prev" disabled>&#8249; Vorige</button>
+                                <span class="mkcp-changelog-pagination__status">
+                                    Pagina <span id="mkcp-changelog-page-current">1</span> van <?php echo (int) $mkcp_cl_page_count; ?>
+                                </span>
+                                <button type="button" class="mkcp-changelog-pagination__btn" data-changelog-nav="next">Volgende &#8250;</button>
+                            </div>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
 
@@ -2934,6 +3028,7 @@ $icons = [
 
             <style>
                 .mkcp-changelog-list { display: flex; flex-direction: column; gap: 6px; }
+                .mkcp-changelog-list[hidden] { display: none; }
                 .mkcp-changelog-row {
                     display: flex; align-items: center; gap: 10px;
                     width: 100%; text-align: left; cursor: pointer;
@@ -2946,6 +3041,20 @@ $icons = [
                 .mkcp-changelog-row__version { font-weight: 600; font-size: 13px; }
                 .mkcp-changelog-row__date { font-size: 12px; color: var(--mkcp-ui-text3); }
                 .mkcp-changelog-row__count { margin-left: auto; font-size: 12px; color: var(--mkcp-ui-text2); }
+
+                .mkcp-changelog-pagination {
+                    display: flex; align-items: center; justify-content: center; gap: 14px;
+                    margin-top: 12px;
+                }
+                .mkcp-changelog-pagination__btn {
+                    background: var(--mkcp-ui-surface2); border: 1px solid var(--mkcp-ui-border);
+                    border-radius: var(--mkcp-ui-radius-sm); padding: 6px 12px;
+                    font-size: 12px; color: var(--mkcp-ui-text2); cursor: pointer;
+                    transition: border-color var(--mkcp-ui-transition), color var(--mkcp-ui-transition);
+                }
+                .mkcp-changelog-pagination__btn:hover:not(:disabled) { border-color: var(--mkcp-ui-accent); color: var(--mkcp-ui-text); }
+                .mkcp-changelog-pagination__btn:disabled { opacity: .4; cursor: default; }
+                .mkcp-changelog-pagination__status { font-size: 12px; color: var(--mkcp-ui-text3); }
 
                 .mkcp-changelog-modal { position: fixed; inset: 0; z-index: 100000; }
                 .mkcp-changelog-modal[hidden] { display: none; }
@@ -3014,6 +3123,31 @@ $icons = [
                 document.addEventListener( 'keydown', function ( e ) {
                     if ( 'Escape' === e.key && ! modal.hidden ) closeChangelog();
                 } );
+
+                // Changelog-paginering: maximaal 10 versies per pagina (server-side
+                // al in losse .mkcp-changelog-page-blokken opgedeeld, zie PHP
+                // hierboven) — hier alleen het zichtbare blok + de knoppen/teller wisselen.
+                var clPages = document.querySelectorAll( '.mkcp-changelog-page' );
+                if ( clPages.length > 1 ) {
+                    var clPagination = document.getElementById( 'mkcp-changelog-pagination' );
+                    var clPrevBtn    = clPagination.querySelector( '[data-changelog-nav="prev"]' );
+                    var clNextBtn    = clPagination.querySelector( '[data-changelog-nav="next"]' );
+                    var clCurrentEl  = document.getElementById( 'mkcp-changelog-page-current' );
+                    var clPage       = 0;
+
+                    function showChangelogPage( page ) {
+                        clPage = Math.max( 0, Math.min( page, clPages.length - 1 ) );
+                        clPages.forEach( function ( el, i ) {
+                            el.hidden = i !== clPage;
+                        } );
+                        clCurrentEl.textContent = clPage + 1;
+                        clPrevBtn.disabled = clPage === 0;
+                        clNextBtn.disabled = clPage === clPages.length - 1;
+                    }
+
+                    clPrevBtn.addEventListener( 'click', function () { showChangelogPage( clPage - 1 ); } );
+                    clNextBtn.addEventListener( 'click', function () { showChangelogPage( clPage + 1 ); } );
+                }
             })();
             </script>
 
@@ -4367,6 +4501,72 @@ $icons = [
                             </label>
                         </div>
 
+                        <hr style="border:none;border-top:1px solid var(--mkcp-ui-border, #e5e7eb);margin:16px 0">
+
+                        <div class="mkcp-setting-row">
+                            <div>
+                                <strong style="font-size:13px">Helemaal geen prijzen tonen</strong>
+                                <p style="font-size:12px;color:var(--mkcp-ui-text3);margin:3px 0 0">Hoofdschakelaar voor de checkout — los van de winkelwagen-popup-instelling. Overschrijft alle onderdelen hieronder.</p>
+                            </div>
+                            <label class="mkcp-toggle">
+                                <input type="checkbox" name="mkcp_checkout_price_hide_all" value="1"
+                                    <?php checked( ! empty( $cfg_co['checkout_price_hide_all'] ) ); ?>
+                                    <?php echo $co_disabled; ?>>
+                                <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                            </label>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="padding-top:6px">
+                            <div style="display:flex;flex-direction:column;width:100%">
+                                <strong style="font-size:13px;margin-bottom:4px">Losse onderdelen</strong>
+                                <?php
+                                $mkcp_co_price_parts = [
+                                    'mkcp_checkout_price_show_item'     => [ 'checkout_price_show_item',     'Productprijzen (per regel)' ],
+                                    'mkcp_checkout_price_show_subtotal' => [ 'checkout_price_show_subtotal', 'Subtotaal' ],
+                                    'mkcp_checkout_price_show_shipping' => [ 'checkout_price_show_shipping', 'Verzendkosten' ],
+                                    'mkcp_checkout_price_show_tax'      => [ 'checkout_price_show_tax',      'BTW-bedrag' ],
+                                    'mkcp_checkout_price_show_total'    => [ 'checkout_price_show_total',    'Totaalbedrag' ],
+                                ];
+                                foreach ( $mkcp_co_price_parts as $mkcp_co_field => [ $mkcp_co_key, $mkcp_co_label ] ) : ?>
+                                <div class="mkcp-mini-toggle">
+                                    <span class="mkcp-mini-toggle__label"><?php echo esc_html( $mkcp_co_label ); ?></span>
+                                    <label class="mkcp-toggle mkcp-toggle--sm">
+                                        <input type="checkbox" name="<?php echo esc_attr( $mkcp_co_field ); ?>" value="1"
+                                            <?php checked( ! empty( $cfg_co[ $mkcp_co_key ] ) ); ?>
+                                            <?php echo $co_disabled; ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row mkcp-setting-row--stack" style="padding-top:6px">
+                            <div class="mkcp-setting-label">
+                                <strong>Wie ziet prijzen</strong>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <select class="mkcp-input" name="mkcp_checkout_price_visibility" id="mkcp-checkout-price-visibility" <?php echo $co_disabled; ?>>
+                                    <option value="everyone" <?php selected( $cfg_co['checkout_price_visibility'] ?? 'everyone', 'everyone' ); ?>>Iedereen</option>
+                                    <option value="guests"   <?php selected( $cfg_co['checkout_price_visibility'] ?? 'everyone', 'guests' ); ?>>Alleen niet-ingelogde bezoekers</option>
+                                    <option value="roles"    <?php selected( $cfg_co['checkout_price_visibility'] ?? 'everyone', 'roles' ); ?>>Specifieke rollen</option>
+                                </select>
+                                <div class="mkcp-chips" id="mkcp-checkout-price-roles-row" style="<?php echo ( $cfg_co['checkout_price_visibility'] ?? 'everyone' ) === 'roles' ? '' : 'display:none'; ?>;margin-top:8px">
+                                    <?php foreach ( wp_roles()->get_names() as $mkcp_co_role_slug => $mkcp_co_role_label ) : ?>
+                                    <label class="mkcp-chip">
+                                        <input type="checkbox" name="mkcp_checkout_price_visible_roles[]" value="<?php echo esc_attr( $mkcp_co_role_slug ); ?>"
+                                            <?php checked( in_array( $mkcp_co_role_slug, (array) ( $cfg_co['checkout_price_visible_roles'] ?? [] ), true ) ); ?>
+                                            <?php echo $co_disabled; ?>>
+                                        <?php echo esc_html( translate_user_role( $mkcp_co_role_label ) ); ?>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <script>document.getElementById('mkcp-checkout-price-visibility').addEventListener('change', function(){
+                                    document.getElementById('mkcp-checkout-price-roles-row').style.display = this.value === 'roles' ? 'flex' : 'none';
+                                });</script>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -4548,9 +4748,13 @@ $icons = [
             $ty_crosssell_enabled   = ! empty( $dd_cfg['thankyou_crosssell_enabled'] );
             $ty_crosssell_title     = $dd_cfg['thankyou_crosssell_title'] ?? '';
             $ty_invoice_enabled     = ! empty( $dd_cfg['thankyou_invoice_enabled'] );
+            $ty_packingslip_enabled = ! empty( $dd_cfg['thankyou_packingslip_enabled'] );
             $ty_trust_return_text   = $dd_cfg['thankyou_trust_return_text'] ?? '';
             $ty_trust_return_url    = $dd_cfg['thankyou_trust_return_url'] ?? '';
             $ty_trust_contact_text  = $dd_cfg['thankyou_trust_contact_text'] ?? '';
+            $ty_price_hide_all      = ! empty( $dd_cfg['thankyou_price_hide_all'] );
+            $ty_price_visibility    = $dd_cfg['thankyou_price_visibility'] ?? 'everyone';
+            $ty_price_visible_roles = (array) ( $dd_cfg['thankyou_price_visible_roles'] ?? [] );
             $dd_weekdays  = [
                 0 => 'Zo', 1 => 'Ma', 2 => 'Di', 3 => 'Wo',
                 4 => 'Do', 5 => 'Vr', 6 => 'Za',
@@ -5106,7 +5310,7 @@ $icons = [
                                 <small>Straat, huisnummer, toevoeging, postcode en plaats op de checkout</small>
                             </div>
                             <div class="mkcp-setting-control">
-                                <select name="mkcp_pu_address_mode" <?php echo $co_disabled; ?>>
+                                <select class="mkcp-input" name="mkcp_pu_address_mode" <?php echo $co_disabled; ?>>
                                     <option value="required" <?php selected( $pu_addr_mode, 'required' ); ?>>Verplicht (zoals bij bezorgen)</option>
                                     <option value="optional" <?php selected( $pu_addr_mode, 'optional' ); ?>>Niet verplicht</option>
                                     <option value="hidden" <?php selected( $pu_addr_mode, 'hidden' ); ?>>Weghalen</option>
@@ -5795,11 +5999,11 @@ $icons = [
                 <div class="mkcp-glass" data-mkcp-tier="premium">
                     <div class="mkcp-glass-header">
                         <div class="mkcp-header-icon"><?php echo $icons['credit-card']; ?></div>
-                        <h3>Factuur</h3>
+                        <h3>Documenten</h3>
                     </div>
                     <div class="mkcp-glass-body">
                         <div class="mkcp-notice mkcp-notice--info">
-                            Werkt via de WooCommerce PDF Invoices &amp; Packing Slips-plugin — zonder die plugin (of zonder ingeschakeld factuur-document) verschijnt de knop simpelweg niet.
+                            Werkt via de WooCommerce PDF Invoices &amp; Packing Slips-plugin — zonder die plugin (of zonder het bijbehorende document ingeschakeld) verschijnt een knop simpelweg niet. De inhoud/opmaak van factuur en pakbon zelf regelt die plugin, niet deze instelling.
                         </div>
                         <div class="mkcp-setting-row">
                             <div class="mkcp-setting-label">
@@ -5813,6 +6017,97 @@ $icons = [
                                     </label>
                                     <span class="mkcp-toggle-label">Knop tonen</span>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Pakbon-downloadknop</strong>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_ty_packingslip_enabled" value="1" <?php checked( $ty_packingslip_enabled ); ?> <?php echo $co_disabled; ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                    <span class="mkcp-toggle-label">Knop tonen</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mkcp-glass" data-mkcp-tier="premium">
+                    <div class="mkcp-glass-header">
+                        <div class="mkcp-header-icon"><?php echo $icons['bar-chart']; ?></div>
+                        <h3>Prijzen</h3>
+                    </div>
+                    <div class="mkcp-glass-body">
+                        <div class="mkcp-notice mkcp-notice--info">
+                            Volledig los van de prijzen-instelling bij de winkelwagen-popup en checkout — raakt alleen de besteldetails-tabel op deze pagina, nooit wp-admin of e-mails.
+                        </div>
+                        <div class="mkcp-setting-row">
+                            <div class="mkcp-setting-label">
+                                <strong>Helemaal geen prijzen tonen</strong>
+                                <small>Hoofdschakelaar — overschrijft alle onderdelen hieronder</small>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <div class="mkcp-toggle-wrap">
+                                    <label class="mkcp-toggle">
+                                        <input type="checkbox" name="mkcp_ty_price_hide_all" value="1" <?php checked( $ty_price_hide_all ); ?> <?php echo $co_disabled; ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row" style="padding-top:6px">
+                            <div style="display:flex;flex-direction:column;width:100%">
+                                <strong style="font-size:13px;margin-bottom:4px">Losse onderdelen</strong>
+                                <?php
+                                $mkcp_ty_price_parts = [
+                                    'mkcp_ty_price_show_item'     => [ 'thankyou_price_show_item',     'Productprijzen (per regel)' ],
+                                    'mkcp_ty_price_show_subtotal' => [ 'thankyou_price_show_subtotal', 'Subtotaal' ],
+                                    'mkcp_ty_price_show_shipping' => [ 'thankyou_price_show_shipping', 'Verzendkosten' ],
+                                    'mkcp_ty_price_show_tax'      => [ 'thankyou_price_show_tax',      'BTW-bedrag' ],
+                                    'mkcp_ty_price_show_total'    => [ 'thankyou_price_show_total',    'Totaalbedrag' ],
+                                ];
+                                foreach ( $mkcp_ty_price_parts as $mkcp_ty_field => [ $mkcp_ty_key, $mkcp_ty_label ] ) : ?>
+                                <div class="mkcp-mini-toggle">
+                                    <span class="mkcp-mini-toggle__label"><?php echo esc_html( $mkcp_ty_label ); ?></span>
+                                    <label class="mkcp-toggle mkcp-toggle--sm">
+                                        <input type="checkbox" name="<?php echo esc_attr( $mkcp_ty_field ); ?>" value="1"
+                                            <?php checked( ! empty( $dd_cfg[ $mkcp_ty_key ] ) ); ?>
+                                            <?php echo $co_disabled; ?>>
+                                        <span class="mkcp-toggle-track"><span class="mkcp-toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <div class="mkcp-setting-row mkcp-setting-row--stack" style="padding-top:6px">
+                            <div class="mkcp-setting-label">
+                                <strong>Wie ziet prijzen</strong>
+                            </div>
+                            <div class="mkcp-setting-control">
+                                <select class="mkcp-input" name="mkcp_ty_price_visibility" id="mkcp-ty-price-visibility" <?php echo $co_disabled; ?>>
+                                    <option value="everyone" <?php selected( $ty_price_visibility, 'everyone' ); ?>>Iedereen</option>
+                                    <option value="guests"   <?php selected( $ty_price_visibility, 'guests' ); ?>>Alleen niet-ingelogde bezoekers</option>
+                                    <option value="roles"    <?php selected( $ty_price_visibility, 'roles' ); ?>>Specifieke rollen</option>
+                                </select>
+                                <div class="mkcp-chips" id="mkcp-ty-price-roles-row" style="<?php echo $ty_price_visibility === 'roles' ? '' : 'display:none'; ?>;margin-top:8px">
+                                    <?php foreach ( wp_roles()->get_names() as $mkcp_ty_role_slug => $mkcp_ty_role_label ) : ?>
+                                    <label class="mkcp-chip">
+                                        <input type="checkbox" name="mkcp_ty_price_visible_roles[]" value="<?php echo esc_attr( $mkcp_ty_role_slug ); ?>"
+                                            <?php checked( in_array( $mkcp_ty_role_slug, $ty_price_visible_roles, true ) ); ?>
+                                            <?php echo $co_disabled; ?>>
+                                        <?php echo esc_html( translate_user_role( $mkcp_ty_role_label ) ); ?>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                                <script>document.getElementById('mkcp-ty-price-visibility').addEventListener('change', function(){
+                                    document.getElementById('mkcp-ty-price-roles-row').style.display = this.value === 'roles' ? 'flex' : 'none';
+                                });</script>
                             </div>
                         </div>
                     </div>

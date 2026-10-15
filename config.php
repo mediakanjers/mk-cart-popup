@@ -101,6 +101,21 @@ function mkcp_defaults() {
         'trust_badge_google_place_id' => '',
         'trust_badge_manual_updated_at' => '',
 
+        // Prijzen verbergen (premium) — voor webshops zonder (openbare) prijzen.
+        // 'price_hide_all' is de hoofdschakelaar; de losse 'price_show_*'-
+        // vlaggen zijn alleen relevant zolang die uit staat. Volledig
+        // onafhankelijk van dezelfde instellingen in de checkout (admin/
+        // checkout-settings.php, 'checkout_price_*') — zie includes/
+        // price-visibility.php voor de gedeelde logica.
+        'price_hide_all'       => false,
+        'price_show_item'      => true,
+        'price_show_subtotal'  => true,
+        'price_show_shipping'  => true,
+        'price_show_tax'       => true,
+        // 'everyone' | 'guests' | 'roles'
+        'price_visibility'     => 'everyone',
+        'price_visible_roles'  => [],
+
         // Rate limiting op misbruikgevoelige acties (add-to-cart-flood,
         // kortingscode-brute-force, e-mail-relay-misbruik) — zie
         // includes/rate-limit.php voor de drempels per actie.
@@ -358,9 +373,14 @@ function mkcp_config() {
     $config = array_merge( $defaults, $saved );
 
     // Cast booleans (stored as '1'/'0' strings by HTML forms).
-    foreach ( [ 'enabled', 'free_shipping_bar', 'redirect_cart', 'btw_split', 'analytics_enabled', 'analytics_wc_stats', 'analytics_debug', 'show_coupon', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email', 'crosssell_enabled', 'cart_count_badge_enabled', 'delivery_preview_enabled', 'style_expand_enabled', 'style_dark_mode_enabled', 'mobile_app_experience', 'account_link_enabled', 'trust_badge_enabled', 'style_resize_enabled', 'security_ratelimit_enabled' ] as $key ) {
+    foreach ( [ 'enabled', 'free_shipping_bar', 'redirect_cart', 'btw_split', 'analytics_enabled', 'analytics_wc_stats', 'analytics_debug', 'show_coupon', 'save_for_later', 'stock_indicator', 'save_cart_url', 'save_cart_email', 'crosssell_enabled', 'cart_count_badge_enabled', 'delivery_preview_enabled', 'style_expand_enabled', 'style_dark_mode_enabled', 'mobile_app_experience', 'account_link_enabled', 'trust_badge_enabled', 'style_resize_enabled', 'security_ratelimit_enabled',
+        'price_hide_all', 'price_show_item', 'price_show_subtotal', 'price_show_shipping', 'price_show_tax' ] as $key ) {
         $config[ $key ] = ! empty( $config[ $key ] );
     }
+    if ( ! in_array( $config['price_visibility'] ?? '', [ 'everyone', 'guests', 'roles' ], true ) ) {
+        $config['price_visibility'] = 'everyone';
+    }
+    if ( ! is_array( $config['price_visible_roles'] ?? null ) ) $config['price_visible_roles'] = [];
     $config['crosssell_limit'] = max( 1, min( 6, (int) ( $config['crosssell_limit'] ?? 3 ) ) );
     if ( ! in_array( $config['crosssell_mode'] ?? '', [ 'crosssells', 'category' ], true ) ) {
         $config['crosssell_mode'] = 'category';

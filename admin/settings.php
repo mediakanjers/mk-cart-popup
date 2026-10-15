@@ -233,6 +233,7 @@ add_action( 'admin_init', function() {
         'thankyou_crosssell_enabled'  => ! empty( $post['mkcp_ty_crosssell_enabled'] ),
         'thankyou_crosssell_title'    => sanitize_text_field( $post['mkcp_ty_crosssell_title'] ?? '' ),
         'thankyou_invoice_enabled'    => ! empty( $post['mkcp_ty_invoice_enabled'] ),
+        'thankyou_packingslip_enabled' => ! empty( $post['mkcp_ty_packingslip_enabled'] ),
         'thankyou_trust_return_text'  => sanitize_text_field( $post['mkcp_ty_trust_return_text'] ?? '' ),
         'thankyou_trust_return_url'   => esc_url_raw( $post['mkcp_ty_trust_return_url'] ?? '' ),
         'thankyou_trust_contact_text' => sanitize_text_field( $post['mkcp_ty_trust_contact_text'] ?? '' ),
@@ -240,6 +241,29 @@ add_action( 'admin_init', function() {
         'hide_paid_delivery_if_free' => ! empty( $post['mkcp_hide_paid_delivery'] ),
         'shipping_choice_labels'     => mkcp_sanitize_shipping_choice_labels( $post ),
         'loading_messages'           => sanitize_textarea_field( wp_unslash( $post['mkcp_loading_messages'] ?? '' ) ),
+
+        // Prijzen verbergen — onvoorwaardelijk opgeslagen, net als de rest van
+        // de checkout-instellingen hierboven (premium-gate zit in includes/
+        // price-visibility.php, niet hier).
+        'checkout_price_hide_all'      => ! empty( $post['mkcp_checkout_price_hide_all'] ),
+        'checkout_price_show_item'     => ! empty( $post['mkcp_checkout_price_show_item'] ),
+        'checkout_price_show_subtotal' => ! empty( $post['mkcp_checkout_price_show_subtotal'] ),
+        'checkout_price_show_shipping' => ! empty( $post['mkcp_checkout_price_show_shipping'] ),
+        'checkout_price_show_tax'      => ! empty( $post['mkcp_checkout_price_show_tax'] ),
+        'checkout_price_show_total'    => ! empty( $post['mkcp_checkout_price_show_total'] ),
+        'checkout_price_visibility'    => in_array( $post['mkcp_checkout_price_visibility'] ?? '', [ 'everyone', 'guests', 'roles' ], true ) ? $post['mkcp_checkout_price_visibility'] : 'everyone',
+        'checkout_price_visible_roles' => array_map( 'sanitize_key', (array) ( $post['mkcp_checkout_price_visible_roles'] ?? [] ) ),
+
+        // Prijzen verbergen op de bedankt-pagina — derde, losse groep naast de
+        // winkelwagen-popup en checkout hierboven.
+        'thankyou_price_hide_all'      => ! empty( $post['mkcp_ty_price_hide_all'] ),
+        'thankyou_price_show_item'     => ! empty( $post['mkcp_ty_price_show_item'] ),
+        'thankyou_price_show_subtotal' => ! empty( $post['mkcp_ty_price_show_subtotal'] ),
+        'thankyou_price_show_shipping' => ! empty( $post['mkcp_ty_price_show_shipping'] ),
+        'thankyou_price_show_tax'      => ! empty( $post['mkcp_ty_price_show_tax'] ),
+        'thankyou_price_show_total'    => ! empty( $post['mkcp_ty_price_show_total'] ),
+        'thankyou_price_visibility'    => in_array( $post['mkcp_ty_price_visibility'] ?? '', [ 'everyone', 'guests', 'roles' ], true ) ? $post['mkcp_ty_price_visibility'] : 'everyone',
+        'thankyou_price_visible_roles' => array_map( 'sanitize_key', (array) ( $post['mkcp_ty_price_visible_roles'] ?? [] ) ),
     ];
     update_option( 'mkcp_checkout_settings', $checkout );
 
@@ -405,6 +429,19 @@ add_action( 'admin_init', function() {
         'trust_badge_manual_updated_at' => mkcp_trust_badge_manual_should_restamp( $is_premium, $post, $existing )
             ? current_time( 'mysql' )
             : (string) ( $existing['trust_badge_manual_updated_at'] ?? '' ),
+
+        // Prijzen verbergen (premium)
+        'price_hide_all'      => $is_premium ? ! empty( $post['mkcp_price_hide_all'] )     : (bool) ( $existing['price_hide_all'] ?? false ),
+        'price_show_item'     => $is_premium ? ! empty( $post['mkcp_price_show_item'] )     : (bool) ( $existing['price_show_item'] ?? true ),
+        'price_show_subtotal' => $is_premium ? ! empty( $post['mkcp_price_show_subtotal'] ) : (bool) ( $existing['price_show_subtotal'] ?? true ),
+        'price_show_shipping' => $is_premium ? ! empty( $post['mkcp_price_show_shipping'] ) : (bool) ( $existing['price_show_shipping'] ?? true ),
+        'price_show_tax'      => $is_premium ? ! empty( $post['mkcp_price_show_tax'] )      : (bool) ( $existing['price_show_tax'] ?? true ),
+        'price_visibility'    => $is_premium
+            ? ( in_array( $post['mkcp_price_visibility'] ?? '', [ 'everyone', 'guests', 'roles' ], true ) ? $post['mkcp_price_visibility'] : 'everyone' )
+            : (string) ( $existing['price_visibility'] ?? 'everyone' ),
+        'price_visible_roles' => $is_premium
+            ? array_map( 'sanitize_key', (array) ( $post['mkcp_price_visible_roles'] ?? [] ) )
+            : (array) ( $existing['price_visible_roles'] ?? [] ),
     ];
 
     update_option( 'mkcp_settings', $settings );

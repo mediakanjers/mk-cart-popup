@@ -140,6 +140,7 @@ function mkcp_checkout_config() {
         'thankyou_crosssell_enabled'  => false,
         'thankyou_crosssell_title'    => 'Nog een tip voor erbij',
         'thankyou_invoice_enabled'    => false,
+        'thankyou_packingslip_enabled' => false,
         'thankyou_trust_return_text'  => '',
         'thankyou_trust_return_url'   => '',
         'thankyou_trust_contact_text' => '',
@@ -160,6 +161,30 @@ function mkcp_checkout_config() {
         // (default) valt terug op die ene vaste tekst, zie assets/checkout-
         // loading-messages.js.
         'loading_messages'          => '',
+
+        // Prijzen verbergen (premium) — zelfde opzet als de winkelwagen-popup
+        // (config.php, 'price_*'), maar volledig onafhankelijk in te stellen.
+        // Zie includes/price-visibility.php.
+        'checkout_price_hide_all'      => false,
+        'checkout_price_show_item'     => true,
+        'checkout_price_show_subtotal' => true,
+        'checkout_price_show_shipping' => true,
+        'checkout_price_show_tax'      => true,
+        'checkout_price_show_total'    => true,
+        'checkout_price_visibility'    => 'everyone',
+        'checkout_price_visible_roles' => [],
+
+        // Prijzen verbergen op de bedankt-pagina (premium) — derde, volledig
+        // onafhankelijke groep naast de winkelwagen-popup en checkout hierboven.
+        // Zie includes/price-visibility.php.
+        'thankyou_price_hide_all'      => false,
+        'thankyou_price_show_item'     => true,
+        'thankyou_price_show_subtotal' => true,
+        'thankyou_price_show_shipping' => true,
+        'thankyou_price_show_tax'      => true,
+        'thankyou_price_show_total'    => true,
+        'thankyou_price_visibility'    => 'everyone',
+        'thankyou_price_visible_roles' => [],
     ];
 
     $saved = get_option( 'mkcp_checkout_settings', [] );
@@ -209,9 +234,25 @@ function mkcp_checkout_config() {
     $cfg['thankyou_enabled']           = (bool) $cfg['thankyou_enabled'];
     $cfg['thankyou_crosssell_enabled'] = (bool) $cfg['thankyou_crosssell_enabled'];
     $cfg['thankyou_invoice_enabled']   = (bool) $cfg['thankyou_invoice_enabled'];
+    $cfg['thankyou_packingslip_enabled'] = (bool) $cfg['thankyou_packingslip_enabled'];
     if ( ! is_array( $cfg['steps_labels'] ) || count( $cfg['steps_labels'] ) < 3 ) {
         $cfg['steps_labels'] = [ 'Winkelwagen', 'Gegevens', 'Bevestiging' ];
     }
+    foreach ( [ 'checkout_price_hide_all', 'checkout_price_show_item', 'checkout_price_show_subtotal', 'checkout_price_show_shipping', 'checkout_price_show_tax', 'checkout_price_show_total' ] as $mkcp_price_key ) {
+        $cfg[ $mkcp_price_key ] = (bool) $cfg[ $mkcp_price_key ];
+    }
+    if ( ! in_array( $cfg['checkout_price_visibility'] ?? '', [ 'everyone', 'guests', 'roles' ], true ) ) {
+        $cfg['checkout_price_visibility'] = 'everyone';
+    }
+    if ( ! is_array( $cfg['checkout_price_visible_roles'] ?? null ) ) $cfg['checkout_price_visible_roles'] = [];
+
+    foreach ( [ 'thankyou_price_hide_all', 'thankyou_price_show_item', 'thankyou_price_show_subtotal', 'thankyou_price_show_shipping', 'thankyou_price_show_tax', 'thankyou_price_show_total' ] as $mkcp_ty_price_key ) {
+        $cfg[ $mkcp_ty_price_key ] = (bool) $cfg[ $mkcp_ty_price_key ];
+    }
+    if ( ! in_array( $cfg['thankyou_price_visibility'] ?? '', [ 'everyone', 'guests', 'roles' ], true ) ) {
+        $cfg['thankyou_price_visibility'] = 'everyone';
+    }
+    if ( ! is_array( $cfg['thankyou_price_visible_roles'] ?? null ) ) $cfg['thankyou_price_visible_roles'] = [];
 
     return $cfg;
 }

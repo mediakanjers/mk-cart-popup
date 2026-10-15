@@ -3928,6 +3928,84 @@ add_action( 'wp', function() {
                 });
             }
 
+            // ── Bezorglocatie-kaartje rechtstreeks verversen ────────────────────
+            // #mkcp-dd-address (zie includes/delivery-date.php) hangt voor zijn
+            // inhoud af van WooCommerce's fragment-replaceWith van de hele
+            // verzendkeuze-kaart erboven (stap 0 hierboven) — bleek bij een
+            // adres-/postcodewissel niet betrouwbaar: de kaart zelf ververst
+            // zichtbaar (skeleton/spinner), maar dit kaartje bleef het eerder
+            // getoonde adres tonen. Deze losse functie leest de actuele
+            // formuliervelden rechtstreeks uit en zet de tekst zelf — werkt dus
+            // ook door als de kaartwissel hierboven om wat voor reden dan ook
+            // een keer misgaat.
+            function mkcp_refreshDeliveryLocationBox() {
+                var box = document.getElementById('mkcp-dd-address');
+                if (!box) return;
+
+                var toggle = document.querySelector('input[name="ship_to_different_address"]');
+                var group  = (toggle && toggle.checked) ? 'shipping' : 'billing';
+
+                function val(id) {
+                    var el = document.getElementById(id);
+                    return el ? el.value.trim() : '';
+                }
+
+                var addr1 = val(group + '_address_1');
+                var addr2 = val(group + '_address_2');
+                var city  = val(group + '_city');
+                var pc    = val(group + '_postcode');
+
+                // WP Overnight Postcode Checker-velden (straat/huisnummer los)
+                // hebben voorrang als ze bestaan en gevuld zijn — zelfde regel
+                // als server-side in mkcp_dd_render_delivery_field().
+                var street = val(group + '_street_name');
+                if (street !== '') {
+                    var nr  = val(group + '_house_number');
+                    var sfx = val(group + '_house_number_suffix');
+                    addr1 = (street + ' ' + nr + sfx).trim();
+                    addr2 = '';
+                }
+
+                var lines = [];
+                if (addr1 !== '') lines.push(addr1);
+                if (addr2 !== '') lines.push(addr2);
+                var cityLine = (pc + ' ' + city).trim();
+                if (cityLine !== '') lines.push(cityLine);
+                if (!lines.length) return; // niets ingevuld — bestaande inhoud laten staan
+
+                var p = box.querySelector('p');
+                if (!p) return;
+                p.textContent = '';
+                lines.forEach(function (line, i) {
+                    if (i > 0) p.appendChild(document.createElement('br'));
+                    p.appendChild(document.createTextNode(line));
+                });
+            }
+
+            // Publiek toegankelijk: leest alleen de huidige veldwaarden uit en
+            // zet tekst, geen afhankelijkheid van een AJAX-ronde — zo kan een
+            // veldvuller (zoals de "Ik bestel namens"-scaffold in het Probeg-
+            // kindthema) dit kaartje direct bijwerken zodra hij zelf de velden
+            // vult, zonder te hoeven wachten op WooCommerce's eigen, soms trage
+            // update_checkout-verversing.
+            window.mkcpRefreshDeliveryLocationBox = mkcp_refreshDeliveryLocationBox;
+
+            if (window.jQuery) {
+                jQuery(document).on('updated_checkout', function () {
+                    mkcp_refreshDeliveryLocationBox();
+                    // Nogmaals, ná mkco_reorganize() (die 80ms vertraagd
+                    // draait, zie hierboven): die kan de hele kaart — inclusief
+                    // dit kaartje — vervangen door een verse server-kopie. Een
+                    // adres-kiezer (zie checkout-address-picker.php) triggert
+                    // 'update_checkout' rechtstreeks i.p.v. via een veld-
+                    // wijziging met WC's eigen debounce ertussen, en bleek
+                    // daarbij soms vóór die kaartwissel te lopen — met deze
+                    // tweede aanroep wint onze eigen, actuele veldlezing altijd
+                    // als laatste, ongeacht hoe die kaartwissel precies verloopt.
+                    setTimeout(mkcp_refreshDeliveryLocationBox, 150);
+                });
+            }
+
             // Skeleton-laadstatus voor de leveringssectie — alléén wanneer er
             // ook daadwerkelijk iets in die sectie kan wijzigen. Voorheen
             // luisterde dit op het generieke "update_checkout"-event, dat bij

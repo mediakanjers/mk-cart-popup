@@ -477,12 +477,14 @@ html, body          { overflow: hidden !important; height: 100%; }
    functioneel aanwezig (toetsenbord/screenreader-toegankelijk) maar wordt
    visueel verborgen; het label eromheen doet het werk als klikbare chip. */
 
-.mkcp-day-chips {
+.mkcp-day-chips,
+.mkcp-chips {
     display  : flex;
     flex-wrap: wrap;
     gap      : 6px;
 }
-.mkcp-day-chip {
+.mkcp-day-chip,
+.mkcp-chip {
     position      : relative;
     display       : flex;
     align-items   : center;
@@ -500,7 +502,8 @@ html, body          { overflow: hidden !important; height: 100%; }
     user-select   : none;
     transition    : background var(--mkcp-ui-transition), border-color var(--mkcp-ui-transition), color var(--mkcp-ui-transition);
 }
-.mkcp-day-chip input {
+.mkcp-day-chip input,
+.mkcp-chip input {
     position   : absolute;
     opacity    : 0;
     width      : 1px;
@@ -509,15 +512,22 @@ html, body          { overflow: hidden !important; height: 100%; }
     white-space: nowrap;
     overflow   : hidden;
 }
-.mkcp-day-chip:hover { border-color: var(--mkcp-ui-accent); color: var(--mkcp-ui-text); }
-.mkcp-day-chip:has(input:checked) {
+.mkcp-day-chip:hover,
+.mkcp-chip:hover { border-color: var(--mkcp-ui-accent); color: var(--mkcp-ui-text); }
+.mkcp-day-chip:has(input:checked),
+.mkcp-chip:has(input:checked) {
     background  : var(--mkcp-ui-accent);
     border-color: var(--mkcp-ui-accent);
     color       : #fff;
 }
-.mkcp-day-chip:has(input:focus-visible) {
+.mkcp-day-chip:has(input:focus-visible),
+.mkcp-chip:has(input:focus-visible) {
     box-shadow: 0 0 0 3px var(--mkcp-ui-accent-glow);
 }
+
+/* .mkcp-chip is ook voor langere labels (bv. rolnamen) — geen vaste
+   min-width zoals bij de dag-afkortingen nodig; wel wat extra padding. */
+.mkcp-chip { padding: 0 12px; }
 
 /* ── Content Builder — prominent nav item ────────────────────────────────── */
 
@@ -861,6 +871,24 @@ html, body          { overflow: hidden !important; height: 100%; }
 
 .mkcp-setting-row--stack .mkcp-setting-label {
     flex : 1 1 auto;
+}
+
+/* ─── Compacte schakelaarlijst (bv. "Losse onderdelen" bij Prijzen) ───────── */
+/* Een rij losse mini-schakelaars i.p.v. kale checkboxes, voor een los aan/
+   uit-onderdeel binnen één instelling — zelfde schakelaar-stijl (.mkcp-
+   toggle) als de hoofdschakelaar erboven, alleen kleiner (.mkcp-toggle--sm)
+   en met het label links i.p.v. rechts ervan. */
+.mkcp-mini-toggle {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    gap            : 12px;
+    padding        : 8px 0;
+}
+.mkcp-mini-toggle + .mkcp-mini-toggle { border-top: 1px solid var(--mkcp-ui-border); }
+.mkcp-mini-toggle__label {
+    font-size: 13px;
+    color    : var(--mkcp-ui-text2);
 }
 
 /* ─── Premium Toggle ─────────────────────────────────────────────────────── */
@@ -1867,13 +1895,20 @@ select.mkcp-input option {
 .mkcp-usp-row:hover { border-color: var(--mkcp-ui-border2); }
 
 .mkcp-usp-row select {
-    background   : var(--mkcp-ui-surface3);
+    appearance          : none;
+    -webkit-appearance   : none;
+    -moz-appearance      : none;
+    background-color    : var(--mkcp-ui-surface3);
+    background-image    : url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b8b9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat   : no-repeat;
+    background-position : right 7px center;
+    background-size     : 12px;
     border       : 1px solid var(--mkcp-ui-border2);
     border-radius: 6px;
     color        : var(--mkcp-ui-text);
     font-size    : 12px;
     font-family  : inherit;
-    padding      : 5px 8px;
+    padding      : 5px 24px 5px 8px;
     outline      : none;
     flex-shrink  : 0;
     width        : 100px;
@@ -2139,6 +2174,15 @@ select.mkcp-input option {
     font-size      : 13px;
     box-shadow     : 0 4px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(34,197,94,.15);
     z-index        : 99999;
+    /* #mkcp-admin-wrap heeft contain:layout paint (zie aldaar) — dat maakt
+       'm het containing block voor position:fixed-nakomelingen i.p.v. de
+       viewport. In combinatie met zijn display:flex loste de auto-breedte
+       van deze balk daardoor niet meer shrink-to-fit op (min-width alleen
+       is dan geen bovengrens) en ging hij de volle beschikbare breedte
+       vullen. width:fit-content dwingt shrink-to-fit altijd af, ongeacht
+       welk element het containing block is. */
+    width          : fit-content;
+    max-width      : calc(100vw - 48px);
     min-width      : 320px;
     animation      : mkcpBannerIn .4s cubic-bezier(0.22,1,0.36,1);
 }

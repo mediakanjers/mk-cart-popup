@@ -1247,6 +1247,13 @@ body.mkcp-cart-resizing {
         border-bottom : none;
         padding-bottom: 0;
     }
+
+    // Prijzen verbergen (premium, zie includes/price-visibility.php): zonder
+    // de prijskolom laat je die 3e ("auto") grid-kolom niet ongebruikt staan —
+    // het product krijgt de volledige resterende breedte.
+    &--no-price {
+        grid-template-columns: var(--mkcp-img-size) 1fr;
+    }
 }
 
 .mk-cart-popup__item-image {
@@ -1504,6 +1511,13 @@ body.mkcp-cart-resizing {
 }
 
 .mk-cart-popup__qty-input {
+    // box-sizing/padding bewust met !important: een host-thema met een eigen
+    // globale "input[type=number] { padding: ... }"-reset (zelfde CSS-
+    // specificiteit als deze class-selector) kan anders — afhankelijk van
+    // laadvolgorde — de padding overschrijven en het cijfer in dit smalle
+    // vakje volledig onzichtbaar maken terwijl de waarde wél correct in de
+    // HTML staat (gezien bij een thema met input[type=number]{padding:5px 20px}).
+    box-sizing   : border-box !important;
     width        : 40px;
     height       : 100%;
     border       : none;
@@ -1517,7 +1531,7 @@ body.mkcp-cart-resizing {
     color        : var(--mkcp-text);
     background   : var(--mkcp-bg);
     -moz-appearance: textfield;
-    padding      : 0;
+    padding      : 0 !important;
 
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button {

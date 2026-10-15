@@ -153,6 +153,28 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             delivery_preview       : checked( 'mkcp_delivery_preview_enabled' ),
             expand_enabled         : checked( 'mkcp_style_expand_enabled' ),
             resize_enabled         : checked( 'mkcp_style_resize_enabled' ),
+            price_hide_all         : checked( 'mkcp_price_hide_all' ),
+            price_show_item        : checked( 'mkcp_price_show_item' ),
+            price_show_subtotal    : checked( 'mkcp_price_show_subtotal' ),
+            price_show_shipping    : checked( 'mkcp_price_show_shipping' ),
+            price_show_tax         : checked( 'mkcp_price_show_tax' ),
+        };
+    }
+
+    // JS-tegenhanger van mkcp_resolve_price_flags() (includes/price-
+    // visibility.php) — alleen de structurele hoofdschakelaar + losse
+    // onderdelen, geen zichtbaarheidsregel/rollen: de preview is altijd voor
+    // de ingelogde admin zelf, niet voor een bezoeker. Geen 'total': de
+    // pop-up heeft geen apart totaalregeltje los van het ene "Subtotaal"-
+    // regeltje (dat regeltje volgt uitsluitend 'subtotal'), dus die vlag
+    // bestaat hier bewust niet — anders dan bij checkout/bedankt-pagina.
+    function priceFlags( cfg ) {
+        if ( cfg.price_hide_all ) return { item: false, subtotal: false, shipping: false, tax: false };
+        return {
+            item    : cfg.price_show_item,
+            subtotal: cfg.price_show_subtotal,
+            shipping: cfg.price_show_shipping,
+            tax     : cfg.price_show_tax,
         };
     }
 
@@ -1166,7 +1188,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
     // Zelfde markup/klassen als de live template: de prijs-varianten worden
     // via .has-btw-switch/.is-btw-incl op de popup-root getoond of verborgen
     // (zie cart-popup.scss), niet met inline styles.
-    function tplTotals( cfg ) {
+    function tplTotals( cfg, flags ) {
         var incl = MOCK.subtotal;
         var excl = incl / ( 1 + MOCK.vat );
         var val  = cfg.btw_split
@@ -1175,13 +1197,16 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
               '<span class="price-incl-tax">' + money( incl ) + ' <span class="tax">' + esc( cfg.label_incl_tax ) + '</span></span></span>'
             : '<span class="mk-cart-popup__totals-value">' + money( incl ) + '</span>';
         var pct    = Math.round( MOCK.vat * 100 );
-        var btwRow = cfg.btw_split
+        var btwRow = ( flags.tax && cfg.btw_split )
             ? '<div class="mk-cart-popup__btw-row"><span>' +
               '<span class="mkcp-btw-label-incl">Waarvan BTW (' + pct + '%):</span>' +
               '<span class="mkcp-btw-label-excl">Nog bij te tellen BTW (' + pct + '%):</span>' +
               '</span><span>' + money( incl - excl ) + '</span></div>'
             : '';
-        return '<div class="mk-cart-popup__totals"><span class="mk-cart-popup__totals-label">Subtotaal</span>' + val + '</div>' + btwRow;
+        var subtotalRow = flags.subtotal
+            ? '<div class="mk-cart-popup__totals"><span class="mk-cart-popup__totals-label">Subtotaal</span>' + val + '</div>'
+            : '';
+        return subtotalRow + btwRow;
     }
 
     function tplPaymentIcons( cfg ) {
@@ -1256,6 +1281,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
 
     function buildPopupHtml() {
         var cfg       = readLiveConfig();
+        var flags     = priceFlags( cfg );
         var isBuilder = isBuilderOpen();
 
         // Shipping bar math
@@ -1277,12 +1303,14 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
 
         var colHeaders = '<div class="mk-cart-popup__items-header">' +
             tplEditable( 'mkcp_col_product', esc( cfg.col_product ), isBuilder ) +
-            tplEditable( 'mkcp_col_total',   esc( cfg.col_total ),   isBuilder ) +
+            ( flags.item ? tplEditable( 'mkcp_col_total', esc( cfg.col_total ), isBuilder ) : '' ) +
             '</div>';
 
-        var minOrderNote = belowMinimum
-            ? '<div class="mk-cart-popup__min-order-warning" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Minimale bestelling: ' + money( minOrder ) + '. Voeg nog ' + money( minOrder - subtotal ) + ' toe.</div>'
-            : ( minOrder > 0 ? '<div class="mkcp-preview-note">&#128270; preview &middot; min. bestelbedrag ' + money( minOrder ) + ' bereikt</div>' : '' );
+        var minOrderNote = ! flags.subtotal
+            ? ''
+            : belowMinimum
+                ? '<div class="mk-cart-popup__min-order-warning" role="alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Minimale bestelling: ' + money( minOrder ) + '. Voeg nog ' + money( minOrder - subtotal ) + ' toe.</div>'
+                : ( minOrder > 0 ? '<div class="mkcp-preview-note">&#128270; preview &middot; min. bestelbedrag ' + money( minOrder ) + ' bereikt</div>' : '' );
 
         var uspStrip = ( cfg.usps_enabled && cfg.usps.length )
             ? '<div class="mk-cart-popup__usps">' +
@@ -1303,14 +1331,14 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
 
             '<div class="mk-cart-popup__body">' +
             tplUtilityRow( cfg ) +
-            optionalSection( 'mkcp_free_shipping_bar', 'Gratis verzending balk', cfg.free_shipping_bar, isBuilder, tplShippingBar( shipping ), cfg.free_shipping_bar && threshold > 0 ) +
+            optionalSection( 'mkcp_free_shipping_bar', 'Gratis verzending balk', cfg.free_shipping_bar, isBuilder, tplShippingBar( shipping ), flags.shipping && cfg.free_shipping_bar && threshold > 0 ) +
             optionalSection( 'mkcp_delivery_preview_enabled', 'Eerstvolgende bezorgdatum', cfg.delivery_preview, isBuilder, tplDeliveryPreview() ) +
             optionalSection( 'mkcp_stock_indicator', 'Voorraad indicator', cfg.stock_indicator, isBuilder, '' ) +
             renderZoneHtml( 'above-items' ) +
             colHeaders +
             '<div class="mk-cart-popup__items">' +
-            mockItemHtml( 'Voorbeeldproduct 1', 24.95, 1, cfg, true,  isBuilder ) +
-            mockItemHtml( 'Voorbeeldproduct 2', 5.00,  2, cfg, false, isBuilder ) +
+            mockItemHtml( 'Voorbeeldproduct 1', 24.95, 1, cfg, true,  isBuilder, flags ) +
+            mockItemHtml( 'Voorbeeldproduct 2', 5.00,  2, cfg, false, isBuilder, flags ) +
             '</div>' +
             renderZoneHtml( 'below-items' ) +
             optionalSection( 'mkcp_crosssell_enabled', 'Cross-sell', cfg.crosssell_enabled, isBuilder, tplCrosssell( cfg, isBuilder ) ) +
@@ -1318,7 +1346,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
 
             '<div class="mk-cart-popup__footer">' +
             optionalSection( 'mkcp_show_coupon', 'Kortingscode veld', cfg.show_coupon, isBuilder, tplCoupon() ) +
-            tplTotals( cfg ) +
+            tplTotals( cfg, flags ) +
             renderZoneHtml( 'below-totals' ) +
             minOrderNote +
             optionalSection( 'mkcp_payment_icons_enabled', 'Betaalicoontjes', cfg.payment_icons_enabled, isBuilder, tplPaymentIcons( cfg ), cfg.payment_icons_enabled && cfg.payment_icons.length > 0 ) +
@@ -1403,8 +1431,9 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
 
     // unit = prijs per stuk incl. BTW (number). Bij BTW-splitsing komen beide
     // varianten in de DOM (live schakelt .is-btw-incl/.is-btw-excl ertussen).
-    function mockItemHtml( name, unit, qty, cfg, showStock, isBuilder ) {
-        cfg = cfg || {};
+    function mockItemHtml( name, unit, qty, cfg, showStock, isBuilder, flags ) {
+        cfg   = cfg || {};
+        flags = flags || { item: true };
         var unitExcl = unit / ( 1 + MOCK.vat );
         var unitHtml = cfg.btw_split
             ? '<span class="price-excl-tax">' + money( unitExcl ) + ' <span class="tax">' + esc( cfg.label_excl_tax ) + '</span></span>' +
@@ -1425,12 +1454,12 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
             '</button>';
 
-        return '<div class="mk-cart-popup__item">' +
+        return '<div class="mk-cart-popup__item' + ( flags.item ? '' : ' mk-cart-popup__item--no-price' ) + '">' +
             '<div class="mkcp-preview-img-placeholder"></div>' +
             '<div class="mk-cart-popup__item-info">' +
             '<div class="mk-cart-popup__item-name-wrap"><a class="mk-cart-popup__item-name">' + name + '</a></div>' +
             stockBadge +
-            '<div class="mk-cart-popup__item-price">' + unitHtml + '</div>' +
+            ( flags.item ? '<div class="mk-cart-popup__item-price">' + unitHtml + '</div>' : '' ) +
             '<div class="mk-cart-popup__item-actions">' +
             '<div class="mk-cart-popup__qty">' +
             '<button class="mk-cart-popup__qty-btn mk-cart-popup__qty-btn--min" type="button" disabled>&#8722;</button>' +
@@ -1441,7 +1470,7 @@ import { ICON, ICON_CS_PLUS, ICON_CS_PREV, ICON_CS_NEXT,
             removeBtn +
             '</div>' +
             '</div>' +
-            '<div class="mk-cart-popup__item-col-price">' + totalHtml + '</div>' +
+            ( flags.item ? '<div class="mk-cart-popup__item-col-price">' + totalHtml + '</div>' : '' ) +
             '</div>';
     }
     // ── Helpers ──────────────────────────────────────────────────────────────

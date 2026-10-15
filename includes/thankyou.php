@@ -34,6 +34,7 @@ function mkcp_thankyou_config(): array {
         'crosssell_enabled'  => ! empty( $cfg['thankyou_crosssell_enabled'] ),
         'crosssell_title'    => (string) $cfg['thankyou_crosssell_title'],
         'invoice_enabled'    => ! empty( $cfg['thankyou_invoice_enabled'] ),
+        'packingslip_enabled' => ! empty( $cfg['thankyou_packingslip_enabled'] ),
         'trust_return_text'  => (string) $cfg['thankyou_trust_return_text'],
         'trust_return_url'   => (string) $cfg['thankyou_trust_return_url'],
         'trust_contact_text' => (string) $cfg['thankyou_trust_contact_text'],
@@ -149,6 +150,31 @@ function mkcp_ty_render_invoice_button( WC_Order $order ): string {
     <a href="<?php echo esc_url( $url ); ?>" class="mkcp-ty-invoice-btn" target="_blank" rel="noopener">
         <?php echo mkcp_ty_icon( 'download' ); ?>
         <?php esc_html_e( 'Factuur downloaden', 'mk-cart-popup' ); ?>
+    </a>
+    <?php
+    return ob_get_clean();
+}
+
+function mkcp_ty_render_packingslip_button( WC_Order $order ): string {
+    if ( ! function_exists( 'WPO_WCPDF' ) ) return '';
+
+    $cfg = mkcp_thankyou_config();
+    if ( ! $cfg['packingslip_enabled'] ) return '';
+
+    $wpo = WPO_WCPDF();
+    if ( ! isset( $wpo->endpoint ) || ! method_exists( $wpo->endpoint, 'get_document_link' ) ) return '';
+
+    // Zelfde opzet als de factuurknop hierboven: respecteert WPO_WCPDF's eigen
+    // toegangsinstelling, en geeft gewoon geen link terug als de pakbon (nog)
+    // niet gegenereerd kan worden — de inhoud/opmaak van de pakbon zelf regelt
+    // deze plugin niet, alleen de knop ernaartoe.
+    $url = $wpo->endpoint->get_document_link( $order, 'packing-slip', [ 'thankyou' => 'true' ] );
+    if ( ! $url ) return '';
+    ob_start();
+    ?>
+    <a href="<?php echo esc_url( $url ); ?>" class="mkcp-ty-invoice-btn" target="_blank" rel="noopener">
+        <?php echo mkcp_ty_icon( 'package' ); ?>
+        <?php esc_html_e( 'Pakbon downloaden', 'mk-cart-popup' ); ?>
     </a>
     <?php
     return ob_get_clean();
@@ -287,6 +313,7 @@ add_action( 'woocommerce_thankyou', function( $order_id ) {
         $sidebar .= mkcp_ty_render_pickup_card( $order );
     }
     $sidebar .= mkcp_ty_render_invoice_button( $order );
+    $sidebar .= mkcp_ty_render_packingslip_button( $order );
     $sidebar .= mkcp_ty_render_account_link( $order );
 
     echo $success_html;

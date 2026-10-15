@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
- * Version:      1.15.2
+ * Version:      1.16.0-beta.4
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.15.2' );
+define( 'MKCP_VER',  '1.16.0-beta.4' );
 
 // Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
 // (admin/settings.php + de clamp in config.php), de sleepgreep-template
@@ -102,6 +102,7 @@ require_once MKCP_PATH . 'includes/pdf-documents.php';
 require_once MKCP_PATH . 'includes/delivery-date.php';
 require_once MKCP_PATH . 'includes/pickup.php';
 require_once MKCP_PATH . 'includes/pickup-ready.php';
+require_once MKCP_PATH . 'includes/price-visibility.php';
 require_once MKCP_PATH . 'includes/thankyou.php';
 require_once MKCP_PATH . 'includes/shipping-choice.php';
 require_once MKCP_PATH . 'includes/popup-setup.php';
@@ -443,6 +444,38 @@ add_filter( 'woocommerce_add_to_cart_fragments', function( $fragments ) {
     $fragments['#mkcp-popup-refresh'] = ob_get_clean();
     return $fragments;
 } );
+
+
+// ── Altijd WooCommerce's eigen cart/cart-item-data.php-sjabloon gebruiken ──────
+//
+// Dit kleine deelsjabloon (variatie-attributen zoals "Kleur: Rood" onder een
+// winkelwagenregel) wordt door wc_get_formatted_cart_item_data() gebruikt in
+// zowel de pop-up als het besteloverzicht op de checkout — allebei met eigen
+// CSS Grid-opmaak (zie .mk-cart-popup__item-info .variation in cart-popup.
+// scss) die ervan uitgaat dat elke <dt>/<dd>-paar een los grid-"rijtje" is.
+// Sommige (child-)thema's hebben nog een eigen kopie van dit sjabloon van
+// vóór WooCommerce 3.0 (vaak met een overbodige <br> ná elke <dd>, een relikwie
+// van de oude, niet-grid winkelwagenpagina-opmaak) — zo'n extra element
+// verstoort het grid en zet het label los van de waarde op een eigen regel.
+// Omdat de plugin dit deelsjabloon toch altijd zelf stileert, is een
+// thema-override hier nooit gewenst: altijd WooCommerce's eigen, schone
+// standaardversie gebruiken, ongeacht licentie of andere instellingen.
+add_filter( 'woocommerce_locate_template', function( $template, $template_name, $template_path, $default_path = '' ) {
+    if ( 'cart/cart-item-data.php' !== $template_name ) return $template;
+
+    $child_dir  = wp_normalize_path( get_stylesheet_directory() );
+    $parent_dir = wp_normalize_path( get_template_directory() );
+    $normalized = wp_normalize_path( (string) $template );
+
+    if ( strpos( $normalized, $child_dir ) === false && strpos( $normalized, $parent_dir ) === false ) {
+        return $template; // geen thema-override actief, niets te doen
+    }
+
+    if ( ! $default_path && function_exists( 'WC' ) ) {
+        $default_path = WC()->plugin_path() . '/templates/';
+    }
+    return $default_path ? $default_path . $template_name : $template;
+}, 10, 4 );
 
 
 // ── Redirect /cart to configured URL ──────────────────────────────────────────
