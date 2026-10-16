@@ -140,10 +140,16 @@ function mkcp_ty_render_invoice_button( WC_Order $order ): string {
     $wpo = WPO_WCPDF();
     if ( ! isset( $wpo->endpoint ) || ! method_exists( $wpo->endpoint, 'get_document_link' ) ) return '';
 
-    // Respecteert WPO_WCPDF's eigen toegangsinstelling (ingelogd-only vs. iedereen
-    // met de order-sleutel). Bij de default (ingelogd-only) dus bewust geen link
-    // voor gasten — geen beveiligingskeuze van die plugin hier omzeilen.
-    $url = $wpo->endpoint->get_document_link( $order, 'invoice', [ 'thankyou' => 'true' ] );
+    // 'my-account' i.p.v. 'thankyou': WPO_WCPDF's eigen toegangscontrole
+    // (Main.php::generate_document_ajax()) laat een klant zonder order-
+    // beheerrechten alléén door als het verzoek 'my-account' of 'shortcode'
+    // bevat — pas dán volgt de eigendomscontrole (current_user_can('view_order', …)).
+    // Met 'thankyou' werd elke klant hier altijd geweigerd, ook voor zijn eigen
+    // bestelling. Zelfde aanpak als includes/account-orders.php. Respecteert
+    // verder gewoon WPO_WCPDF's eigen toegangsinstelling (ingelogd-only vs.
+    // iedereen met de order-sleutel) — geen beveiligingskeuze van die plugin
+    // hier omzeilen.
+    $url = $wpo->endpoint->get_document_link( $order, 'invoice', [ 'my-account' => 'true' ] );
     if ( ! $url ) return '';
     ob_start();
     ?>
@@ -164,11 +170,13 @@ function mkcp_ty_render_packingslip_button( WC_Order $order ): string {
     $wpo = WPO_WCPDF();
     if ( ! isset( $wpo->endpoint ) || ! method_exists( $wpo->endpoint, 'get_document_link' ) ) return '';
 
-    // Zelfde opzet als de factuurknop hierboven: respecteert WPO_WCPDF's eigen
-    // toegangsinstelling, en geeft gewoon geen link terug als de pakbon (nog)
-    // niet gegenereerd kan worden — de inhoud/opmaak van de pakbon zelf regelt
-    // deze plugin niet, alleen de knop ernaartoe.
-    $url = $wpo->endpoint->get_document_link( $order, 'packing-slip', [ 'thankyou' => 'true' ] );
+    // 'my-account' i.p.v. 'thankyou' — zelfde reden als bij de factuurknop
+    // hierboven: anders weigert WPO_WCPDF's eigen toegangscontrole elke klant,
+    // ook voor zijn eigen bestelling. Verder zelfde opzet: respecteert
+    // WPO_WCPDF's eigen toegangsinstelling, en geeft gewoon geen link terug als
+    // de pakbon (nog) niet gegenereerd kan worden — de inhoud/opmaak van de
+    // pakbon zelf regelt deze plugin niet, alleen de knop ernaartoe.
+    $url = $wpo->endpoint->get_document_link( $order, 'packing-slip', [ 'my-account' => 'true' ] );
     if ( ! $url ) return '';
     ob_start();
     ?>

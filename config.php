@@ -387,7 +387,7 @@ function mkcp_config() {
     }
 
     // Fall back to defaults for text fields that must not be empty.
-    foreach ( [ 'shipping_note', 'free_shipping_note', 'min_order_notice' ] as $key ) {
+    foreach ( [ 'shipping_note', 'free_shipping_note', 'min_order_notice', 'title', 'btn_checkout', 'col_product', 'col_total', 'empty_heading', 'empty_button' ] as $key ) {
         if ( isset( $config[ $key ] ) && trim( (string) $config[ $key ] ) === '' ) {
             $config[ $key ] = $defaults[ $key ];
         }

@@ -22,6 +22,15 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.16.0-beta.5',
+            'date'    => '2026-10-16',
+            'items'   => [
+                'Fix: eigen tekst in de winkelwagen-pop-up (titel, "Verder winkelen"-knoptekst, lege-winkelwagen-tekst e.d.) kon na het opslaan tijdelijk weer de oude tekst tonen bij het laden van een pagina. Oorzaak: WooCommerce\'s eigen winkelwagen-cache in de browser (sessionStorage) wordt alleen ververst als de winkelwagen zelf verandert, niet als een instelling wijzigt — waardoor een verouderde snapshot de net bijgewerkte tekst soms weer kon overschrijven. De plugin haalt nu altijd nog een keer de actuele instellingen op zodra dit gebeurt.',
+                'Verbetering: enkele kerntekstvelden van de winkelwagen-pop-up (titel, knoplabels, lege-winkelwagen-tekst) vallen voortaan terug op de standaardtekst zodra ze per ongeluk leeg worden opgeslagen, net als al gold voor een paar andere tekstvelden.',
+                'Fix: een klant kreeg op de bedankt-pagina "Je hebt onvoldoende rechten voor deze pagina" bij het openen van de factuur- of pakbon-downloadknop, ook voor zijn eigen bestelling. Oorzaak: de PDF Invoices & Packing Slips-plugin liet (bij de standaard "alleen ingelogd"-toegangsinstelling) een klant zonder orderbeheerrechten alleen door als het verzoek expliciet van Mijn Account of een shortcode kwam — niet vanaf de bedankt-pagina. Gebruikt nu dezelfde aanpak als de downloadknoppen in Account → Bestellingen, die dit al correct deden.',
+            ],
+        ],
+        [
             'version' => '1.16.0-beta.4',
             'date'    => '2026-10-14',
             'items'   => [

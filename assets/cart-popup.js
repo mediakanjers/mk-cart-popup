@@ -530,6 +530,20 @@
                 var nativeFragments = stored ? JSON.parse( stored ) : null;
                 if ( nativeFragments && nativeFragments[ '#mkcp-popup-refresh' ] ) {
                     applyFragments( nativeFragments );
+                    // WooCommerce's eigen cache-beslissing (dit event vuurt ook als
+                    // 'ie 'm gewoon uit sessionStorage hergebruikt, zonder iets
+                    // nieuws op te halen) is uitsluitend gebaseerd op een hash van
+                    // de winkelwagen-ÍNHOUD — niet op onze eigen instellingen-tekst
+                    // (titel, knoplabels, lege-winkelwagen-tekst, ...). Wijzig je
+                    // zo'n tekst in de instellingenpagina zonder dat de winkelwagen
+                    // zelf verandert, dan blijft deze sessionStorage-snapshot
+                    // daardoor voor onbepaalde tijd de OUDE tekst bevatten, en
+                    // overschrijft die hierboven zojuist weer de actuele server-
+                    // render. Eén extra, altijd-verse haal-actie erachteraan (zelfde
+                    // seq-bewaking als elders) zorgt dat de werkelijk actuele
+                    // instellingen altijd als laatste winnen, ongeacht hoe oud deze
+                    // specifieke snapshot is.
+                    mkcpForceFreshCart();
                     return; // applyFragments() triggert dit event opnieuw — de rest hieronder draait dan alsnog, in die herhaalronde.
                 }
             } catch ( e ) { /* corrupte/ontbrekende sessionStorage-waarde: gewoon niets syncen */ }
