@@ -191,7 +191,20 @@ function mkcp_thankyou_price_active(): bool {
     return ! ( $f['item'] && $f['subtotal'] && $f['shipping'] && $f['tax'] && $f['total'] ); // niets te verbergen?
 }
 
-add_action( 'wp', function() {
+// Bewust NIET op de generieke 'wp'-hook (zoals het checkout-blok hierboven) —
+// die blijft voor de rest van het verzoek hangen, en dat is hier te breed.
+// Een bestelling met een doorstuur-/offsite-betaalmethode (bv. een klassieke
+// redirect-gateway) kan de betaling pas bij terugkomst ÓP deze pagina
+// afronden, en kan daarbij in hetzelfde verzoek — via de order-status-wissel
+// die dat triggert — alsnog de bevestigingsmail versturen. Blijven deze
+// filters dan nog aanstaan, dan zouden ze (ongewild, in strijd met de
+// documentatie bovenaan dit bestand) ook de prijzen uit die e-mail
+// verwijderen. 'woocommerce_before_thankyou'/'woocommerce_thankyou' omsluiten
+// in WooCommerce's eigen checkout/thankyou.php-sjabloon precies en alleen de
+// klant-gerichte paginaweergave (zowel de bovenste samenvattingslijst als de
+// besteldetails-tabel) — filters gaan hier aan vlak vóór die weergave en weer
+// uit vlak erna, zodat ze nooit buiten dat ene render-moment actief zijn.
+add_action( 'woocommerce_before_thankyou', function() {
     if ( ! mkcp_thankyou_price_active() ) return;
 
     $flags = mkcp_price_flags_thankyou();
@@ -214,17 +227,30 @@ add_action( 'wp', function() {
     // (subtotal/discount/shipping/tax/total/fee/payment_method) — daarop
     // filteren i.p.v. op de array-key, want die laatste varieert (bv. een
     // apart btw-tarief per belastingregel bij "gespecificeerd" BTW-totaal).
-    add_filter( 'woocommerce_get_order_item_totals', function( $rows ) use ( $flags ) {
-        foreach ( $rows as $key => $row ) {
-            $type = $row['type'] ?? '';
-            if ( ! $flags['subtotal'] && in_array( $type, [ 'subtotal', 'discount' ], true ) ) unset( $rows[ $key ] );
-            if ( ! $flags['shipping'] && 'shipping' === $type ) unset( $rows[ $key ] );
-            if ( ! $flags['tax'] && 'tax' === $type ) unset( $rows[ $key ] );
-            if ( ! $flags['total'] && 'total' === $type ) unset( $rows[ $key ] );
-        }
-        return $rows;
-    } );
-} );
+    add_filter( 'woocommerce_get_order_item_totals', 'mkcp_ty_hide_order_item_totals' );
+}, 1 );
+
+function mkcp_ty_hide_order_item_totals( $rows ) {
+    $flags = mkcp_price_flags_thankyou();
+    foreach ( $rows as $key => $row ) {
+        $type = $row['type'] ?? '';
+        if ( ! $flags['subtotal'] && in_array( $type, [ 'subtotal', 'discount' ], true ) ) unset( $rows[ $key ] );
+        if ( ! $flags['shipping'] && 'shipping' === $type ) unset( $rows[ $key ] );
+        if ( ! $flags['tax'] && 'tax' === $type ) unset( $rows[ $key ] );
+        if ( ! $flags['total'] && 'total' === $type ) unset( $rows[ $key ] );
+    }
+    return $rows;
+}
+
+// Weer uitzetten zodra WooCommerce's eigen sjabloon klaar is met deze
+// pagina-weergave (woocommerce_thankyou is daarin de laatste van de twee
+// omsluitende hooks) — hoge prioriteit zodat dit ná de besteldetails-tabel-
+// render van includes/thankyou.php (standaardprioriteit 10) zelf draait.
+add_action( 'woocommerce_thankyou', function() {
+    remove_filter( 'woocommerce_order_formatted_line_subtotal', '__return_empty_string' );
+    remove_filter( 'woocommerce_get_formatted_order_total', '__return_empty_string' );
+    remove_filter( 'woocommerce_get_order_item_totals', 'mkcp_ty_hide_order_item_totals' );
+}, 999 );
 
 // Lege productkolom écht laten verdwijnen (niet alleen het bedrag) — zelfde
 // aanpak als het checkout-blok hierboven, via een body-class i.p.v. de

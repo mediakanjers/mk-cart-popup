@@ -50,6 +50,13 @@
     var undoMs    = parseInt(   params.undo_timeout || 5000, 10 );
 
     var saveForLater      = params.save_for_later === '1';
+    // "Bewaar voor later" leeft in localStorage — een item dat werd bewaard
+    // terwijl prijzen nog zichtbaar waren houdt anders zijn oude prijs vast,
+    // ook nadat de winkelier prijzen is gaan verbergen (zie price_item_visible
+    // in mk-cart-popup.php). Standaard zichtbaar (true) als deze param om wat
+    // voor reden dan ook ontbreekt, zodat een niet-premium/geen-prijzen-
+    // verbergen-site hier nooit onbedoeld een prijs kwijtraakt.
+    var priceItemVisible  = params.price_item_visible !== '0';
     var SAVED_KEY         = 'mkcp_saved_items';
     var cartIconSelector  = params.cart_icon_selector  || '';
     var cartBadgePosition = params.cart_badge_position || 'top-right';
@@ -112,11 +119,23 @@
     // binnenkomen (bv. op een wisselvallige mobiele verbinding).
     var mkcpFragmentsSeq = 0;
 
+    // jQuery's cache:false-optie plakt alleen voor GET/HEAD-verzoeken een
+    // unieke '_='-query-parameter aan de URL (intern gated op !s.hasContent,
+    // en een POST-verzoek heeft altijd body-inhoud) — voor de POST-aanroepen
+    // hieronder is die vlag dus stilzwijgend een no-op. Deze helper doet het
+    // zelf, rechtstreeks op de URL-string, ongeacht HTTP-methode: de enige
+    // manier die ELKE cachelaag (pagina-cache, CDN/edge-cache, reverse proxy)
+    // omzeilt die op URL sleutelt, ook eentje die de POST-body of
+    // Cache-Control-headers zou negeren.
+    function mkcpCacheBust( url ) {
+        return url + ( url.indexOf( '?' ) === -1 ? '?' : '&' ) + '_mkcp_cb=' + Date.now();
+    }
+
     function mkcpForceFreshCart() {
         if ( ! ( document.querySelector( POPUP ) && typeof wc_cart_fragments_params !== 'undefined' && wc_cart_fragments_params.wc_ajax_url ) ) return false;
         var seq = ++mkcpFragmentsSeq;
         $.ajax( {
-            url:  wc_cart_fragments_params.wc_ajax_url.toString().replace( '%%endpoint%%', 'get_refreshed_fragments' ),
+            url:  mkcpCacheBust( wc_cart_fragments_params.wc_ajax_url.toString().replace( '%%endpoint%%', 'get_refreshed_fragments' ) ),
             type: 'POST',
             data: { time: new Date().getTime() }
         } ).done( function ( res ) {
@@ -126,12 +145,65 @@
         return true;
     }
 
+    // ── Instellingen-tekst altijd cache-proof verversen ─────────────────────
+    //
+    // De door de winkelier ingestelde tekst (titel, knoplabels, kop-/
+    // hulpteksten) kan — los van de winkelwagen-inhoud zelf, zie
+    // mkcpForceFreshCart() hierboven — op sommige hostingomgevingen een
+    // verouderde momentopname tonen door caching die buiten de controle van
+    // deze plugin ligt (pagina-cache, CDN/edge-cache, reverse proxy, soms
+    // zelfs stapelbaar over meerdere lagen tegelijk). In plaats van per
+    // hostingconfiguratie te moeten uitzoeken wélke laag precies de boosdoener
+    // is, haalt deze functie de actuele tekst altijd rechtstreeks op via een
+    // eigen, piepklein endpoint met dezelfde harde cache-buster als hierboven,
+    // en overschrijft de DOM-tekst via [data-mkcp-text="veldnaam"]-hooks —
+    // ongeacht of de omliggende HTML zelf vers was. Herbruikbaar voor elk
+    // onderdeel van de plugin, niet alleen de winkelwagen-pop-up: 'context'
+    // bepaalt serverzijde (mkcp_ajax_get_text_config() in mk-cart-popup.php)
+    // welke velden teruggegeven worden.
+    function mkcpApplyFreshText( context ) {
+        if ( ! ajaxUrl ) return;
+        $.ajax( {
+            url:  mkcpCacheBust( ajaxUrl ),
+            type: 'POST',
+            data: { action: 'mkcp_get_text_config', nonce: nonce, context: context || 'popup' }
+        } ).done( function ( res ) {
+            if ( ! res || ! res.success || ! res.data ) return;
+            $.each( res.data, function ( key, value ) {
+                // Een ontbrekende sleutel (niet in res.data) betekent een
+                // veld dat voor deze 'context' niet bestaat — niets om toe te
+                // passen. Een lege string is bij elk veld dat hier
+                // binnenkomt altijd zelf al de uitgerekende, weer te geven
+                // waarde (serverzijde al voorzien van winkelier-/vertaal-
+                // standaardtekst waar relevant, zie mkcp_ajax_get_text_config()
+                // in mk-cart-popup.php) — dus ook een lege waarde hier
+                // toepassen, i.p.v. 'm te negeren, anders kan een al eerder
+                // getoonde, inmiddels verouderde tekst nooit meer naar leeg
+                // gecorrigeerd worden.
+                $( '[data-mkcp-text="' + key + '"]' ).text( value );
+            } );
+            // De titel staat ook als aria-label op de drawer zelf — geen
+            // tekstknoop om via [data-mkcp-text] op te mikken.
+            if ( res.data.title ) {
+                $( POPUP + ' .mk-cart-popup__drawer' ).attr( 'aria-label', res.data.title );
+            }
+        } );
+    }
+
+    // Publiek toegankelijk: cart-popup.js wordt sitebreed geladen (ook op de
+    // checkout- en bedankt-pagina, zie de wp_enqueue_scripts-hook in
+    // mk-cart-popup.php) — zo kan de checkout/bedankt-pagina-code (includes/
+    // checkout-frontend.php, includes/thankyou.php) dezelfde, ene cache-proof
+    // tekst-ophaalfunctie hergebruiken i.p.v. een eigen kopie te onderhouden.
+    window.mkcpApplyFreshText = mkcpApplyFreshText;
+
     // Onthoudt of de eerste, initiële ververs-aanroep hierboven daadwerkelijk
     // is verstuurd — gebruikt verderop (bij de allereerste badge-render) om
     // een kort "1, springt naar 2"-flikkereffect te voorkomen: zolang die
     // aanroep nog loopt, wordt de badge nog niet op basis van de (mogelijk
     // verouderde) server-HTML getoond, maar pas zodra het antwoord binnen is.
     var mkcpInitialFetchPending = mkcpForceFreshCart();
+    mkcpApplyFreshText( 'popup' );
 
     // Terugnavigeren met de browser-knop kan de pagina uit het bfcache
     // (back-forward cache) herstellen i.p.v. 'm opnieuw te laden — dan vuurt
@@ -140,7 +212,10 @@
     // hangen. WooCommerce's eigen cart-fragments.js luistert om exact
     // dezelfde reden al naar 'pageshow' met persisted=true.
     $( window ).on( 'pageshow', function ( e ) {
-        if ( e.originalEvent && e.originalEvent.persisted ) mkcpForceFreshCart();
+        if ( e.originalEvent && e.originalEvent.persisted ) {
+            mkcpForceFreshCart();
+            mkcpApplyFreshText( 'popup' );
+        }
     } );
 
     // ── Debug overlay (alleen voor beheerders als debug modus aan) ────────────
@@ -1881,7 +1956,7 @@
             // Info column
             var $info = $( '<div class="mk-cart-popup__saved-item-info"></div>' );
             $info.append( $( '<span class="mk-cart-popup__saved-item-name"></span>' ).text( item.name ) );
-            if ( item.price ) {
+            if ( item.price && priceItemVisible ) {
                 $info.append( $( '<span class="mk-cart-popup__saved-item-price"></span>' ).text( item.price ) );
             }
             if ( item.savedAt ) {

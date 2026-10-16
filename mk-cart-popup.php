@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
- * Version:      1.16.0-beta.5
+ * Version:      1.16.0-beta.6
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.16.0-beta.5' );
+define( 'MKCP_VER',  '1.16.0-beta.6' );
 
 // Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
 // (admin/settings.php + de clamp in config.php), de sleepgreep-template
@@ -340,6 +340,11 @@ add_action( 'wp_enqueue_scripts', function() {
         'undo_timeout'    => 5000,
         'cart_url'        => wc_get_cart_url(),
         'save_for_later'       => ! empty( $config['save_for_later'] ) ? '1' : '0',
+        // "Bewaar voor later" leeft in localStorage, dus een item dat werd
+        // bewaard terwijl prijzen nog zichtbaar waren houdt anders zijn oude
+        // prijs vast, ook nadat de winkelier prijzen is gaan verbergen — deze
+        // vlag laat renderSavedItems() dat bedrag ook dán nog weglaten.
+        'price_item_visible'   => ( function_exists( 'mkcp_price_flags_popup' ) ? mkcp_price_flags_popup()['item'] : true ) ? '1' : '0',
         'stock_indicator'      => ! empty( $config['stock_indicator'] ) ? '1' : '0',
         'cart_icon_selector'   => sanitize_text_field( $config['cart_icon_selector']  ?? '' ),
         'cart_badge_position'  => sanitize_text_field( $config['cart_badge_position'] ?? 'top-right' ),
@@ -444,6 +449,82 @@ add_filter( 'woocommerce_add_to_cart_fragments', function( $fragments ) {
     $fragments['#mkcp-popup-refresh'] = ob_get_clean();
     return $fragments;
 } );
+
+
+// ── AJAX: eigen instellingen-tekst altijd cache-proof verversen ────────────────
+//
+// De door de winkelier ingestelde tekst (titel, knoplabels, kop- en
+// hulpteksten) kan op hostingomgevingen met moeilijk te doorgronden of
+// verkeerd ingestelde caching (pagina-cache, CDN/edge-cache, reverse proxy —
+// niet onder controle van deze plugin) soms een verouderde momentopname
+// tonen: de klant ziet dan een oudere versie dan wat er daadwerkelijk is
+// opgeslagen. In plaats van voor élke mogelijke hostingconfiguratie apart te
+// moeten uitzoeken wát daar precies gebeurt, dwingt dit ene, generieke
+// endpoint de boel altijd zelf recht — voor elk onderdeel van de plugin dat
+// 'm gebruikt (zie mkcpApplyFreshText() in assets/cart-popup.js en
+// includes/checkout-frontend.php): bij elke paginalaad met een cache-buster
+// opgehaald, en de teruggekregen tekst overschrijft de DOM rechtstreeks,
+// ongeacht of de omliggende HTML zelf vers was.
+//
+// Alleen tekstvelden die ALTIJD een waarde moeten hebben zitten in de
+// $fields-lijst hieronder (nooit legitiem leeg) — velden die bewust leeg mogen
+// zijn (bv. een optionele hulptekst, of "leeg = WooCommerce's eigen
+// standaardtekst gebruiken") horen hier niet in: daar zou leeg juist de
+// correcte, bewuste staat kunnen zijn, geen cache-mankement.
+add_action( 'wp_ajax_mkcp_get_text_config',        'mkcp_ajax_get_text_config' );
+add_action( 'wp_ajax_nopriv_mkcp_get_text_config', 'mkcp_ajax_get_text_config' );
+
+function mkcp_ajax_get_text_config() {
+    check_ajax_referer( 'mkcp_nonce', 'nonce' );
+    nocache_headers();
+
+    $context = sanitize_key( $_POST['context'] ?? 'popup' );
+
+    switch ( $context ) {
+        case 'checkout':
+            $cfg    = function_exists( 'mkcp_checkout_config' ) ? mkcp_checkout_config() : [];
+            $fields = [ 'ssl_badge_text', 'checkout_crosssell_title', 'delivery_date_label' ];
+            break;
+
+        case 'thankyou':
+            // 'thankyou_heading_template' bewust NIET hier: die bevat een
+            // {voornaam}-plaatshouder die alleen serverzijde (met de echte
+            // klantnaam) ingevuld wordt — een blinde cliëntzijdige overschrijving
+            // zou de gepersonaliseerde begroeting laten terugvallen naar de
+            // letterlijke, niet-ingevulde sjabloontekst.
+            $cfg    = function_exists( 'mkcp_checkout_config' ) ? mkcp_checkout_config() : [];
+            $fields = [ 'thankyou_crosssell_title' ];
+            break;
+
+        case 'popup':
+        default:
+            $cfg    = mkcp_config();
+            $fields = [ 'title', 'btn_checkout', 'col_product', 'col_total', 'empty_heading', 'empty_button' ];
+            break;
+    }
+
+    // Enkele van de velden hierboven mogen in de database best leeg staan —
+    // de bijbehorende template valt in dat geval zelf terug op een vaste
+    // standaardtekst (?: in includes/checkout-frontend.php resp. includes/
+    // thankyou.php). Dit endpoint moet daarom dezelfde, al VOLLEDIG
+    // UITGEREKENDE weergavetekst teruggeven, nooit de ruwe, mogelijk lege
+    // opgeslagen waarde — anders zou een cliëntzijdige toepassing een eerder
+    // getoonde titel niet meer naar "leeg, dus terug naar standaardtekst"
+    // kunnen corrigeren (de JS-kant behandelt elke teruggegeven waarde,
+    // leeg of niet, inmiddels als de definitieve weergavetekst).
+    $fallbacks = [
+        'checkout_crosssell_title' => __( 'Misschien ook interessant?', 'mk-cart-popup' ),
+        'thankyou_crosssell_title' => __( 'Misschien voor je volgende bestelling?', 'mk-cart-popup' ),
+    ];
+
+    $out = [];
+    foreach ( $fields as $key ) {
+        $value = (string) ( $cfg[ $key ] ?? '' );
+        $out[ $key ] = ( '' === $value && isset( $fallbacks[ $key ] ) ) ? $fallbacks[ $key ] : $value;
+    }
+
+    wp_send_json_success( $out );
+}
 
 
 // ── Altijd WooCommerce's eigen cart/cart-item-data.php-sjabloon gebruiken ──────

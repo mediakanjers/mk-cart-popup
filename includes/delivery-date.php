@@ -487,7 +487,7 @@ function mkcp_dd_render_delivery_field( ?string $rate_id ) {
 
         <div class="mkcp-dd-header">
             <span class="mkcp-dd-label">
-                <?php echo $label; ?>
+                <span data-mkcp-text="delivery_date_label"><?php echo $label; ?></span>
                 <?php if ( $required ) : ?><abbr class="required" title="verplicht veld">*</abbr><?php endif; ?>
             </span>
         </div>
@@ -664,7 +664,7 @@ function mkcp_dd_render_empty_state( string $label, bool $required, string $wrap
     <div class="mkcp-dd-wrap mkcp-dd-wrap--empty" id="<?php echo esc_attr( $wrap_id ); ?>">
         <div class="mkcp-dd-header">
             <span class="mkcp-dd-label">
-                <?php echo $label; ?>
+                <span data-mkcp-text="delivery_date_label"><?php echo $label; ?></span>
                 <?php if ( $required ) : ?><abbr class="required" title="verplicht veld">*</abbr><?php endif; ?>
             </span>
         </div>

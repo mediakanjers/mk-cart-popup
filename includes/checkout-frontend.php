@@ -621,6 +621,49 @@ function mkcp_register_btw_price_filters() {
     }, 20 );
 }
 
+// ── Instellingen-tekst altijd cache-proof verversen ─────────────────────────
+//
+// Zelfde mechanisme en reden als bij de winkelwagen-pop-up (zie
+// mkcpApplyFreshText() in assets/cart-popup.js en mkcp_ajax_get_text_config()
+// in mk-cart-popup.php): een hostingomgeving met caching buiten de controle
+// van deze plugin kan een verouderde momentopname van bv. de SSL-badge-tekst
+// of de cross-sell-titel tonen. cart-popup.js is al sitebreed geladen (zie
+// mk-cart-popup.php), dus hier alleen de aanroep met de juiste context —
+// 'thankyou' heeft een eigen, kleinere veldenlijst dan 'checkout' (zie
+// mkcp_ajax_get_text_config()), dus is_order_received_page() bepaalt welke.
+add_action( 'wp', function() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
+    if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
+    if ( ! mkcp_license_has( 'premium' ) ) return;
+    $cfg = mkcp_checkout_config();
+    if ( empty( $cfg['checkout_enabled'] ) && empty( $cfg['thankyou_enabled'] ) ) return;
+
+    $context = ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) ? 'thankyou' : 'checkout';
+
+    // Op 'wp_footer' gehaakt i.p.v. hier direct echoën: 'wp' vuurt te vroeg
+    // voor output (vóór de paginasjabloon zelf rendert) — zelfde patroon als
+    // de andere inline-script-blokken verderop in dit bestand.
+    add_action( 'wp_footer', function() use ( $context ) {
+        ?>
+        <script>
+        (function () {
+            function mkcpRefreshThisPage() {
+                if (window.mkcpApplyFreshText) window.mkcpApplyFreshText('<?php echo esc_js( $context ); ?>');
+            }
+            document.addEventListener('DOMContentLoaded', mkcpRefreshThisPage);
+            // cart-popup.js' eigen 'pageshow'-vangnet voor een met bfcache
+            // herstelde pagina (zie daar) ververst alleen context 'popup' —
+            // deze eigen listener zorgt dat een terugnavigatie naar de
+            // checkout-/bedankt-pagina zelf ook daadwerkelijk hérvoert.
+            window.addEventListener('pageshow', function (e) {
+                if (e.persisted) mkcpRefreshThisPage();
+            });
+        }());
+        </script>
+        <?php
+    } );
+}, 30 );
+
 // Fires on normal page load.
 add_action( 'wp', function() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() ) return;
@@ -846,7 +889,7 @@ function mkcp_checkout_render_crosssell( $cfg ) {
     if ( empty( $products ) ) return;
     ?>
     <div class="mkcp-co-crosssell">
-        <h3 class="mkcp-co-crosssell__title"><?php echo esc_html( $cfg['checkout_crosssell_title'] ?: __( 'Misschien ook interessant?', 'mk-cart-popup' ) ); ?></h3>
+        <h3 class="mkcp-co-crosssell__title" data-mkcp-text="checkout_crosssell_title"><?php echo esc_html( $cfg['checkout_crosssell_title'] ?: __( 'Misschien ook interessant?', 'mk-cart-popup' ) ); ?></h3>
         <div class="mkcp-co-crosssell__list">
             <?php foreach ( $products as $cs_product ) :
                 $cs_is_simple = in_array( $cs_product->get_type(), [ 'simple', 'external' ], true );
@@ -4514,7 +4557,7 @@ function mkcp_checkout_render_header() {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.03 140.02" aria-hidden="true">
                     <path fill="currentColor" d="M63.44,140.02c-.74,0-1.43-.06-2.12-.17-2.08-.5-3.67-1.16-5.13-2.06C39.54,129.08.14,104.68.14,70.09v-27.47c-.37-3.92,0-8.29,1.11-12.54,1.31-3.52,3.17-6.21,5.58-8.33,4.01-2.87,7.97-4.76,12.21-5.95L57.62,1.35c1.06-.47,2.43-.9,3.83-1.18,1.49-.23,2.7-.22,3.89-.05,1.67.33,3.04.76,4.34,1.33l38.76,14.49c3.82,1.05,7.77,2.94,11.35,5.46,2.84,2.46,4.7,5.15,5.84,8.14,1.28,4.78,1.65,9.15,1.27,13.53l.06,27.1h0c0,34.66-39.39,58.96-56.32,67.79-1.15.72-2.75,1.38-4.44,1.8-1.01.17-1.91.25-2.76.25ZM63.52,10.38c-.69.14-1.36.36-2.01.64l-39.24,14.68c-3.51,1-6.39,2.38-8.99,4.21-.7.66-1.58,1.93-2.12,3.34-.64,2.55-.91,5.73-.63,8.92l.02,27.93c0,29.71,38.85,52.39,50.76,58.64.85.5,1.47.75,2.11.92-.04-.02.32-.02.68-.08.24-.08.85-.33,1.4-.66,12.21-6.39,51.03-28.96,51.03-58.72l-.04-27.55c.3-3.66.03-6.84-.77-9.92-.38-.88-1.25-2.15-2.39-3.15-2.16-1.49-5.05-2.86-8.13-3.73l-39.42-14.72c-.89-.38-1.57-.59-2.26-.73ZM56.29,89.89h0c-1.38,0-2.71-.55-3.68-1.53l-14.59-14.59c-2.04-2.04-2.04-5.33,0-7.37s5.33-2.04,7.37,0l10.9,10.91,25.41-25.41c2.04-2.04,5.33-2.04,7.37,0s2.04,5.33,0,7.37l-29.1,29.1c-.98.98-2.3,1.53-3.68,1.53Z"/>
                 </svg>
-                <?php echo esc_html( $ssl_text ); ?>
+                <span data-mkcp-text="ssl_badge_text"><?php echo esc_html( $ssl_text ); ?></span>
             </span>
             <?php endif; ?>
         </div>

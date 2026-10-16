@@ -138,7 +138,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                     <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                 </svg>
-                <?php echo esc_html( $config['title'] ); ?>
+                <span data-mkcp-text="title"><?php echo esc_html( $config['title'] ); ?></span>
             </div>
             <div class="mk-cart-popup__header-actions">
                 <?php if ( function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium' ) && ! empty( $config['style_expand_enabled'] ) ) : ?>
@@ -239,9 +239,9 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
 
             <!-- Column headers -->
             <div class="mk-cart-popup__items-header">
-                <span><?php echo esc_html( $config['col_product'] ); ?></span>
+                <span data-mkcp-text="col_product"><?php echo esc_html( $config['col_product'] ); ?></span>
                 <?php if ( $price_flags['item'] ) : ?>
-                <span><?php echo esc_html( $config['col_total'] ); ?></span>
+                <span data-mkcp-text="col_total"><?php echo esc_html( $config['col_total'] ); ?></span>
                 <?php endif; ?>
             </div>
 
@@ -375,7 +375,13 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
 
                             <?php if ( ! empty( $config['save_for_later'] ) ) :
                                 $thumb_url_save = wp_get_attachment_image_url( $product->get_image_id(), 'woocommerce_thumbnail' ) ?: wc_placeholder_img_src();
-                                $price_save     = html_entity_decode( strip_tags( $btw_split ? wc_price( $unit_incl ) : wc_price( $unit_price ) ), ENT_HTML5, 'UTF-8' );
+                                // Leeg laten i.p.v. de prijs meegeven zodra productprijzen verborgen
+                                // zijn ($price_flags['item']) — anders zou de "Bewaar voor later"-lijst
+                                // (assets/cart-popup.js, renderSavedItems()) het bedrag alsnog tonen,
+                                // los van de rest van de winkelwagen-popup.
+                                $price_save     = $price_flags['item']
+                                    ? html_entity_decode( strip_tags( $btw_split ? wc_price( $unit_incl ) : wc_price( $unit_price ) ), ENT_HTML5, 'UTF-8' )
+                                    : '';
                             ?>
                             <button class="mk-cart-popup__save-later js-mkcp-save-later"
                                 data-key="<?php echo esc_attr( $cart_item_key ); ?>"
@@ -693,7 +699,7 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                     <a href="<?php echo $min_order_met ? esc_url( wc_get_checkout_url() ) : '#'; ?>"
                         class="mk-cart-popup__btn mk-cart-popup__btn--primary<?php echo $min_order_met ? '' : ' is-disabled'; ?>"
                         <?php echo ! $min_order_met ? 'aria-disabled="true"' : ''; ?>>
-                        <?php echo esc_html( $config['btn_checkout'] ); ?>
+                        <span data-mkcp-text="btn_checkout"><?php echo esc_html( $config['btn_checkout'] ); ?></span>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
                             <line x1="5" y1="12" x2="19" y2="12"/>
                             <polyline points="12 5 19 12 12 19"/>
@@ -789,9 +795,9 @@ $app_mode = function_exists( 'mkcp_license_has' ) && mkcp_license_has( 'premium'
                     <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                 </svg>
-                <h2><?php echo esc_html( $config['empty_heading'] ); ?></h2>
+                <h2 data-mkcp-text="empty_heading"><?php echo esc_html( $config['empty_heading'] ); ?></h2>
                 <button class="mk-cart-popup__btn mk-cart-popup__btn--primary js-mk-cart-close">
-                    <?php echo esc_html( $config['empty_button'] ); ?>
+                    <span data-mkcp-text="empty_button"><?php echo esc_html( $config['empty_button'] ); ?></span>
                 </button>
             </div>
 
