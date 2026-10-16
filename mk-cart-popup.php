@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
- * Version:      1.16.0-beta.6
+ * Version:      1.16.0-beta.7
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.16.0-beta.6' );
+define( 'MKCP_VER',  '1.16.0-beta.7' );
 
 // Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
 // (admin/settings.php + de clamp in config.php), de sleepgreep-template
@@ -56,6 +56,19 @@ add_action( 'init', function() {
         wc_nocache_headers();
     }
 }, 1 );
+
+// WP Rocket heeft, los van zijn normale paginacache, nóg een eigen, specifiek
+// mechanisme: bij een LEGE winkelwagen bewaart het de respons van
+// ?wc-ajax=get_refreshed_fragments zelf als transient in de database, en
+// geeft die bij elk volgend verzoek terug — ongeacht wat er intussen met de
+// instellingen is gebeurd, en ongeacht de nocache-headers hierboven (die
+// alleen een reverse-proxy/CDN kunnen tegenhouden, niet WP Rocket's eigen
+// interne database-opslag). Dit is precies de oorzaak van de lege/
+// verouderde pop-up-tekst bij een lege winkelwagen: WP Rocket's eigen
+// documentatie bevestigt dit gedrag en het officiële filter om het uit te
+// schakelen (zie WP Rocket's eigen compatibiliteits-helper op GitHub:
+// wp-media/wp-rocket-helpers → wp-rocket-compat-wc-cart-fragments).
+add_filter( 'rocket_cache_wc_empty_cart', '__return_false' );
 
 // ── HPOS-compatibiliteit declareren ─────────────────────────────────────────
 //
