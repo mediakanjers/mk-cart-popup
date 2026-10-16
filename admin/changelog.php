@@ -22,6 +22,13 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.16.0-beta.7',
+            'date'    => '2026-10-16',
+            'items'   => [
+                'Fix: bij een lege winkelwagen kon de pop-up (titel, "Verder winkelen"-knoptekst, lege-winkelwagen-tekst) op sites met de cacheplugin WP Rocket toch weer verouderde of ontbrekende tekst tonen, ondanks de cache-robuustheid uit 1.16.0-beta.6. Oorzaak: WP Rocket heeft, los van zijn normale paginacache, een eigen specifiek mechanisme dat de serverrespons bij een lege winkelwagen zelf in de database bewaart en blijft hergebruiken — dat negeerde onze eigen verse-data-aanpak volledig. Deze specifieke WP Rocket-cache wordt nu expliciet uitgeschakeld voor dit onderdeel.',
+            ],
+        ],
+        [
             'version' => '1.16.0-beta.6',
             'date'    => '2026-10-16',
             'items'   => [
