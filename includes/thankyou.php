@@ -399,7 +399,7 @@ function mkcp_ty_render_crosssell( WC_Order $order, array $cfg ): string {
     ob_start();
     ?>
     <div class="mkcp-ty-crosssell">
-        <h2 class="mkcp-ty-crosssell__title"><?php echo esc_html( $cfg['crosssell_title'] ?: __( 'Misschien voor je volgende bestelling?', 'mk-cart-popup' ) ); ?></h2>
+        <h2 class="mkcp-ty-crosssell__title" data-mkcp-text="thankyou_crosssell_title"><?php echo esc_html( $cfg['crosssell_title'] ?: __( 'Misschien voor je volgende bestelling?', 'mk-cart-popup' ) ); ?></h2>
         <div class="mkcp-ty-crosssell__grid">
             <?php foreach ( $products as $product ) : ?>
             <a href="<?php echo esc_url( $product->get_permalink() ); ?>" class="mkcp-ty-crosssell__item">

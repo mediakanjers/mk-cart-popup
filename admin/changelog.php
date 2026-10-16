@@ -22,6 +22,15 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.16.0-beta.6',
+            'date'    => '2026-10-16',
+            'items'   => [
+                'Verbetering: winkelier-ingestelde tekst (titel, knoplabels, kop-/hulpteksten in de winkelwagen-pop-up, checkout en bedankt-pagina) is nu bestand tegen hostingomgevingen met moeilijk te doorgronden of verkeerd ingestelde caching (pagina-cache, CDN/edge-cache, reverse proxy). Eerdere pogingen om dit specifiek voor WooCommerce\'s eigen winkelwagen-cache op te lossen bleken ontoereikend zodra een andere cachelaag meespeelt — de plugin haalt deze tekst nu bij elke paginalaad altijd rechtstreeks, met een harde cache-buster, op en overschrijft de pagina daarmee, ongeacht welke cachelaag(en) actief zijn.',
+                'Fix: een product dat werd "bewaard voor later" terwijl prijzen zichtbaar waren, kon zijn prijs tonen in de bewaarlijst nadat prijzen verborgen waren gezet — ook bij een al eerder bewaard item (opgeslagen in de browser). Die prijs wordt nu ook bij weergave zelf verborgen, niet alleen bij het bewaren.',
+                'Fix: de "Prijzen verbergen"-instelling voor de bedankt-pagina kon in een specifiek scenario (een betaalmethode die de betaling pas bij terugkomst op de bedankt-pagina zelf afrondt) ook de bestelbevestigingsmail van prijzen ontdoen, terwijl bedragen in e-mails altijd zichtbaar horen te blijven. De verbergregels staan nu alleen nog aan tijdens het daadwerkelijk tonen van de pagina zelf, niet meer voor de rest van dat verzoek.',
+            ],
+        ],
+        [
             'version' => '1.16.0-beta.5',
             'date'    => '2026-10-16',
             'items'   => [
