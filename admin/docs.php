@@ -365,6 +365,22 @@ function mkcp_render_docs_page() {
                             </tbody>
                         </table>
 
+                        <p style="font-size:12px; color:var(--mkcp-ui-text3); margin:24px 0 6px; font-weight:600; text-transform:uppercase; letter-spacing:.4px">Bedankt-pagina</p>
+
+                        <p style="font-size:13px; color:var(--mkcp-ui-text2); margin:0 0 10px">
+                            Eigen, volledig losstaande instellingengroep voor de WooCommerce-bedankt-/orderontvangst-pagina. Hoofdschakelaar <code>thankyou_enabled</code> onder <strong>Checkout → Bedankt-pagina</strong>; de onderdelen hieronder werken alleen als die aanstaat.
+                        </p>
+
+                        <table class="mkcp-docs-table" style="margin-bottom:14px">
+                            <thead><tr><th>Instelling</th><th>Wat het doet</th><th>Standaard</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>thankyou_invoice_enabled</code></td><td style="color:var(--mkcp-ui-text2)">Downloadknop voor de factuur, direct op de bedankt-pagina. Werkt via de gratis WP Overnight-plugin <strong>PDF Invoices &amp; Packing Slips for WooCommerce</strong>; alleen zichtbaar als die plugin actief is én de klant de bestelling mag inzien.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                                <tr><td><code>thankyou_packingslip_enabled</code></td><td style="color:var(--mkcp-ui-text2)">Zelfde soort downloadknop, maar dan voor de pakbon, naast de factuurknop hierboven.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                                <tr><td><code>thankyou_crosssell_enabled</code></td><td style="color:var(--mkcp-ui-text2)">Toont een cross-sell-blok met aanbevolen producten onder de besteldetails. Titel vrij aanpasbaar via <code>thankyou_crosssell_title</code>.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                                <tr><td><code>thankyou_price_hide_all</code></td><td style="color:var(--mkcp-ui-text2)">Hoofdschakelaar om prijzen op de bedankt-pagina helemaal te verbergen — volledig los van dezelfde instelling bij de pop-up (sectie 2) en checkout hierboven. Losse onderdelen (productprijzen, subtotaal, verzendkosten, BTW-bedrag, totaalbedrag) en een "wie ziet prijzen"-keuze werken identiek aan de pop-up-/checkout-variant. Raakt uitsluitend de paginaweergave zelf — bedragen in de bestelbevestigingsmail blijven altijd zichtbaar, ook als deze schakelaar aanstaat.</td><td style="color:var(--mkcp-ui-text3)">Uit</td></tr>
+                            </tbody>
+                        </table>
+
                     </div>
                 </div>
 
