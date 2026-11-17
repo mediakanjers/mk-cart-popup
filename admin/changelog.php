@@ -22,6 +22,21 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.16.0',
+            'date'    => '2026-11-17',
+            'items'   => [
+                'Nieuw (premium): prijzen volledig verbergen, voor webshops zonder (openbare) prijzen — drie onafhankelijke instellingengroepen (winkelwagen-pop-up, checkout, bedankt-pagina), elk met een hoofdschakelaar, losse onderdelen (productprijzen, subtotaal, verzendkosten, BTW-bedrag, totaalbedrag) en een "wie ziet prijzen"-keuze (iedereen, alleen niet-ingelogde bezoekers, of specifieke gebruikersrollen). Geldt uitsluitend voor de weergave op de pagina zelf — in wp-admin en in e-mails blijven bedragen altijd zichtbaar.',
+                'Nieuw (premium): pakbon-downloadknop op de bedankt-pagina, naast de bestaande factuurknop (Checkout → Bedankt-pagina → Documenten).',
+                'Verbetering: winkelier-ingestelde tekst (titel, knoplabels, kop-/hulpteksten in de winkelwagen-pop-up, checkout en bedankt-pagina) is nu bestand tegen hostingomgevingen met moeilijk te doorgronden of verkeerd ingestelde caching — pagina-cache, CDN/edge-cache, reverse proxy, en specifiek ook de cacheplugin WP Rocket (die voor een lege winkelwagen een eigen, aparte cache hanteert, los van zijn normale paginacache). De plugin haalt deze tekst nu bij elke paginalaad altijd rechtstreeks op en overschrijft de pagina daarmee, ongeacht welke cachelaag(en) actief zijn.',
+                'Fix: een klant kreeg op de bedankt-pagina "onvoldoende rechten" te zien bij het openen van de factuur- of pakbon-downloadknop, ook voor zijn eigen bestelling.',
+                'Fix: een product dat werd "bewaard voor later" terwijl prijzen zichtbaar waren, kon zijn prijs tonen in de bewaarlijst nadat prijzen verborgen waren gezet.',
+                'Fix: het bezorglocatie-kaartje op checkout werd niet altijd bijgewerkt na een adreswijziging; nu ook publiek oproepbaar voor thema-maatwerk dat zelf adresvelden vult.',
+                'Fix: diverse checkout-prijzen-verbergbugs (BTW-schakelaar, AJAX-ververing, verzendmethode-titel met bedrag erin, Cart Checkout-vormgeving, Ophalen/Bezorgen-keuzekaarten).',
+                'Fix: onzichtbaar aantalveld en losstaande variatiegegevens bij bepaalde thema\'s.',
+                'Verbetering: "Prijzen"-instellingen overzichtelijker vormgegeven, changelog-paginering, en de documentatiepagina uitgebreid met de nieuwe bedankt-pagina-instellingen.',
+            ],
+        ],
+        [
             'version' => '1.16.0-beta.8',
             'date'    => '2026-11-17',
             'items'   => [
