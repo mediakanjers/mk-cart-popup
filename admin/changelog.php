@@ -22,6 +22,14 @@ function mkcp_changelog_format_date( string $date ): string {
 function mkcp_changelog_entries() {
     return [
         [
+            'version' => '1.16.0-beta.8',
+            'date'    => '2026-11-17',
+            'items'   => [
+                'Fix: de SSL-badgetekst en het label bij de bezorgdatum-kiezer op checkout konden door de cache-proof-tekstverversing (sinds 1.16.0-beta.6) bij elke paginalaad leeggemaakt worden zodra deze velden niet handmatig waren aangepast — de eigen standaardtekst van beide velden ontbrak in dat verversingsmechanisme.',
+                'Verbetering: de cache-proof-tekstverversing op checkout/bedankt-pagina injecteert zich nu alleen nog als de feature voor díe specifieke pagina ook echt aanstaat (bv. niet meer op de bedankt-pagina als alleen de checkout-tekstverversing is ingeschakeld).',
+            ],
+        ],
+        [
             'version' => '1.16.0-beta.7',
             'date'    => '2026-10-16',
             'items'   => [

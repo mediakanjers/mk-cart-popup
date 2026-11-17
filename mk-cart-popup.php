@@ -2,7 +2,7 @@
 /**
  * Plugin Name:  MK Cart Popup & Checkout
  * Description:  Slide-in cart drawer, checkout builder, customer account mini-app (orders, wishlist, returns, notifications) and abandoned-cart recovery for WooCommerce — all in one plugin.
- * Version:      1.16.0-beta.7
+ * Version:      1.16.0-beta.8
  * Author:       Mediakanjers
  * Author URI:   https://mediakanjers.nl
  * Requires PHP: 8.1
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 define( 'MKCP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MKCP_URL',  plugin_dir_url( __FILE__ ) );
-define( 'MKCP_VER',  '1.16.0-beta.7' );
+define( 'MKCP_VER',  '1.16.0-beta.8' );
 
 // Ondergrens (px) voor de drawer-breedte: gedeeld door de winkelier-instelling
 // (admin/settings.php + de clamp in config.php), de sleepgreep-template
@@ -526,6 +526,8 @@ function mkcp_ajax_get_text_config() {
     // kunnen corrigeren (de JS-kant behandelt elke teruggegeven waarde,
     // leeg of niet, inmiddels als de definitieve weergavetekst).
     $fallbacks = [
+        'ssl_badge_text'           => __( 'SSL-versleuteling', 'mk-cart-popup' ),
+        'delivery_date_label'      => __( 'Gewenste bezorgdatum', 'mk-cart-popup' ),
         'checkout_crosssell_title' => __( 'Misschien ook interessant?', 'mk-cart-popup' ),
         'thankyou_crosssell_title' => __( 'Misschien voor je volgende bestelling?', 'mk-cart-popup' ),
     ];
