@@ -636,9 +636,16 @@ add_action( 'wp', function() {
     if ( ! function_exists( 'mkcp_is_enabled' ) || ! mkcp_is_enabled() ) return;
     if ( ! mkcp_license_has( 'premium' ) ) return;
     $cfg = mkcp_checkout_config();
-    if ( empty( $cfg['checkout_enabled'] ) && empty( $cfg['thankyou_enabled'] ) ) return;
 
     $context = ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) ? 'thankyou' : 'checkout';
+
+    // Per-pagina checken i.p.v. "staat één van beide ergens aan" — anders
+    // injecteert dit script zich ook op een pagina waarvan de eigen feature
+    // net uitstaat (bv. checkout_enabled aan, thankyou_enabled uit, en je
+    // staat op de bedankt-pagina), voor een nutteloze AJAX-aanroep zonder
+    // bijpassend data-mkcp-text-element om te vullen.
+    if ( $context === 'checkout' && empty( $cfg['checkout_enabled'] ) ) return;
+    if ( $context === 'thankyou' && empty( $cfg['thankyou_enabled'] ) ) return;
 
     // Op 'wp_footer' gehaakt i.p.v. hier direct echoën: 'wp' vuurt te vroeg
     // voor output (vóór de paginasjabloon zelf rendert) — zelfde patroon als
